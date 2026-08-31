@@ -8,13 +8,17 @@
 
   --color-ink: #00365c;
   --color-brand: #005c9b;
+  --color-brand-soft: #d0ecff;
   --color-board: #f9f8f8;
   --color-muted: #71717a;
   --color-queue-idle: #7d7d94;
   --color-counter-top: #1096f2;
   --color-counter-bottom: #00395f;
   --color-line: #efefef;
+  --color-field: #f4f4f4;
+  --color-placeholder: #939397;
 
   --shadow-inset-soft: inset 0 0 4px 0 rgb(0 0 0 / 0.1);
   --shadow-soft: 0 0 4px 0 rgb(0 0 0 / 0.1);
+  --shadow-card: 0 2px 20px 0 rgb(0 0 0 / 0.1);
 }

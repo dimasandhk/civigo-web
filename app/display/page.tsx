@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Ambil Antrean Layanan — CiviGo",
@@ -7,11 +8,13 @@ export const metadata: Metadata = {
 
 const OPTIONS = [
   {
+    href: "/display/input-code",
     icon: "/images/kiosk-registered.png",
     title: "SUDAH MENDAFTAR",
     description: "Pindai Kode antrean Anda",
   },
   {
+    href: "/display/select-layanan",
     icon: "/images/kiosk-unregistered.png",
     title: "BELUM MENDAFTAR",
     description: "Pilih Layanan yang dibutuhkan",
@@ -46,10 +49,10 @@ export default function KioskPage() {
         </h1>
 
         <div className="flex flex-wrap justify-center gap-[55px]">
-          {OPTIONS.map(({ icon, title, description }) => (
-            <button
+          {OPTIONS.map(({ href, icon, title, description }) => (
+            <Link
               key={title}
-              type="button"
+              href={href}
               className="flex cursor-pointer flex-col items-center gap-5 rounded-[30px] bg-white px-10 py-[30px] shadow-soft transition-transform hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-counter-top active:translate-y-0"
             >
               <Image
@@ -67,7 +70,7 @@ export default function KioskPage() {
                   {description}
                 </span>
               </span>
-            </button>
+            </Link>
           ))}
         </div>
       </div>
