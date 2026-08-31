@@ -1,88 +1,75 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 
 export const metadata: Metadata = {
-  title: "Antrean DisdukCapil",
+  title: "Ambil Antrean Layanan — CiviGo",
 };
 
-const COUNTERS = [
-  { counter: "Loket 5", nowServing: "B45", eta: "± 5 menit" },
-  { counter: "Loket 6", nowServing: "B47", eta: "± 8 menit" },
-  { counter: "Loket 7", nowServing: "B48", eta: "± 7 menit" },
-  { counter: "Loket 8", nowServing: "B46", eta: "± 2 menit" },
+const OPTIONS = [
+  {
+    icon: "/images/kiosk-registered.png",
+    title: "SUDAH MENDAFTAR",
+    description: "Pindai Kode antrean Anda",
+  },
+  {
+    icon: "/images/kiosk-unregistered.png",
+    title: "BELUM MENDAFTAR",
+    description: "Pilih Layanan yang dibutuhkan",
+  },
 ];
 
-const UPCOMING = [
-  "B49",
-  "B50",
-  "B51",
-  "B52",
-  "B53",
-  "B54",
-  "B55",
-  "B55",
-  "B56",
-  "B57",
-];
-
-export default function QueueDisplayPage() {
+export default function KioskPage() {
   return (
-    <main className="min-h-screen bg-board px-14 py-[31px]">
-      <div className="mx-auto flex max-w-[1167px] flex-col gap-[55px]">
-        <header className="flex items-center justify-between">
-          <h1 className="text-[48px] font-extrabold leading-[60px] text-ink">
-            Antrean DisdukCapil
-          </h1>
-          <p className="text-[28px] font-bold leading-[35px] tracking-[0.04em] text-ink">
-            Jumat, 15 Agustus 2026
+    <main className="flex min-h-screen items-center justify-center bg-board px-14 py-[113px]">
+      <div className="flex w-full max-w-[1167px] flex-col items-center gap-[55px]">
+        <header className="flex flex-col items-center gap-5">
+          <div className="flex items-center gap-[15px]">
+            <Image
+              src="/images/civigo-mark.svg"
+              alt=""
+              width={91}
+              height={91}
+              priority
+              className="size-[91px] rounded-full"
+            />
+            <span className="text-[72px] font-extrabold leading-[91px] text-brand">
+              CiviGo
+            </span>
+          </div>
+          <p className="font-display text-[28px] font-semibold leading-[35px] tracking-[0.06em] text-muted">
+            Ambil Antrean Layanan
           </p>
         </header>
 
-        <section className="flex items-center gap-[29px]">
-          {COUNTERS.map(({ counter, nowServing, eta }) => (
-            <article
-              key={counter}
-              className="flex w-[270px] flex-col items-center gap-5 rounded-[30px] bg-linear-to-b from-counter-top to-counter-bottom p-[30px] font-display text-white shadow-inset-soft"
-            >
-              <h2 className="text-[32px] font-medium leading-10">{counter}</h2>
-              <div className="flex h-[180px] w-full flex-col justify-between">
-                <div className="flex flex-col items-center">
-                  <span className="text-[72px] font-bold leading-[91px]">
-                    {nowServing}
-                  </span>
-                  <span className="text-[20px] font-medium leading-[25px]">
-                    Sedang dilayani
-                  </span>
-                </div>
-                <div className="flex items-end justify-between">
-                  <span className="text-[15px] leading-[19px]">
-                    Estimasi Selesai :
-                  </span>
-                  <span className="text-[22px] font-semibold leading-6">
-                    {eta}
-                  </span>
-                </div>
-              </div>
-            </article>
-          ))}
-        </section>
+        <h1 className="text-center font-display text-[40px] font-semibold leading-[50px] text-ink">
+          Silakan pilih cara melanjutkan antrean
+        </h1>
 
-        <section className="flex flex-col gap-[35px]">
-          <h2 className="text-[32px] font-bold leading-10 text-ink">
-            Antrean Berikutnya
-          </h2>
-          <ol className="grid grid-cols-5 gap-x-10 gap-y-5">
-            {UPCOMING.map((number, index) => (
-              <li
-                key={`${number}-${index}`}
-                className="flex flex-col items-center justify-center rounded-[20px] bg-queue-idle py-5 font-display text-white shadow-inset-soft"
-              >
-                <span className="text-[50px] font-semibold leading-[63px]">
-                  {number}
+        <div className="flex flex-wrap justify-center gap-[55px]">
+          {OPTIONS.map(({ icon, title, description }) => (
+            <button
+              key={title}
+              type="button"
+              className="flex cursor-pointer flex-col items-center gap-5 rounded-[30px] bg-white px-10 py-[30px] shadow-soft transition-transform hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-counter-top active:translate-y-0"
+            >
+              <Image
+                src={icon}
+                alt=""
+                width={140}
+                height={140}
+                className="size-35"
+              />
+              <span className="flex flex-col items-center gap-2.5 text-center">
+                <span className="font-display text-[32px] font-bold leading-10 text-ink">
+                  {title}
                 </span>
-              </li>
-            ))}
-          </ol>
-        </section>
+                <span className="w-[322px] font-display text-[24px] font-medium leading-[30px] text-muted">
+                  {description}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
     </main>
   );

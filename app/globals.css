@@ -7,7 +7,9 @@
   --font-display: var(--font-outfit);
 
   --color-ink: #00365c;
+  --color-brand: #005c9b;
   --color-board: #f9f8f8;
+  --color-muted: #71717a;
   --color-queue-idle: #7d7d94;
   --color-counter-top: #1096f2;
   --color-counter-bottom: #00395f;

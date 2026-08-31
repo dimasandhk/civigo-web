@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-board px-6 py-12">
-      <div className="flex w-full max-w-[460px] flex-col items-center gap-[35px] rounded-[30px] bg-white px-[50px] py-[45px] shadow-soft">
+      <div className="flex w-full max-w-115 flex-col items-center gap-[35px] rounded-[30px] bg-white px-[50px] py-[45px] shadow-soft">
         <header className="flex flex-col items-center gap-4">
           <Image
             src="/civigo-logo.svg"
