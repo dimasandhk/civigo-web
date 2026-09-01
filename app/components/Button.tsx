@@ -1,12 +1,26 @@
 import type { ComponentProps } from "react";
 
-export type ButtonProps = ComponentProps<"button">;
+export type ButtonVariant = "gradient" | "solid";
 
-export default function Button({ className = "", ...props }: ButtonProps) {
+export type ButtonProps = ComponentProps<"button"> & {
+  variant?: ButtonVariant;
+};
+
+const BASE =
+  "flex cursor-pointer items-center justify-center gap-2.5 rounded-[10px] font-display transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-counter-top";
+
+const VARIANTS: Record<ButtonVariant, string> = {
+  gradient:
+    "h-13 bg-linear-to-b from-counter-top to-counter-bottom text-[18px] font-semibold text-white shadow-inset-soft",
+  solid: "bg-brand py-2.5 text-[16px] font-medium leading-7 text-white",
+};
+
+export default function Button({
+  variant = "gradient",
+  className = "",
+  ...props
+}: ButtonProps) {
   return (
-    <button
-      className={`h-13 cursor-pointer rounded-[10px] bg-linear-to-b from-counter-top to-counter-bottom font-display text-[18px] font-semibold text-white shadow-inset-soft transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-counter-top ${className}`}
-      {...props}
-    />
+    <button className={`${BASE} ${VARIANTS[variant]} ${className}`} {...props} />
   );
 }

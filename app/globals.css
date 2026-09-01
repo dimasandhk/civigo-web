@@ -7,6 +7,7 @@
   --font-display: var(--font-outfit);
 
   --color-ink: #00365c;
+  --color-ink-soft: #044975;
   --color-brand: #005c9b;
   --color-brand-soft: #d0ecff;
   --color-board: #f9f8f8;
@@ -17,6 +18,11 @@
   --color-line: #efefef;
   --color-field: #f4f4f4;
   --color-placeholder: #939397;
+  --color-nav-active: #e2f1ff;
+  --color-success: #0f7100;
+  --color-success-soft: #e4ffe2;
+  --color-warning: #c07902;
+  --color-warning-soft: #ffeed0;
 
   --shadow-inset-soft: inset 0 0 4px 0 rgb(0 0 0 / 0.1);
   --shadow-soft: 0 0 4px 0 rgb(0 0 0 / 0.1);

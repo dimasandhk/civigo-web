@@ -1,5 +1,6 @@
-import { IdCard, Search, House, CarFront, Banknote, Mail, TicketsPlane } from "lucide-react";
+import { IdCard, House, CarFront, Banknote, Mail, TicketsPlane } from "lucide-react";
 import type { Metadata } from "next";
+import SearchBar from "../../components/SearchBar";
 import BackButton from "../../components/display/BackButton";
 import PopularServiceCard from "../../components/display/PopularServiceCard";
 import ServiceCategoryButton from "../../components/display/ServiceCategoryButton";
@@ -66,24 +67,12 @@ export default function SelectLayananPage() {
           Pilih Layanan atau Instansi
         </h1>
 
-        <div className="flex w-full items-center gap-5 rounded-[20px] bg-field px-[25px] py-2.5">
-          <Search
-            size={30}
-            strokeWidth={1.6}
-            className="shrink-0 text-muted"
-            aria-hidden
-          />
-          <label htmlFor="search" className="sr-only">
-            Cari layanan atau instansi
-          </label>
-          <input
-            id="search"
-            name="search"
-            type="search"
-            placeholder="Cari layanan atau instansi pemerintahan"
-            className="w-full bg-transparent font-display text-[22px] leading-6 text-ink outline-none placeholder:text-placeholder"
-          />
-        </div>
+        <SearchBar
+          id="cari-layanan"
+          label="Cari layanan atau instansi"
+          placeholder="Cari layanan atau instansi pemerintahan"
+          containerClassName="w-full"
+        />
 
         <div className="flex w-full gap-2 rounded-[12px] bg-white p-1">
           <button
