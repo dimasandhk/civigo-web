@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { ChevronRight } from "lucide-react";
 import type { ComponentProps } from "react";
 
 export type ServiceCategoryButtonProps = Omit<
@@ -20,13 +20,7 @@ export default function ServiceCategoryButton({
       {...props}
     >
       {label}
-      <Image
-        src="/icons/chevron-right.svg"
-        alt=""
-        width={20}
-        height={17}
-        className="shrink-0"
-      />
+      <ChevronRight size={20} strokeWidth={1.8} className="shrink-0 text-brand" />
     </button>
   );
 }

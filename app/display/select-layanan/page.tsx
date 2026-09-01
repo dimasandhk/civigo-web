@@ -1,5 +1,5 @@
+import { IdCard, Search, House, CarFront, Banknote, Mail, TicketsPlane } from "lucide-react";
 import type { Metadata } from "next";
-import Image from "next/image";
 import BackButton from "../../components/display/BackButton";
 import PopularServiceCard from "../../components/display/PopularServiceCard";
 import ServiceCategoryButton from "../../components/display/ServiceCategoryButton";
@@ -9,12 +9,42 @@ export const metadata: Metadata = {
 };
 
 const POPULAR_SERVICES = [
-  { icon: "/icons/layanan/ktp.svg", label: "Layanan KTP" },
-  { icon: "/icons/layanan/kk.svg", label: "Layanan KK" },
-  { icon: "/icons/layanan/sim.svg", label: "Layanan SIM" },
-  { icon: "/icons/layanan/pajak-kendaraan.svg", label: "Pajak Kendaraan" },
-  { icon: "/icons/layanan/skck.svg", label: "Layanan SKCK" },
-  { icon: "/icons/layanan/paspor.svg", label: "Layanan Paspor" },
+  {
+    icon: IdCard,
+    label: "Layanan KTP",
+    iconBackground: "#EBE2FF",
+    iconColor: "#3800B1",
+  },
+  {
+    icon: House,
+    label: "Layanan KK",
+    iconBackground: "#E4FFE2",
+    iconColor: "#0F7100",
+  },
+  {
+    icon: CarFront,
+    label: "Layanan SIM",
+    iconBackground: "#CFEEFF",
+    iconColor: "#0081D8",
+  },
+  {
+    icon: Banknote,
+    label: "Pajak Kendaraan",
+    iconBackground: "#FFEED0",
+    iconColor: "#D48600",
+  },
+  {
+    icon: Mail,
+    label: "Layanan SKCK",
+    iconBackground: "#FFFCCB",
+    iconColor: "#E0BE00",
+  },
+  {
+    icon: TicketsPlane,
+    label: "Layanan Paspor",
+    iconBackground: "#FFE1E1",
+    iconColor: "#C30003",
+  },
 ];
 
 const CATEGORIES = [
@@ -37,12 +67,11 @@ export default function SelectLayananPage() {
         </h1>
 
         <div className="flex w-full items-center gap-5 rounded-[20px] bg-field px-[25px] py-2.5">
-          <Image
-            src="/icons/search.svg"
-            alt=""
-            width={30}
-            height={30}
-            className="shrink-0"
+          <Search
+            size={30}
+            strokeWidth={1.6}
+            className="shrink-0 text-muted"
+            aria-hidden
           />
           <label htmlFor="search" className="sr-only">
             Cari layanan atau instansi
@@ -76,8 +105,8 @@ export default function SelectLayananPage() {
             Layanan Populer
           </h2>
           <div className="flex justify-between gap-4">
-            {POPULAR_SERVICES.map(({ icon, label }) => (
-              <PopularServiceCard key={label} icon={icon} label={label} />
+            {POPULAR_SERVICES.map((service) => (
+              <PopularServiceCard key={service.label} {...service} />
             ))}
           </div>
         </section>

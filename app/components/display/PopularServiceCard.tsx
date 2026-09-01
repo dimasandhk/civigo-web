@@ -1,17 +1,21 @@
-import Image from "next/image";
+import type { LucideIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 
 export type PopularServiceCardProps = Omit<
   ComponentProps<"button">,
   "children"
 > & {
-  icon: string;
+  icon: LucideIcon;
   label: string;
+  iconBackground: string;
+  iconColor: string;
 };
 
 export default function PopularServiceCard({
-  icon,
+  icon: Icon,
   label,
+  iconBackground,
+  iconColor,
   className = "",
   ...props
 }: PopularServiceCardProps) {
@@ -21,7 +25,12 @@ export default function PopularServiceCard({
       className={`flex h-[167px] cursor-pointer flex-col items-center justify-center gap-5 rounded-[15px] bg-white px-5 py-2.5 transition-transform hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-counter-top active:translate-y-0 ${className}`}
       {...props}
     >
-      <Image src={icon} alt="" width={70} height={70} className="size-[70px]" />
+      <span
+        className="flex size-[70px] shrink-0 items-center justify-center rounded-[10px]"
+        style={{ backgroundColor: iconBackground }}
+      >
+        <Icon size={54} strokeWidth={0.9} style={{ color: iconColor }} />
+      </span>
       <span className="font-display text-[22px] font-medium leading-6 text-ink">
         {label}
       </span>
