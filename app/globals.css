@@ -18,11 +18,13 @@
   --color-line: #efefef;
   --color-field: #f4f4f4;
   --color-placeholder: #939397;
-  --color-nav-active: #e2f1ff;
+  --color-brand-tint: #e2f1ff;
   --color-success: #0f7100;
   --color-success-soft: #e4ffe2;
   --color-warning: #c07902;
   --color-warning-soft: #ffeed0;
+  --color-positive: #0d9c55;
+  --color-danger: #eb1313;
 
   --shadow-inset-soft: inset 0 0 4px 0 rgb(0 0 0 / 0.1);
   --shadow-soft: 0 0 4px 0 rgb(0 0 0 / 0.1);

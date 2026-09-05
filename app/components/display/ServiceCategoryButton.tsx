@@ -20,7 +20,11 @@ export default function ServiceCategoryButton({
       {...props}
     >
       {label}
-      <ChevronRight size={20} strokeWidth={1.8} className="shrink-0 text-brand" />
+      <ChevronRight
+        size={20}
+        strokeWidth={1.8}
+        className="shrink-0 text-brand"
+      />
     </button>
   );
 }

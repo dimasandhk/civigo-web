@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 
-export type ButtonVariant = "gradient" | "solid";
+export type ButtonVariant = "gradient" | "solid" | "success" | "danger";
 
 export type ButtonProps = ComponentProps<"button"> & {
   variant?: ButtonVariant;
@@ -13,6 +13,8 @@ const VARIANTS: Record<ButtonVariant, string> = {
   gradient:
     "h-13 bg-linear-to-b from-counter-top to-counter-bottom text-[18px] font-semibold text-white shadow-inset-soft",
   solid: "bg-brand py-2.5 text-[16px] font-medium leading-7 text-white",
+  success: "bg-positive p-2.5 text-[16px] font-medium text-white",
+  danger: "bg-danger p-2.5 text-[16px] font-medium text-white",
 };
 
 export default function Button({
@@ -21,6 +23,9 @@ export default function Button({
   ...props
 }: ButtonProps) {
   return (
-    <button className={`${BASE} ${VARIANTS[variant]} ${className}`} {...props} />
+    <button
+      className={`${BASE} ${VARIANTS[variant]} ${className}`}
+      {...props}
+    />
   );
 }

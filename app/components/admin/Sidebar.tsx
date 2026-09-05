@@ -53,7 +53,7 @@ export default function Sidebar() {
                 aria-current={isActive ? "page" : undefined}
                 className={`flex items-center gap-[15px] rounded-[10px] border-r-[3px] px-5 py-3 font-display text-[18px] font-medium transition-colors ${
                   isActive
-                    ? "border-brand bg-nav-active text-brand"
+                    ? "border-brand bg-brand-tint text-brand"
                     : "border-transparent text-queue-idle hover:bg-board"
                 }`}
               >

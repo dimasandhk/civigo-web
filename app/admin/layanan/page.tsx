@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Button from "../../components/Button";
 import DataTable, { type DataTableColumn } from "../../components/DataTable";
 import IconButton from "../../components/IconButton";
+import PageHeader from "../../components/admin/PageHeader";
 import SearchBar from "../../components/SearchBar";
 import StatusBadge, { type Status } from "../../components/StatusBadge";
 
@@ -75,12 +76,10 @@ const COLUMNS: DataTableColumn<Layanan>[] = [
 export default function LayananPage() {
   return (
     <div className="flex flex-col gap-[34px]">
-      <header className="flex flex-col gap-3">
-        <h1 className="text-[28px] font-bold leading-6 text-ink">Layanan</h1>
-        <p className="text-[16px] font-semibold leading-6 text-muted">
-          Kelola daftar layanan yang tersedia di instansi Anda
-        </p>
-      </header>
+      <PageHeader
+        title="Layanan"
+        description="Kelola daftar layanan yang tersedia di instansi Anda"
+      />
 
       <div className="flex flex-col gap-7">
         <div className="flex gap-[30px]">
