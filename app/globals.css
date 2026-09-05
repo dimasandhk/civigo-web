@@ -26,6 +26,19 @@
   --color-positive: #0d9c55;
   --color-danger: #eb1313;
 
+  /* Review sentiment, keyed by star count: face icon + its badge background. */
+  --color-rating-5: #0d9c55;
+  --color-rating-5-soft: #dcfce7;
+  --color-rating-4: #74a316;
+  --color-rating-4-soft: #e2fcdc;
+  --color-rating-3: #f2b705;
+  --color-rating-3-soft: #fff8d0;
+  --color-rating-2: #ea580c;
+  --color-rating-2-soft: #ffedd5;
+  --color-rating-1: #dc2626;
+  --color-rating-1-soft: #fee2e2;
+  --color-track: #dbe2eb;
+
   --shadow-inset-soft: inset 0 0 4px 0 rgb(0 0 0 / 0.1);
   --shadow-soft: 0 0 4px 0 rgb(0 0 0 / 0.1);
   --shadow-card: 0 2px 20px 0 rgb(0 0 0 / 0.1);

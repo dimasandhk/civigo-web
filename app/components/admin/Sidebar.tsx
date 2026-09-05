@@ -18,7 +18,7 @@ const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin/antrean", label: "Antrean", icon: Users },
   { href: "/admin/loket", label: "Loket", icon: Building },
   { href: "/admin/layanan", label: "Layanan", icon: ClipboardList },
-  { href: "/admin/display", label: "Display", icon: Monitor },
+  { href: "/display/antrean", label: "Display", icon: Monitor },
   { href: "/admin/ulasan", label: "Ulasan", icon: UserStar },
 ];
 
