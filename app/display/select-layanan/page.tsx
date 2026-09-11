@@ -1,4 +1,11 @@
-import { IdCard, House, CarFront, Banknote, Mail, TicketsPlane } from "lucide-react";
+import {
+  Banknote,
+  CarFront,
+  House,
+  IdCard,
+  Mail,
+  TicketsPlane,
+} from "lucide-react";
 import type { Metadata } from "next";
 import SearchBar from "../../components/SearchBar";
 import BackButton from "../../components/display/BackButton";
@@ -59,52 +66,60 @@ const CATEGORIES = [
 
 export default function SelectLayananPage() {
   return (
-    <main className="relative flex min-h-screen items-center justify-center bg-board px-14 py-[62px]">
-      <BackButton href="/display" className="absolute top-[30px] left-[50px]" />
+    <main className="relative flex h-screen max-h-screen flex-col items-center justify-center overflow-hidden bg-board px-6 py-4 sm:px-10 sm:py-5 lg:px-14">
+      {/* Tombol Kembali ke Kiosk Menu */}
+      <BackButton
+        href="/display"
+        className="absolute top-4 left-4 sm:top-5 sm:left-8"
+      />
 
-      <div className="flex w-full max-w-[1167px] flex-col items-center gap-[50px]">
-        <h1 className="text-center font-display text-[40px] font-semibold leading-[50px] text-ink">
+      <div className="flex w-full max-w-[1100px] flex-col items-center justify-center gap-3 sm:gap-4 lg:gap-4.5">
+        <h1 className="text-center font-display text-xl sm:text-2xl lg:text-[28px] font-semibold leading-tight text-ink">
           Pilih Layanan atau Instansi
         </h1>
 
         <SearchBar
           id="cari-layanan"
           label="Cari layanan atau instansi"
+          size="sm"
           placeholder="Cari layanan atau instansi pemerintahan"
-          containerClassName="w-full"
+          containerClassName="w-full max-w-[850px]"
         />
 
-        <div className="flex w-full gap-2 rounded-[12px] bg-white p-1">
+        {/* Tab Layanan / Instansi */}
+        <div className="flex w-full max-w-[850px] gap-2 rounded-[10px] bg-white p-1 shadow-xs">
           <button
             type="button"
-            className="flex-1 cursor-pointer rounded-lg bg-brand px-3 py-[15px] font-display text-[28px] font-medium leading-6 text-white shadow-sm"
+            className="flex-1 cursor-pointer rounded-[8px] bg-brand py-2 font-display text-base sm:text-lg font-medium text-white shadow-xs"
           >
             Layanan
           </button>
           <button
             type="button"
-            className="flex-1 cursor-pointer rounded-[12px] px-3 py-[15px] font-display text-[28px] font-medium leading-6 text-muted shadow-sm"
+            className="flex-1 cursor-pointer rounded-[8px] py-2 font-display text-base sm:text-lg font-medium text-muted transition-colors hover:text-ink"
           >
             Instansi
           </button>
         </div>
 
-        <section className="flex w-full flex-col gap-5">
-          <h2 className="font-display text-[32px] font-semibold leading-10 text-ink">
+        {/* Layanan Populer */}
+        <section className="flex w-full max-w-[1100px] flex-col gap-2">
+          <h2 className="font-display text-base sm:text-lg lg:text-[20px] font-semibold text-ink">
             Layanan Populer
           </h2>
-          <div className="flex justify-between gap-4">
+          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-6 sm:gap-3">
             {POPULAR_SERVICES.map((service) => (
               <PopularServiceCard key={service.label} {...service} />
             ))}
           </div>
         </section>
 
-        <section className="flex w-full flex-col gap-5">
-          <h2 className="font-display text-[32px] font-semibold leading-10 text-ink">
+        {/* Kategori Layanan */}
+        <section className="flex w-full max-w-[1100px] flex-col gap-2">
+          <h2 className="font-display text-base sm:text-lg lg:text-[20px] font-semibold text-ink">
             Kategori Layanan
           </h2>
-          <div className="flex justify-between gap-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 sm:gap-2.5">
             {CATEGORIES.map((label) => (
               <ServiceCategoryButton key={label} label={label} />
             ))}

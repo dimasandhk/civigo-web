@@ -44,34 +44,34 @@ export default function AntreanPage() {
         description="Kelola antrean di loket pelayanan"
       />
 
-      <div className="flex gap-5">
+      <div className="flex gap-3 overflow-x-auto pb-2 sm:gap-5">
         {LOKET_TABS.map((label, index) => (
           <LoketTab key={label} label={label} isActive={index === 0} />
         ))}
       </div>
 
-      <section className="flex flex-col gap-[30px] rounded-[20px] bg-white px-10 py-[30px] shadow-soft">
+      <section className="flex flex-col gap-[30px] rounded-[20px] bg-white p-6 shadow-soft sm:px-10 sm:py-[30px]">
         <div>
-          <h2 className="font-display text-[20px] font-semibold text-ink">
+          <h2 className="font-display text-[18px] font-semibold text-ink sm:text-[20px]">
             Nomor Antrean Saat Ini
           </h2>
-          <div className="flex h-[182px] flex-col items-center justify-between">
-            <span className="font-display text-[120px] leading-none font-semibold text-brand">
+          <div className="flex min-h-[140px] flex-col items-center justify-between py-2 sm:h-[182px]">
+            <span className="font-display text-[72px] leading-none font-semibold text-brand sm:text-[100px] lg:text-[120px]">
               {CURRENT.number}
             </span>
-            <span className="font-display text-[20px] font-medium text-queue-idle">
+            <span className="font-display text-[16px] font-medium text-queue-idle sm:text-[20px]">
               {CURRENT.since}
             </span>
           </div>
         </div>
 
-        <div className="flex justify-between">
+        <div className="grid grid-cols-2 gap-4 sm:flex sm:justify-between">
           {CURRENT.fields.map((field) => (
             <DetailField key={field.label} {...field} />
           ))}
         </div>
 
-        <div className="flex gap-[30px]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:gap-[30px]">
           <Button variant="success" className="flex-1">
             Selesaikan Layanan
           </Button>
@@ -81,7 +81,7 @@ export default function AntreanPage() {
         </div>
       </section>
 
-      <div className="flex justify-between">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-stretch">
         <AdjacentQueueCard
           muted
           label="Sebelumnya"
@@ -90,11 +90,11 @@ export default function AntreanPage() {
           service="Aktivasi IKD"
         />
 
-        <div className="flex flex-col gap-2.5 rounded-[20px] bg-white px-10 py-5 shadow-soft">
-          <span className="text-center font-display text-[20px] font-medium text-ink">
+        <div className="flex flex-col gap-2.5 rounded-[20px] bg-white px-8 py-5 shadow-soft md:px-10">
+          <span className="text-center font-display text-[18px] font-medium text-ink sm:text-[20px]">
             Sisa Antrean
           </span>
-          <span className="text-center font-display text-[48px] font-semibold text-ink">
+          <span className="text-center font-display text-[40px] font-semibold text-ink sm:text-[48px]">
             <span className="text-brand">{REMAINING}</span>{" "}
             <span className="text-[18px]">orang</span>
           </span>

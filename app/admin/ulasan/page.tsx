@@ -85,43 +85,43 @@ export default function UlasanPage() {
         description="Lihat penilaian dan masukan pengguna terhadap layanan"
       />
 
-      <div className="flex justify-between gap-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap lg:justify-between lg:gap-5">
         <FilterSelect
           id="filter-layanan"
           label="Saring menurut layanan"
           options={LAYANAN_OPTIONS}
-          containerClassName="w-[291px]"
+          containerClassName="w-full sm:w-auto sm:flex-1 min-w-[200px]"
         />
         <FilterSelect
           id="filter-loket"
           label="Saring menurut loket"
           options={LOKET_OPTIONS}
-          containerClassName="w-[291px]"
+          containerClassName="w-full sm:w-auto sm:flex-1 min-w-[200px]"
         />
         <FilterSelect
           id="filter-rating"
           label="Saring menurut rating"
           options={RATING_OPTIONS}
-          containerClassName="w-[291px]"
+          containerClassName="w-full sm:w-auto sm:flex-1 min-w-[200px]"
         />
       </div>
 
       <section
-        className={`flex flex-wrap items-center justify-between px-[60px] py-5 ${PANEL}`}
+        className={`grid grid-cols-2 gap-6 p-6 sm:flex sm:flex-wrap sm:items-center sm:justify-around sm:px-[60px] sm:py-5 ${PANEL}`}
       >
         {STATS.map((stat, index) => (
           <Fragment key={stat.label}>
             {index > 0 && (
-              <span aria-hidden className="h-[100px] w-0.5 bg-line" />
+              <span aria-hidden className="hidden h-[80px] w-0.5 bg-line lg:block" />
             )}
             <ReviewStat {...stat} />
           </Fragment>
         ))}
       </section>
 
-      <div className="flex gap-[25px]">
+      <div className="flex flex-col gap-[25px] lg:flex-row">
         <section
-          className={`flex shrink-0 flex-col gap-[25px] px-[30px] py-5 ${PANEL}`}
+          className={`flex flex-col gap-[25px] p-6 sm:px-[30px] sm:py-5 lg:w-[380px] lg:shrink-0 ${PANEL}`}
         >
           <h2 className="font-display text-[22px] font-medium text-ink">
             Rating Layanan
@@ -138,7 +138,7 @@ export default function UlasanPage() {
         </section>
 
         <section
-          className={`flex flex-1 flex-col gap-[25px] px-[30px] py-5 ${PANEL}`}
+          className={`flex flex-1 flex-col gap-[25px] p-6 sm:px-[30px] sm:py-5 ${PANEL}`}
         >
           <h2 className="font-display text-[22px] font-medium text-ink">
             Ulasan Terbaru

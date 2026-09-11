@@ -151,7 +151,7 @@ export default function LoketPage() {
       />
 
       <div className="flex flex-col gap-7">
-        <div className="flex gap-[30px]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:gap-[30px]">
           <SearchBar
             id="cari-loket"
             label="Cari loket"
@@ -159,7 +159,7 @@ export default function LoketPage() {
             placeholder="Cari loket"
             containerClassName="flex-1"
           />
-          <Button variant="solid" className="w-[205px]">
+          <Button variant="solid" className="w-full sm:w-[205px]">
             <Plus size={24} className="shrink-0" />
             Tambah Loket
           </Button>

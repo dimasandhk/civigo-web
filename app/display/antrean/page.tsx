@@ -26,57 +26,58 @@ const UPCOMING = [
 
 export default function QueueDisplayPage() {
   return (
-    <main className="min-h-screen bg-board px-14 py-[31px]">
-      <div className="mx-auto flex max-w-[1167px] flex-col gap-[55px]">
+    <main className="flex h-screen max-h-screen flex-col justify-between overflow-hidden bg-board px-6 py-5 sm:px-10 sm:py-6 lg:px-14 lg:py-7">
+      <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col justify-between gap-5 sm:gap-6">
+        {/* Header Display */}
         <header className="flex items-center justify-between">
-          <h1 className="text-[48px] font-extrabold leading-15 text-ink">
+          <h1 className="text-2xl sm:text-3xl lg:text-[42px] font-extrabold leading-tight text-ink">
             Antrean DisdukCapil
           </h1>
-          <p className="text-[28px] font-bold leading-[35px] tracking-[0.04em] text-ink">
+          <p className="font-display text-base sm:text-xl lg:text-[24px] font-bold tracking-[0.03em] text-ink">
             Jumat, 15 Agustus 2026
           </p>
         </header>
 
-        <section className="flex items-center gap-[29px]">
+        {/* 4 Loket Aktif */}
+        <section className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-5 lg:gap-6">
           {COUNTERS.map(({ counter, nowServing, eta }) => (
             <article
               key={counter}
-              className="flex w-[270px] flex-col items-center gap-5 rounded-[30px] bg-linear-to-b from-counter-top to-counter-bottom p-[30px] font-display text-white shadow-inset-soft"
+              className="flex flex-col items-center justify-between gap-3 rounded-[24px] bg-linear-to-b from-counter-top to-counter-bottom p-5 sm:p-6 font-display text-white shadow-inset-soft"
             >
-              <h2 className="text-[32px] font-medium leading-10">{counter}</h2>
-              <div className="flex h-45 w-full flex-col justify-between">
-                <div className="flex flex-col items-center">
-                  <span className="text-[72px] font-bold leading-[91px]">
-                    {nowServing}
-                  </span>
-                  <span className="text-[20px] font-medium leading-[25px]">
-                    Sedang dilayani
-                  </span>
-                </div>
-                <div className="flex items-end justify-between">
-                  <span className="text-[15px] leading-[19px]">
-                    Estimasi Selesai :
-                  </span>
-                  <span className="text-[22px] font-semibold leading-6">
-                    {eta}
-                  </span>
-                </div>
+              <h2 className="text-xl sm:text-2xl lg:text-[26px] font-medium">
+                {counter}
+              </h2>
+              <div className="flex w-full flex-col items-center gap-1">
+                <span className="text-5xl sm:text-6xl lg:text-[72px] font-bold leading-none">
+                  {nowServing}
+                </span>
+                <span className="text-sm sm:text-base font-medium opacity-90">
+                  Sedang dilayani
+                </span>
+              </div>
+              <div className="flex w-full items-center justify-between border-t border-white/20 pt-2 text-xs sm:text-sm">
+                <span>Estimasi Selesai :</span>
+                <span className="font-semibold text-base sm:text-lg">
+                  {eta}
+                </span>
               </div>
             </article>
           ))}
         </section>
 
-        <section className="flex flex-col gap-[35px]">
-          <h2 className="text-[32px] font-bold leading-10 text-ink">
+        {/* Antrean Berikutnya */}
+        <section className="flex flex-col gap-3">
+          <h2 className="font-display text-xl sm:text-2xl lg:text-[26px] font-bold text-ink">
             Antrean Berikutnya
           </h2>
-          <ol className="grid grid-cols-5 gap-x-10 gap-y-5">
+          <ol className="grid grid-cols-5 gap-2.5 sm:gap-4 lg:gap-5">
             {UPCOMING.map((number, index) => (
               <li
                 key={`${number}-${index}`}
-                className="flex flex-col items-center justify-center rounded-[20px] bg-queue-idle py-5 font-display text-white shadow-inset-soft"
+                className="flex items-center justify-center rounded-[16px] bg-queue-idle py-3.5 sm:py-4 font-display text-white shadow-inset-soft"
               >
-                <span className="text-[50px] font-semibold leading-[63px]">
+                <span className="text-2xl sm:text-3xl lg:text-[40px] font-semibold leading-none">
                   {number}
                 </span>
               </li>

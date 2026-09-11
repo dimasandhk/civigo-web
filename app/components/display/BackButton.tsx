@@ -13,10 +13,10 @@ export default function BackButton({
 }: BackButtonProps) {
   return (
     <Link
-      className={`inline-flex items-center justify-center gap-2.5 rounded-[20px] bg-brand-soft py-2.5 pr-[30px] pl-5 font-display text-[24px] font-medium text-brand transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-counter-top ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-[14px] bg-brand-soft px-4 py-2 font-display text-[16px] font-semibold text-brand transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-counter-top sm:rounded-[18px] sm:px-5 sm:py-2.5 sm:text-[18px] ${className}`}
       {...props}
     >
-      <ArrowLeft size={35} className="shrink-0" />
+      <ArrowLeft size={22} className="shrink-0" />
       {label}
     </Link>
   );

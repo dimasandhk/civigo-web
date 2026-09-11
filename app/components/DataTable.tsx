@@ -30,8 +30,8 @@ export default function DataTable<T>({
     <div
       className={`rounded-[10px] border border-line bg-white px-5 pt-[5px] pb-5 ${className}`}
     >
-      <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
-        <table className="w-full table-fixed border-separate border-spacing-0">
+      <div className="max-h-[calc(100vh-280px)] overflow-x-auto overflow-y-auto">
+        <table className="w-full min-w-[650px] table-fixed border-separate border-spacing-0">
           <colgroup>
             {columns.map((column) => (
               <col key={column.header} style={{ width: column.width }} />

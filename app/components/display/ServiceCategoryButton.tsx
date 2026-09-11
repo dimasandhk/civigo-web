@@ -16,13 +16,13 @@ export default function ServiceCategoryButton({
   return (
     <button
       type="button"
-      className={`flex h-[60px] cursor-pointer items-center gap-2.5 rounded-[15px] bg-white px-[15px] font-display text-[20px] font-medium leading-6 text-ink transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-counter-top active:translate-y-0 ${className}`}
+      className={`flex h-[46px] sm:h-[50px] cursor-pointer items-center justify-between gap-2 rounded-[12px] bg-white px-3 sm:px-4 font-display text-[14px] sm:text-[16px] font-medium leading-tight text-ink transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-counter-top active:translate-y-0 shadow-soft ${className}`}
       {...props}
     >
-      {label}
+      <span>{label}</span>
       <ChevronRight
-        size={20}
-        strokeWidth={1.8}
+        size={18}
+        strokeWidth={2}
         className="shrink-0 text-brand"
       />
     </button>
