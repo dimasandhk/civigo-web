@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import ExitToAdminButton from "../components/display/ExitToAdminButton";
 
 export const metadata: Metadata = {
   title: "Ambil Antrean Layanan — CiviGo",
@@ -23,7 +24,9 @@ const OPTIONS = [
 
 export default function KioskPage() {
   return (
-    <main className="flex h-screen max-h-screen flex-col items-center justify-center overflow-hidden bg-board px-6 py-4 sm:px-10 sm:py-6 lg:px-14">
+    <main className="relative flex h-screen max-h-screen flex-col items-center justify-center overflow-hidden bg-board px-6 py-4 sm:px-10 sm:py-6 lg:px-14">
+      {/* Tombol Kembali ke Dashboard Admin dengan Konfirmasi */}
+      <ExitToAdminButton />
       <div className="flex w-full max-w-[1100px] flex-col items-center justify-between gap-6 sm:gap-8 lg:gap-10">
         {/* Header Kiosk */}
         <header className="flex flex-col items-center gap-2 sm:gap-3">

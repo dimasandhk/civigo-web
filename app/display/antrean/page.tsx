@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ExitToAdminButton from "../../components/display/ExitToAdminButton";
 
 export const metadata: Metadata = {
   title: "Antrean DisdukCapil",
@@ -26,16 +27,19 @@ const UPCOMING = [
 
 export default function QueueDisplayPage() {
   return (
-    <main className="flex h-screen max-h-screen flex-col justify-between overflow-hidden bg-board px-6 py-5 sm:px-10 sm:py-6 lg:px-14 lg:py-7">
+    <main className="relative flex h-screen max-h-screen flex-col justify-between overflow-hidden bg-board px-6 py-5 sm:px-10 sm:py-6 lg:px-14 lg:py-7">
       <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col justify-between gap-5 sm:gap-6">
         {/* Header Display */}
         <header className="flex items-center justify-between">
           <h1 className="text-2xl sm:text-3xl lg:text-[42px] font-extrabold leading-tight text-ink">
             Antrean DisdukCapil
           </h1>
-          <p className="font-display text-base sm:text-xl lg:text-[24px] font-bold tracking-[0.03em] text-ink">
-            Jumat, 15 Agustus 2026
-          </p>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <p className="font-display text-base sm:text-xl lg:text-[24px] font-bold tracking-[0.03em] text-ink">
+              Jumat, 15 Agustus 2026
+            </p>
+            <ExitToAdminButton className="static" />
+          </div>
         </header>
 
         {/* 4 Loket Aktif */}
