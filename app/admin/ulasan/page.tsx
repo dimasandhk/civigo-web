@@ -3,17 +3,11 @@ import { Fragment } from "react";
 import FilterSelect from "../../components/FilterSelect";
 import PageHeader from "../../components/admin/PageHeader";
 import RatingBar from "../../components/admin/RatingBar";
-import ReviewCard, {
-  type ReviewCardProps,
-} from "../../components/admin/ReviewCard";
-import ReviewStat, {
-  type ReviewStatProps,
-} from "../../components/admin/ReviewStat";
-import {
-  RATINGS,
-  RATING_LEVELS,
-  type RatingLevel,
-} from "../../components/admin/ratings";
+import ReviewCard from "../../components/admin/ReviewCard";
+import ReviewStat from "../../components/admin/ReviewStat";
+import { RATINGS, RATING_LEVELS } from "../../components/admin/ratings";
+
+import { getAdminReviews } from "@/lib/data/admin";
 
 export const metadata: Metadata = {
   title: "Ulasan — CiviGo",
@@ -29,6 +23,7 @@ const LAYANAN_OPTIONS = [
 
 const LOKET_OPTIONS = [
   "Semua Loket",
+  "Loket 1",
   "Loket 2",
   "Loket 3",
   "Loket 4",
@@ -40,44 +35,10 @@ const RATING_OPTIONS = [
   ...RATING_LEVELS.map((level) => RATINGS[level].label),
 ];
 
-const STATS: ReviewStatProps[] = [
-  { label: "Total Ulasan", value: "500" },
-  { label: "Rata-rata", value: "4.6", unit: "/5" },
-  { label: "Sangat Puas", value: "78", unit: "%" },
-  { label: "Bulan Ini", value: "4.8" },
-];
-
-/** Share of reviews per star count, in percent. */
-const BREAKDOWN: Record<RatingLevel, number> = {
-  5: 78,
-  4: 14,
-  3: 5,
-  2: 2,
-  1: 1,
-};
-
-const REVIEWS: (ReviewCardProps & { id: string })[] = [
-  {
-    id: "1",
-    rating: 5,
-    comment: "Pelayanannya sangat cepat dan petugasnya ramah.",
-    service: "Pembuatan KTP-el",
-    counter: "Loket 2",
-    time: "5 menit lalu",
-  },
-  {
-    id: "2",
-    rating: 4,
-    comment: "Pelayanannya sudah bagus dan cukup membantu",
-    service: "Aktivasi Identitas Kependudukan Digital",
-    counter: "Loket 3",
-    time: "10 menit lalu",
-  },
-];
-
 const PANEL = "rounded-[20px] bg-white shadow-soft";
 
-export default function UlasanPage() {
+export default async function UlasanPage() {
+  const { stats, breakdown, reviews } = await getAdminReviews(1);
   return (
     <div className="flex flex-col gap-[35px]">
       <PageHeader
@@ -109,7 +70,7 @@ export default function UlasanPage() {
       <section
         className={`grid grid-cols-2 gap-6 p-6 sm:flex sm:flex-wrap sm:items-center sm:justify-around sm:px-[60px] sm:py-5 ${PANEL}`}
       >
-        {STATS.map((stat, index) => (
+        {stats.map((stat, index) => (
           <Fragment key={stat.label}>
             {index > 0 && (
               <span aria-hidden className="hidden h-[80px] w-0.5 bg-line lg:block" />
@@ -131,7 +92,7 @@ export default function UlasanPage() {
               <RatingBar
                 key={level}
                 rating={level}
-                percentage={BREAKDOWN[level]}
+                percentage={breakdown[level] || 0}
               />
             ))}
           </div>
@@ -143,7 +104,7 @@ export default function UlasanPage() {
           <h2 className="font-display text-[22px] font-medium text-ink">
             Ulasan Terbaru
           </h2>
-          {REVIEWS.map((review) => (
+          {reviews.map((review) => (
             <ReviewCard key={review.id} {...review} />
           ))}
         </section>

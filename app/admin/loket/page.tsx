@@ -7,11 +7,14 @@ import PageHeader from "../../components/admin/PageHeader";
 import SearchBar from "../../components/SearchBar";
 import StatusBadge, { type Status } from "../../components/StatusBadge";
 
+import { getAdminCounters } from "@/lib/data/admin";
+
 export const metadata: Metadata = {
   title: "Loket — CiviGo",
 };
 
 type Loket = {
+  id: number;
   name: string;
   status: Status;
   days: string;
@@ -19,81 +22,6 @@ type Loket = {
   createdDate: string;
   createdTime: string;
 };
-
-const LOKET: Loket[] = [
-  {
-    name: "Loket 5",
-    status: "aktif",
-    days: "Senin - Jumat",
-    hours: "08:00 - 16:00",
-    createdDate: "12 Mei 2026",
-    createdTime: "10:30",
-  },
-  {
-    name: "Loket 6",
-    status: "aktif",
-    days: "Senin - Jumat",
-    hours: "08:00 - 16:00",
-    createdDate: "12 Mei 2026",
-    createdTime: "10:30",
-  },
-  {
-    name: "Loket 7",
-    status: "aktif",
-    days: "Senin - Jumat",
-    hours: "08:00 - 16:00",
-    createdDate: "12 Mei 2026",
-    createdTime: "10:30",
-  },
-  {
-    name: "Loket 8",
-    status: "aktif",
-    days: "Senin - Jumat",
-    hours: "08:00 - 16:00",
-    createdDate: "12 Mei 2026",
-    createdTime: "10:30",
-  },
-  {
-    name: "Loket 9",
-    status: "nonaktif",
-    days: "Senin - Jumat",
-    hours: "08:00 - 16:00",
-    createdDate: "12 Mei 2026",
-    createdTime: "10:30",
-  },
-  {
-    name: "Loket 10",
-    status: "nonaktif",
-    days: "Senin - Jumat",
-    hours: "08:00 - 16:00",
-    createdDate: "12 Mei 2026",
-    createdTime: "10:30",
-  },
-  {
-    name: "Loket 11",
-    status: "nonaktif",
-    days: "Senin - Jumat",
-    hours: "08:00 - 16:00",
-    createdDate: "12 Mei 2026",
-    createdTime: "10:30",
-  },
-  {
-    name: "Loket 12",
-    status: "nonaktif",
-    days: "Senin - Jumat",
-    hours: "08:00 - 16:00",
-    createdDate: "12 Mei 2026",
-    createdTime: "10:30",
-  },
-  {
-    name: "Loket 13",
-    status: "nonaktif",
-    days: "Senin - Jumat",
-    hours: "08:00 - 16:00",
-    createdDate: "12 Mei 2026",
-    createdTime: "10:30",
-  },
-];
 
 const SUBTEXT = "text-[16px] tracking-[0.02em] text-ink-soft";
 
@@ -142,7 +70,9 @@ const COLUMNS: DataTableColumn<Loket>[] = [
   },
 ];
 
-export default function LoketPage() {
+export default async function LoketPage() {
+  const counters = await getAdminCounters(1);
+
   return (
     <div className="flex flex-col gap-[34px]">
       <PageHeader
@@ -167,7 +97,7 @@ export default function LoketPage() {
 
         <DataTable
           columns={COLUMNS}
-          rows={LOKET}
+          rows={counters}
           rowKey={(loket) => loket.name}
         />
       </div>

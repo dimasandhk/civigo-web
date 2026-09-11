@@ -87,21 +87,47 @@ export async function signIn(
   _state: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
-  const email = text(formData, "email");
+  const identifier = text(formData, "username") || text(formData, "email");
   const password = String(formData.get("password") ?? "");
 
-  if (!email || !password) {
-    return { error: "Email dan kata sandi wajib diisi." };
+  if (!identifier || !password) {
+    return { error: "Username/Email dan kata sandi wajib diisi." };
+  }
+
+  // Normalize username to email if necessary
+  let email = identifier.toLowerCase();
+  if (!email.includes("@")) {
+    // If username is like "disdukcapil.surabaya" or "disdukcapil"
+    const agencyPrefix = email.split(".")[0].replace(/[^a-z0-9]/g, "");
+    email = `${agencyPrefix}@civigo.com`;
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-  // Deliberately generic. Separating "wrong password" from "no such account"
-  // turns this form into an oracle for which emails are registered.
-  if (error) return { error: "Email atau kata sandi salah." };
+  if (error || !data.user) {
+    return { error: "Username atau kata sandi tidak sesuai." };
+  }
 
-  redirect("/");
+  // Verify that the signed in user is an agency account
+  const { data: profile } = await supabase
+    .from("users")
+    .select("role, agency_id")
+    .eq("id", data.user.id)
+    .single();
+
+  if (profile && profile.role !== "instansi" && profile.role !== "super_admin") {
+    await supabase.auth.signOut();
+    return {
+      error:
+        "Akun ini bukan akun instansi. Portal ini khusus untuk petugas pelayanan instansi.",
+    };
+  }
+
+  redirect("/admin");
 }
 
 export async function signOut() {

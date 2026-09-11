@@ -7,43 +7,19 @@ import PageHeader from "../../components/admin/PageHeader";
 import SearchBar from "../../components/SearchBar";
 import StatusBadge, { type Status } from "../../components/StatusBadge";
 
+import { getAdminServices } from "@/lib/data/admin";
+
 export const metadata: Metadata = {
   title: "Layanan — CiviGo",
 };
 
 type Layanan = {
+  id: number;
   name: string;
   category: string;
   status: Status;
   estimate: string;
 };
-
-const LAYANAN: Layanan[] = [
-  {
-    name: "Pembuatan KTP-el",
-    category: "Kependudukan",
-    status: "aktif",
-    estimate: "15 menit",
-  },
-  {
-    name: "Aktivasi Identitas Kependudukan Digital",
-    category: "Kependudukan",
-    status: "aktif",
-    estimate: "15 menit",
-  },
-  {
-    name: "Konsultasi Administrasi Kependudukan",
-    category: "Kependudukan",
-    status: "aktif",
-    estimate: "20 menit",
-  },
-  {
-    name: "Layanan Administrasi Kependudukan",
-    category: "Kependudukan",
-    status: "aktif",
-    estimate: "20 menit",
-  },
-];
 
 const COLUMNS: DataTableColumn<Layanan>[] = [
   { header: "Nama Layanan", width: "29.76%", cell: (layanan) => layanan.name },
@@ -73,7 +49,9 @@ const COLUMNS: DataTableColumn<Layanan>[] = [
   },
 ];
 
-export default function LayananPage() {
+export default async function LayananPage() {
+  const services = await getAdminServices(1);
+
   return (
     <div className="flex flex-col gap-[34px]">
       <PageHeader
@@ -98,7 +76,7 @@ export default function LayananPage() {
 
         <DataTable
           columns={COLUMNS}
-          rows={LAYANAN}
+          rows={services}
           rowKey={(layanan) => layanan.name}
         />
       </div>

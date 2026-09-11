@@ -6,14 +6,15 @@ import { createClient } from "@/lib/supabase/server";
  * as POST endpoints for no reason.
  */
 
-export type Role = "citizen" | "officer" | "admin";
+export type Role = "user" | "instansi" | "super_admin";
 
 export type Profile = {
   id: string;
-  nik: string;
+  nik: string | null;
   full_name: string;
   email: string;
   role: Role;
+  agency_id: number | null;
 };
 
 /**
@@ -36,11 +37,11 @@ export async function getCurrentUser(): Promise<Profile | null> {
   // rather than the access control.
   const { data: profile } = await supabase
     .from("users")
-    .select("id, nik, full_name, email, role")
+    .select("id, nik, full_name, email, role, agency_id")
     .eq("id", userId)
     .single();
 
-  return (profile as Profile) ?? null;
+  return (profile as unknown as Profile) ?? null;
 }
 
 /** Same, but for code paths that cannot render anything useful without a user. */

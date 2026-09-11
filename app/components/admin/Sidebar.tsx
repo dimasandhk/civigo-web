@@ -4,6 +4,7 @@ import {
   Building,
   ClipboardList,
   House,
+  LogOut,
   Monitor,
   PanelLeftClose,
   PanelLeftOpen,
@@ -16,6 +17,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { signOut } from "@/lib/auth/actions";
 import DisplayConfirmModal from "./DisplayConfirmModal";
 
 const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
@@ -169,26 +171,52 @@ export default function Sidebar({
           </nav>
         </div>
 
-        {/* Bagian Bawah: Info Instansi */}
-        <div
-          className={`flex flex-col rounded-[12px] bg-board shadow-soft transition-all ${
-            isCollapsed
-              ? "items-center justify-center p-2.5 text-center"
-              : "gap-1 p-3.5"
-          }`}
-          title="Disdukcapil MPP Siola - Surabaya"
-        >
-          {isCollapsed ? (
-            <div className="flex size-8 items-center justify-center rounded-md bg-brand-tint font-display text-[12px] font-bold text-brand">
-              DS
-            </div>
-          ) : (
-            <>
-              <p className="text-[14px] font-bold leading-tight text-ink">
-                Disdukcapil MPP Siola
-              </p>
-              <p className="text-[12px] font-medium text-muted">Surabaya</p>
-            </>
+        {/* Bagian Bawah: Info Instansi & Tombol Keluar */}
+        <div className="flex flex-col gap-2">
+          <div
+            className={`flex items-center rounded-[12px] bg-board shadow-soft transition-all ${
+              isCollapsed
+                ? "justify-center p-2.5 text-center"
+                : "justify-between p-3"
+            }`}
+            title="Disdukcapil MPP Siola - Surabaya"
+          >
+            {isCollapsed ? (
+              <div className="flex size-8 items-center justify-center rounded-md bg-brand-tint font-display text-[12px] font-bold text-brand">
+                DS
+              </div>
+            ) : (
+              <div className="flex flex-col gap-0.5 overflow-hidden pr-2">
+                <p className="truncate text-[13px] font-bold leading-tight text-ink">
+                  Disdukcapil MPP Siola
+                </p>
+                <p className="text-[11px] font-medium text-muted">Surabaya</p>
+              </div>
+            )}
+
+            {!isCollapsed && (
+              <button
+                type="button"
+                onClick={() => signOut()}
+                className="flex cursor-pointer items-center justify-center rounded-lg p-1.5 text-queue-idle transition-colors hover:bg-danger/10 hover:text-danger"
+                title="Keluar dari akun"
+                aria-label="Keluar"
+              >
+                <LogOut size={16} />
+              </button>
+            )}
+          </div>
+
+          {isCollapsed && (
+            <button
+              type="button"
+              onClick={() => signOut()}
+              className="flex cursor-pointer items-center justify-center rounded-[10px] p-2 text-queue-idle transition-colors hover:bg-danger/10 hover:text-danger"
+              title="Keluar"
+              aria-label="Keluar"
+            >
+              <LogOut size={18} />
+            </button>
           )}
         </div>
       </aside>

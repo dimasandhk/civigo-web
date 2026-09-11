@@ -194,32 +194,115 @@ export type Database = {
           },
         ]
       }
+      reviews: {
+        Row: {
+          agency_id: number
+          comment: string | null
+          counter_id: number | null
+          created_at: string
+          id: number
+          queue_id: number | null
+          rating: number
+          service_id: number | null
+          user_id: string | null
+        }
+        Insert: {
+          agency_id: number
+          comment?: string | null
+          counter_id?: number | null
+          created_at?: string
+          id?: number
+          queue_id?: number | null
+          rating: number
+          service_id?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          agency_id?: number
+          comment?: string | null
+          counter_id?: number | null
+          created_at?: string
+          id?: number
+          queue_id?: number | null
+          rating?: number
+          service_id?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_counter_id_fkey"
+            columns: ["counter_id"]
+            isOneToOne: false
+            referencedRelation: "counters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "queues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
+          agency_id: number | null
           created_at: string | null
           email: string
           full_name: string
           id: string
-          nik: string
+          nik: string | null
           role: string
         }
         Insert: {
+          agency_id?: number | null
           created_at?: string | null
           email: string
           full_name: string
           id: string
-          nik: string
+          nik?: string | null
           role?: string
         }
         Update: {
+          agency_id?: number | null
           created_at?: string | null
           email?: string
           full_name?: string
           id?: string
-          nik?: string
+          nik?: string | null
           role?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "users_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
