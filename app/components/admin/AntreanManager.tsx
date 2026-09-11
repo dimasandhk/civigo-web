@@ -104,20 +104,15 @@ export default function AntreanManager({
       {/* Loket Tabs */}
       <div className="flex gap-3 overflow-x-auto pb-2 sm:gap-5 scrollbar-none">
         {counters.map((counter) => (
-          <button
+          <LoketTab
             key={counter.id}
-            type="button"
+            label={counter.name}
+            isActive={selectedCounterId === counter.id}
             onClick={() => {
               setSelectedCounterId(counter.id);
               setActionMessage(null);
             }}
-            className="cursor-pointer focus:outline-none"
-          >
-            <LoketTab
-              label={counter.name}
-              isActive={selectedCounterId === counter.id}
-            />
-          </button>
+          />
         ))}
       </div>
 
