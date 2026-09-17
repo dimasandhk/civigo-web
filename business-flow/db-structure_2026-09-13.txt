@@ -1,0 +1,476 @@
+================================================================================
+CIVIGO - SNAPSHOT STRUKTUR DATABASE SUPABASE
+Tanggal: 13/09/2026 19:18 (WIB)
+Sumber : Supabase MCP -> project "civigo"
+================================================================================
+
+*** SEBAGIAN SUDAH USANG ***
+Snapshot ini akurat per 19:18 WIB. Malam yang sama, migrasi
+20260913130836_queue_booking_prerequisites mengubah:
+  - agencies  : + open_time, close_time, operating_days
+  - queues    : + nik (varchar 16, CHECK 16 digit atau NULL)
+  - queues    : + unique index (schedule_date, service_id, queue_number)
+  - queues    : INSERT/UPDATE/DELETE dicabut dari anon & authenticated
+Lalu migrasi 20260913135318_queue_status_and_reschedule menambah:
+  - queues    : status jadi NOT NULL + CHECK (scheduled/present/served/
+                completed/skipped)
+  - queues    : + rescheduled_from uuid -> queues(id) ON DELETE SET NULL
+  - queues    : + unique index parsial queues_rescheduled_from_unique
+Bagian 13 ("Yang belum ada") ikut berubah. Lihat business-flow/README.md.
+================================================================================
+
+PROJECT
+-------
+Nama            : civigo
+Project ref/id  : pcaadxclrsrdeutcwtsp
+Organization    : digeemytujlaukmolvlk
+Region          : ap-northeast-1 (Tokyo)
+Status          : ACTIVE_HEALTHY
+Postgres        : 17.6.1.166 (engine 17, channel ga)
+DB host         : db.pcaadxclrsrdeutcwtsp.supabase.co
+Dibuat          : 27/08/2026
+
+Catatan: ada project kedua di org yang sama, "dimasandhk's Project"
+(ruvexclhbjyvsrpkrzhc, ap-south-1, status INACTIVE) - bukan bagian dari Civigo.
+
+
+================================================================================
+1. RINGKASAN SKEMA (schema: public)
+================================================================================
+6 tabel, semuanya RLS enabled. Tidak ada view, tidak ada materialized view,
+tidak ada edge function, tidak ada scheduled job (pg_cron tidak terpasang).
+
+  agencies (3 baris)
+     |-- services (6 baris)      agency_id -> agencies.id   ON DELETE CASCADE
+     |-- counters (9 baris)      agency_id -> agencies.id   (no action)
+     |-- users    (2 baris)      agency_id -> agencies.id   ON DELETE RESTRICT
+              |-- family_members (0 baris) user_id -> users.id  ON DELETE CASCADE
+              |-- queues (11 baris)        user_id -> users.id  ON DELETE SET NULL
+                                           service_id -> services.id
+                                           counter_id -> counters.id
+
+  auth.users --(1:1, ON DELETE CASCADE)--> public.users
+
+
+================================================================================
+2. DETAIL TABEL
+================================================================================
+
+--------------------------------------------------------------------------------
+public.users            RLS: ON      baris: 2 (1 role 'user', 1 role 'instansi')
+--------------------------------------------------------------------------------
+Kolom
+  id          uuid          PK, FK -> auth.users(id) ON DELETE CASCADE
+  nik         varchar       NULLABLE, UNIQUE, CHECK ~ '^[0-9]{16}$'
+  full_name   varchar       NOT NULL
+  email       varchar       NOT NULL, UNIQUE
+  role        user_role     NOT NULL, DEFAULT 'user'
+  created_at  timestamptz   NULLABLE, DEFAULT now()
+  agency_id   integer       NULLABLE, FK -> agencies(id) ON DELETE RESTRICT
+
+Constraint
+  users_pkey                      PRIMARY KEY (id)
+  users_email_key                 UNIQUE (email)
+  users_nik_key                   UNIQUE (nik)          [NULL dianggap distinct]
+  users_nik_format                CHECK (nik ~ '^[0-9]{16}$')
+  users_nik_required_for_citizen  CHECK (role <> 'user' OR nik IS NOT NULL)
+  users_agency_matches_role       CHECK ((role = 'instansi') = (agency_id IS NOT NULL))
+  users_id_fkey                   FK id -> auth.users(id) ON DELETE CASCADE
+  users_agency_id_fkey            FK agency_id -> agencies(id) ON DELETE RESTRICT
+
+Index
+  users_pkey            UNIQUE btree (id)
+  users_email_key       UNIQUE btree (email)
+  users_nik_key         UNIQUE btree (nik)
+  users_agency_id_idx   btree (agency_id)
+
+Aturan yang tertanam di constraint:
+  - role 'user'        -> WAJIB punya nik, TIDAK BOLEH punya agency_id
+  - role 'instansi'    -> WAJIB punya agency_id, nik opsional
+  - role 'super_admin' -> TIDAK BOLEH punya agency_id (scope global), nik opsional
+
+--------------------------------------------------------------------------------
+public.agencies         RLS: ON      baris: 3
+--------------------------------------------------------------------------------
+  id           integer  PK, DEFAULT nextval('agencies_id_seq')
+  name         varchar  NOT NULL
+  description  text     NULLABLE
+
+Data saat ini:
+  1  Disdukcapil  - Dinas Kependudukan dan Pencatatan Sipil
+  2  Samsat       - Sistem Administrasi Manunggal di Bawah Satu Atap
+  3  Imigrasi     - Kantor Imigrasi Kelas I
+
+--------------------------------------------------------------------------------
+public.services         RLS: ON      baris: 6
+--------------------------------------------------------------------------------
+  id              integer  PK, DEFAULT nextval('services_id_seq')
+  agency_id       integer  NULLABLE, FK -> agencies(id) ON DELETE CASCADE
+  name            varchar  NOT NULL
+  requirements    jsonb    NULLABLE   [array of string]
+  estimated_time  integer  NULLABLE   [satuan: menit]
+  info_procedure  text     NULLABLE   [ditambah 08/09/2026, masih NULL semua]
+
+Data saat ini:
+  1  Pembuatan KTP Baru                        agency 1  15 mnt
+  2  Cetak Kartu Keluarga (KK)                 agency 1  20 mnt
+  3  Perpanjangan STNK Tahunan                 agency 2  10 mnt
+  4  Pembuatan Paspor                          agency 3  30 mnt
+  5  Aktivasi Identitas Kependudukan Digital   agency 1  10 mnt
+  6  Konsultasi Administrasi Kependudukan      agency 1  15 mnt
+
+--------------------------------------------------------------------------------
+public.counters         RLS: ON      baris: 9
+--------------------------------------------------------------------------------
+  id            integer  PK, DEFAULT nextval('counters_id_seq')
+  agency_id     integer  NULLABLE, FK -> agencies(id)   [tanpa ON DELETE]
+  counter_name  varchar  NOT NULL
+  status        varchar  NULLABLE, DEFAULT 'active'     [TIDAK ada CHECK]
+
+Data saat ini (nilai status yang dipakai: 'active' / 'inactive'):
+  1  Loket 1 (Perekaman)            agency 1  active
+  2  Loket 2 (Pengambilan)          agency 1  active
+  3  Loket 1 (Pembayaran)           agency 2  active
+  4  Loket 3 (Cetak KK)             agency 1  active
+  5  Loket 4 (Aktivasi IKD)         agency 1  active
+  6  Loket 5 (Mutasi / Pindah)      agency 1  active
+  7  Loket 6 (Akta Kelahiran)       agency 1  active
+  8  Loket 7 (Akta Kematian)        agency 1  inactive
+  9  Loket 8 (Konsultasi Adminduk)  agency 1  inactive
+
+--------------------------------------------------------------------------------
+public.queues           RLS: ON      baris: 11
+--------------------------------------------------------------------------------
+  id             uuid         PK, DEFAULT extensions.uuid_generate_v4()
+  user_id        uuid         NULLABLE, FK -> users(id) ON DELETE SET NULL
+  service_id     integer      NULLABLE, FK -> services(id)
+  counter_id     integer      NULLABLE, FK -> counters(id)
+  queue_number   varchar      NOT NULL
+  schedule_date  date         NOT NULL
+  time_block     varchar      NOT NULL
+  status         varchar      NULLABLE, DEFAULT 'scheduled'   [TIDAK ada CHECK]
+  created_at     timestamptz  NULLABLE, DEFAULT now()
+
+Sebaran status pada data live (bukan constraint, hanya konvensi aplikasi):
+  scheduled  2   -> sudah booking, belum datang
+  present    3   -> sudah check-in di lokasi
+  served     4   -> sedang / sudah dipanggil ke loket
+  completed  1   -> selesai dilayani
+  skipped    1   -> dilewati (tidak hadir saat dipanggil)
+
+  user_id ON DELETE SET NULL: baris antrean sengaja dipertahankan sebagai
+  rekaman layanan untuk dashboard, hanya tautan personalnya yang diputus.
+
+--------------------------------------------------------------------------------
+public.family_members   RLS: ON      baris: 0 (masih kosong)
+--------------------------------------------------------------------------------
+  id            integer      PK, DEFAULT nextval('family_members_id_seq')
+  user_id       uuid         NULLABLE, FK -> users(id) ON DELETE CASCADE
+  nik           varchar      NOT NULL, UNIQUE
+  full_name     varchar      NOT NULL
+  relationship  varchar      NOT NULL
+  created_at    timestamptz  NULLABLE, DEFAULT now()
+
+  Catatan: nik di sini TIDAK punya CHECK format 16 digit (beda dengan users.nik).
+
+
+================================================================================
+3. TIPE CUSTOM (ENUM)
+================================================================================
+  public.user_role  =  'user' | 'instansi' | 'super_admin'
+
+  Sebelum migrasi 08/09/2026 ini adalah varchar dengan CHECK
+  ('citizen','officer','admin'). Pemetaan saat konversi:
+      citizen -> user
+      officer -> instansi
+      admin   -> super_admin
+
+
+================================================================================
+4. FUNCTION / UTILITY DATABASE
+================================================================================
+Total 3 function di schema public. Tidak ada procedure, aggregate, atau
+window function custom. Tidak ada Edge Function yang terdeploy.
+
+--------------------------------------------------------------------------------
+4.1  public.handle_new_user() -> trigger
+--------------------------------------------------------------------------------
+  Bahasa    : plpgsql
+  Keamanan  : SECURITY DEFINER, SET search_path = ''
+  EXECUTE   : postgres, service_role  (anon & authenticated DI-REVOKE)
+  Dipakai   : trigger on_auth_user_created
+
+  Fungsi: membuat baris profil public.users di transaksi yang SAMA dengan
+  insert ke auth.users. Kalau gagal, signup ikut rollback -> tidak ada akun
+  yatim (orphan) saat NIK duplikat.
+
+  Alur:
+    1. Ambil nik & full_name dari new.raw_user_meta_data (trim, nullif kosong).
+    2. nik NULL atau tidak cocok ^[0-9]{16}$  -> raise 23514
+       "NIK harus berupa 16 digit angka"
+    3. full_name NULL -> raise 23502 "Nama lengkap wajib diisi"
+    4. INSERT users (id, nik, full_name, email, role) dengan role
+       DI-HARDCODE 'user'::public.user_role.
+       -> role SENGAJA tidak dibaca dari raw_user_meta_data, karena isinya
+          apa pun yang dikirim client lewat signUp(options.data);
+          membacanya = lubang privilege escalation.
+    5. Handler unique_violation: kalau constraint = users_nik_key ->
+       raise 23505 "NIK <nik> sudah terdaftar", selain itu re-raise.
+
+--------------------------------------------------------------------------------
+4.2  public.handle_user_email_change() -> trigger
+--------------------------------------------------------------------------------
+  Bahasa    : plpgsql
+  Keamanan  : SECURITY DEFINER, SET search_path = ''
+  EXECUTE   : postgres, service_role  (anon & authenticated DI-REVOKE)
+  Dipakai   : trigger on_auth_user_email_changed
+
+  Fungsi: sinkronisasi public.users.email saat email diubah lewat Supabase
+  Auth. Tanpa ini kolom email di profil jadi basi permanen karena
+  public.users.email adalah duplikat dari auth.users.email.
+  Isi: UPDATE public.users SET email = new.email WHERE id = new.id;
+
+--------------------------------------------------------------------------------
+4.3  public.nik_available(p_nik text) -> boolean
+--------------------------------------------------------------------------------
+  Bahasa    : sql
+  Keamanan  : SECURITY DEFINER, STABLE, SET search_path = ''
+  EXECUTE   : anon, authenticated, postgres, service_role  (SENGAJA publik)
+  Endpoint  : POST /rest/v1/rpc/nik_available
+
+  Isi:
+    select p_nik ~ '^[0-9]{16}$'
+       and not exists (select 1 from public.users where nik = p_nik);
+
+  Alasan ada: RLS hanya mengizinkan user membaca barisnya sendiri, jadi form
+  signup tidak bisa mengecek ketersediaan NIK lewat SELECT biasa. Error dari
+  dalam trigger signup sampai ke client sebagai 500 opaque, jadi pesan yang
+  bagus harus datang dari pre-flight check ini. Unique index users_nik_key
+  tetap jadi penjaga sebenarnya. anon harus bisa memanggil karena form signup
+  perlu cek NIK sebelum akunnya ada.
+
+
+================================================================================
+5. TRIGGER
+================================================================================
+  on_auth_user_created
+    AFTER INSERT ON auth.users FOR EACH ROW
+    EXECUTE FUNCTION public.handle_new_user()
+
+  on_auth_user_email_changed
+    AFTER UPDATE OF email ON auth.users FOR EACH ROW
+    WHEN (old.email IS DISTINCT FROM new.email)
+    EXECUTE FUNCTION public.handle_user_email_change()
+
+  Tidak ada trigger di tabel schema public.
+
+
+================================================================================
+6. RLS POLICY
+================================================================================
+Tabel            Policy                            Cmd     Role           Kondisi
+-----            ------                            ---     ----           -------
+agencies         Semua orang bisa lihat instansi   SELECT  public         true
+services         Semua orang bisa lihat layanan    SELECT  public         true
+counters         Semua orang bisa lihat loket      SELECT  public         true
+users            Warga baca profil sendiri         SELECT  authenticated  (select auth.uid()) = id
+users            Warga ubah profil sendiri         UPDATE  authenticated  (select auth.uid()) = id
+                                                                    CHECK: (select auth.uid()) = id
+family_members   Warga kelola keluarga sendiri     ALL     public         auth.uid() = user_id
+queues           Warga kelola antrean sendiri      ALL     public         auth.uid() = user_id
+
+Belum ada policy sama sekali untuk role 'instansi' / 'super_admin'.
+Dashboard admin saat ini bergantung pada grant tabel + service_role, bukan RLS.
+
+
+================================================================================
+7. GRANT / PRIVILEGE TABEL
+================================================================================
+users (dikunci lewat migrasi harden_users_role_and_nik):
+  anon           : SELECT saja
+  authenticated  : SELECT + UPDATE HANYA kolom full_name
+  service_role   : penuh
+  -> INSERT/DELETE dicabut dari anon & authenticated. Baris profil hanya
+     dibuat oleh trigger SECURITY DEFINER. Ini menutup celah yang tidak bisa
+     ditutup RLS: policy itu row-level, jadi tanpa column grant seorang warga
+     masih bisa menulis ulang role / nik / id miliknya sendiri.
+
+agencies, services, counters, queues, family_members:
+  anon, authenticated, service_role : SEMUA privilege (SELECT/INSERT/UPDATE/
+  DELETE/TRUNCATE/REFERENCES/TRIGGER) - masih default Supabase, belum dikunci.
+  Pengamannya saat ini murni dari RLS policy di atas.
+  >> agencies/services/counters: RLS hanya punya policy SELECT, jadi
+     INSERT/UPDATE/DELETE tetap tertolak (tidak ada policy yang mengizinkan).
+
+
+================================================================================
+8. EXTENSION TERPASANG
+================================================================================
+  plpgsql            1.0     pg_catalog
+  pgcrypto           1.3     extensions
+  uuid-ossp          1.1     extensions   [dipakai queues.id default]
+  pg_stat_statements 1.11    extensions
+  supabase_vault     0.3.1   vault
+
+  Yang TIDAK terpasang tapi sering relevan: pg_cron, pg_net, pgmq, vector,
+  pg_graphql, postgis.
+
+
+================================================================================
+9. RIWAYAT MIGRASI (yang sudah jalan di remote)
+================================================================================
+20260906071714  harden_users_role_and_nik
+  - Pad NIK legacy ke 16 digit lalu tambah CHECK users_nik_format.
+  - role jadi NOT NULL + CHECK ('citizen','officer','admin').
+  - REVOKE insert/update/delete users dari anon & authenticated;
+    GRANT UPDATE (full_name) ke authenticated.
+  - Ganti policy "Warga kelola data diri sendiri" jadi 2 policy terpisah
+    (baca profil sendiri, ubah profil sendiri).
+
+20260906071744  auth_user_profile_sync
+  - Buat handle_new_user() + trigger on_auth_user_created.
+  - Buat handle_user_email_change() + trigger on_auth_user_email_changed.
+  - Buat nik_available(text), revoke dari public, grant ke anon+authenticated.
+
+20260906072059  cascade_user_deletion
+  - users.id -> auth.users ON DELETE CASCADE
+  - family_members.user_id -> users ON DELETE CASCADE
+  - queues.user_id -> users ON DELETE SET NULL
+  Tanpa ini, hapus akun lewat dashboard/admin API gagal karena FK violation.
+
+20260906072444  revoke_trigger_function_execute
+  - REVOKE ALL kedua trigger function dari public/anon/authenticated.
+    Alasan: apa pun di schema public otomatis terbit sebagai RPC PostgREST.
+  - nik_available sengaja tetap bisa dipanggil anon.
+
+20260908084753  agency_accounts_role_enum_and_service_procedure
+  - Buat enum public.user_role, konversi kolom role dari varchar.
+  - users.nik jadi NULLABLE + CHECK users_nik_required_for_citizen.
+  - Tambah users.agency_id (FK RESTRICT) + index users_agency_id_idx
+    + CHECK users_agency_matches_role.
+  - Tambah services.info_procedure.
+  - Update handle_new_user() (literal 'citizen' -> 'user').
+
+
+================================================================================
+10. DRIFT: MIGRASI LOKAL YANG BELUM DITERAPKAN  *** PERLU TINDAKAN ***
+================================================================================
+File di repo: supabase/migrations/
+  20260908084753_agency_accounts_role_enum_and_service_procedure.sql  [APPLIED]
+  20260912020000_create_reviews_table.sql                             [BELUM]
+
+Migrasi 20260912020000 membuat tabel public.reviews yang SAAT INI TIDAK ADA
+di database remote. Isinya:
+  - tabel reviews: id bigint identity, agency_id (FK cascade), service_id,
+    counter_id, queue_id, user_id, rating smallint CHECK 1..5, comment text,
+    created_at timestamptz
+  - 5 index (agency/service/counter/queue/created_at desc)
+  - RLS on + 3 policy (select semua, insert authenticated, service_role all)
+  - seed 6 ulasan untuk agency_id 1
+
+  PERHATIAN: kolom queue_id di migrasi ini bertipe BIGINT dan mereferensi
+  public.queues(id) yang bertipe UUID. Migrasi ini akan GAGAL saat dijalankan
+  (tipe FK tidak cocok). Harus diperbaiki jadi uuid sebelum di-apply.
+
+Dampak sekarang: lib/data/admin.ts -> getAdminReviews() query ke tabel
+"reviews", gagal, lalu jatuh ke fallback data dummy hardcoded (Total Ulasan
+500, rata-rata 4.6, dsb). Jadi halaman /admin/ulasan menampilkan angka palsu.
+
+Catatan: 3 migrasi paling awal (0906*) ada di remote tapi TIDAK ada filenya
+di supabase/migrations/ lokal - riwayat lokal tidak lengkap.
+
+
+================================================================================
+11. UTILITY SISI APLIKASI (repo civigo-web)
+================================================================================
+lib/supabase/env.ts
+  readSupabaseEnv()  -> SupabaseEnv | null   baca env, tidak melempar error
+  supabaseEnv()      -> SupabaseEnv          versi yang melempar kalau kosong
+
+lib/supabase/client.ts
+  createClient()          klien browser (@supabase/ssr)
+
+lib/supabase/server.ts
+  createClient()  async   klien server component / server action (cookie-based)
+
+lib/supabase/proxy.ts
+  updateSession(request)  refresh sesi di edge/proxy layer
+
+lib/supabase/database.types.ts
+  Tipe TypeScript hasil generate (444 baris)
+
+lib/auth/actions.ts
+  type AuthState
+  signUp(), signIn(), signOut()      server actions
+
+lib/auth/session.ts
+  type Role = "user" | "instansi" | "super_admin"
+  type Profile
+  getCurrentUser() -> Profile | null
+  requireUser()    -> Profile        (redirect kalau belum login)
+
+lib/data/admin.ts
+  type DashboardStats, QueueItem, ReviewItem
+  getAdminDashboardStats(agencyId = 1)
+  getAdminCounters(agencyId = 1)
+  getAdminServices(agencyId = 1)
+  getTodayQueues(agencyId = 1)
+  getAdminReviews(agencyId = 1)      <- fallback dummy, lihat bagian 10
+
+lib/data/queue-actions.ts
+  completeQueue(queueId)
+  skipQueue(queueId)
+  callNextQueue(counterId, agencyId = 1)
+
+  CATATAN: seluruh fungsi data admin memakai default agencyId = 1
+  (hardcode Disdukcapil), belum diambil dari users.agency_id akun instansi
+  yang sedang login - padahal kolomnya sudah ada sejak 08/09/2026.
+
+Route yang ada:
+  app/page.tsx
+  app/admin/{page,layout}.tsx, admin/antrean, admin/layanan, admin/loket,
+  admin/ulasan
+  app/display/{page,antrean,input-code,select-layanan}
+
+
+================================================================================
+12. TEMUAN ADVISOR SUPABASE (per 13/09/2026)
+================================================================================
+SECURITY (3 WARN)
+  - nik_available() bisa dipanggil anon sebagai SECURITY DEFINER lewat
+    /rest/v1/rpc/nik_available.        -> DISENGAJA, lihat bagian 4.3
+  - nik_available() bisa dipanggil authenticated (idem).
+  - Leaked password protection MATI. Supabase Auth bisa mengecek password
+    ke HaveIBeenPwned; sebaiknya diaktifkan di dashboard Auth settings.
+
+PERFORMANCE
+  - 6 foreign key tanpa covering index (INFO):
+      counters.agency_id, family_members.user_id,
+      queues.counter_id, queues.service_id, queues.user_id,
+      services.agency_id
+  - 2 RLS policy meng-evaluasi ulang auth.uid() per baris (WARN):
+      family_members "Warga kelola keluarga sendiri"
+      queues         "Warga kelola antrean sendiri"
+    Perbaikan: ganti auth.uid() jadi (select auth.uid()) seperti yang sudah
+    dilakukan pada policy tabel users.
+  - users_agency_id_idx belum pernah terpakai (INFO) - wajar, fitur akun
+    instansi baru dibuat dan datanya masih 1 baris.
+
+
+================================================================================
+13. YANG BELUM ADA DI DATABASE
+================================================================================
+  - Tabel reviews / ulasan            (migrasi lokal belum jalan + ada bug tipe)
+  - CHECK constraint untuk queues.status  (5 nilai dipakai, tanpa penjagaan)
+  - CHECK constraint untuk counters.status
+  - Enum untuk kedua status di atas
+  - Policy RLS untuk role instansi & super_admin
+  - Tabel jadwal / kuota per time_block (time_block masih varchar bebas)
+  - Realtime: publication supabase_realtime ada tapi TIDAK ada tabel yang
+    didaftarkan - display antrean belum bisa live update lewat Realtime
+  - Storage bucket: tidak ada
+  - Edge function: tidak ada
+
+================================================================================
+Akhir snapshot - 13/09/2026 19:18
+================================================================================

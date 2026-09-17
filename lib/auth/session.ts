@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -25,7 +27,7 @@ export type Profile = {
  * from a cookie the browser controls, so only the verified claims can be
  * trusted on the server.
  */
-export async function getCurrentUser(): Promise<Profile | null> {
+export const getCurrentUser = cache(async function getCurrentUser(): Promise<Profile | null> {
   const supabase = await createClient();
 
   const { data, error } = await supabase.auth.getClaims();
@@ -42,13 +44,30 @@ export async function getCurrentUser(): Promise<Profile | null> {
     .single();
 
   return (profile as unknown as Profile) ?? null;
-}
+});
 
 /** Same, but for code paths that cannot render anything useful without a user. */
 export async function requireUser(): Promise<Profile> {
   const profile = await getCurrentUser();
 
   if (!profile) throw new Error("Unauthorized");
+
+  return profile;
+}
+
+/**
+ * Gate for every `/admin` route.
+ *
+ * This is the only thing standing between an anonymous visitor and the
+ * dashboard: `/admin` had no guard at all, and the pages below it now read
+ * queue data through the service_role client, which ignores RLS entirely.
+ * Before that change RLS was accidentally acting as the access control — it
+ * hid every row from everyone, broken pages included.
+ */
+export async function requireOfficer(): Promise<Profile> {
+  const profile = await getCurrentUser();
+
+  if (!profile || profile.role === "user") redirect("/");
 
   return profile;
 }

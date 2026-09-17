@@ -14,14 +14,14 @@ import PerformanceCard from "../components/admin/PerformanceCard";
 import ServiceDonutChart from "../components/admin/ServiceDonutChart";
 import WeeklyQueueChart from "../components/admin/WeeklyQueueChart";
 
-import { getAdminDashboardStats } from "@/lib/data/admin";
+import { getAdminDashboardStats, resolveAgencyId } from "@/lib/data/admin";
 
 export const metadata: Metadata = {
   title: "Beranda — CiviGo",
 };
 
 export default async function AdminBerandaPage() {
-  const stats = await getAdminDashboardStats(1);
+  const stats = await getAdminDashboardStats(await resolveAgencyId());
 
   const metricCards: MetricCardProps[] = [
     {

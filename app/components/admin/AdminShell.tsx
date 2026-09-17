@@ -5,13 +5,20 @@ import Image from "next/image";
 import { useState, type ReactNode } from "react";
 import Sidebar from "./Sidebar";
 
-export default function AdminShell({ children }: { children: ReactNode }) {
+export default function AdminShell({
+  children,
+  agencyId,
+}: {
+  children: ReactNode;
+  agencyId: number;
+}) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
     <div className="flex min-h-screen bg-board">
       <Sidebar
+        agencyId={agencyId}
         isMobileOpen={isMobileOpen}
         onCloseMobile={() => setIsMobileOpen(false)}
         isCollapsed={isCollapsed}

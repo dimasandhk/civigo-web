@@ -5,7 +5,6 @@ import Button from "../Button";
 import AdjacentQueueCard from "./AdjacentQueueCard";
 import DetailField from "./DetailField";
 import LoketTab from "./LoketTab";
-import { completeQueue, skipQueue, callNextQueue } from "@/lib/data/queue-actions";
 import type { QueueItem } from "@/lib/data/admin";
 import { Loader2, Megaphone } from "lucide-react";
 
@@ -13,6 +12,51 @@ export type AntreanManagerProps = {
   counters: { id: number; name: string }[];
   initialQueues: QueueItem[];
 };
+
+type ApiError = { code: string; message: string };
+
+/**
+ * Talks to the queue endpoints.
+ *
+ * These used to be Server Actions writing through the cookie client, which RLS
+ * silently reduced to zero-row updates — the buttons reported success while
+ * changing nothing. The endpoints run on the service_role client and do their
+ * own authorization, so failures now come back as real messages worth showing.
+ */
+async function callQueueApi<T>(
+  url: string,
+  method: "POST" | "PATCH",
+  body?: unknown,
+): Promise<{ ok: true; data: T } | { ok: false; error: ApiError }> {
+  let payload: { ok?: boolean; error?: ApiError } | null = null;
+
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+    payload = await response.json();
+  } catch {
+    return {
+      ok: false,
+      error: { code: "NETWORK_ERROR", message: "Gagal menghubungi server. Periksa koneksi Anda." },
+    };
+  }
+
+  if (!payload?.ok) {
+    return {
+      ok: false,
+      error: payload?.error ?? {
+        code: "UNKNOWN_ERROR",
+        message: "Terjadi kesalahan yang tidak diketahui.",
+      },
+    };
+  }
+
+  return { ok: true, data: payload as T };
+}
 
 export default function AntreanManager({
   counters,
@@ -45,57 +89,70 @@ export default function AntreanManager({
   const handleComplete = () => {
     if (!activeQueue) return;
     startTransition(async () => {
-      const res = await completeQueue(activeQueue.id);
-      if (res.success) {
-        setQueues((prev) =>
-          prev.map((q) =>
-            q.id === activeQueue.id ? { ...q, status: "completed" } : q,
-          ),
-        );
-        setActionMessage(`Antrean ${activeQueue.queue_number} berhasil diselesaikan.`);
+      const res = await callQueueApi(`/api/queue/${activeQueue.id}/status`, "PATCH", {
+        status: "completed",
+      });
+
+      if (!res.ok) {
+        setActionMessage(res.error.message);
+        return;
       }
+
+      setQueues((prev) =>
+        prev.map((q) => (q.id === activeQueue.id ? { ...q, status: "completed" } : q)),
+      );
+      setActionMessage(`Antrean ${activeQueue.queue_number} berhasil diselesaikan.`);
     });
   };
 
   const handleSkip = () => {
     if (!activeQueue) return;
     startTransition(async () => {
-      const res = await skipQueue(activeQueue.id);
-      if (res.success) {
-        setQueues((prev) =>
-          prev.map((q) =>
-            q.id === activeQueue.id ? { ...q, status: "skipped" } : q,
-          ),
-        );
-        setActionMessage(`Antrean ${activeQueue.queue_number} ditandai hangus.`);
+      const res = await callQueueApi(`/api/queue/${activeQueue.id}/status`, "PATCH", {
+        status: "skipped",
+      });
+
+      if (!res.ok) {
+        setActionMessage(res.error.message);
+        return;
       }
+
+      setQueues((prev) =>
+        prev.map((q) => (q.id === activeQueue.id ? { ...q, status: "skipped" } : q)),
+      );
+      setActionMessage(`Antrean ${activeQueue.queue_number} ditandai hangus.`);
     });
   };
 
   const handleCallNext = () => {
     startTransition(async () => {
-      const res = await callNextQueue(selectedCounterId, 1);
-      if (res.success && res.queueNumber) {
-        setQueues((prev) => {
-          let updated = false;
-          return prev.map((q) => {
-            if (!updated && ["present", "scheduled"].includes(q.status)) {
-              updated = true;
-              return {
+      const res = await callQueueApi<{
+        ticket: { id: string; queue_number: string };
+        remaining: number;
+      }>("/api/queue/call-next", "POST", { counter_id: selectedCounterId });
+
+      if (!res.ok) {
+        setActionMessage(res.error.message);
+        return;
+      }
+
+      // The endpoint reports which ticket it actually called, so we no longer
+      // have to guess by re-running the ordering rules on the client.
+      const called = res.data.ticket;
+
+      setQueues((prev) =>
+        prev.map((q) =>
+          q.id === called.id
+            ? {
                 ...q,
                 status: "served",
                 counter_id: selectedCounterId,
-                counter_name:
-                  counters.find((c) => c.id === selectedCounterId)?.name || null,
-              };
-            }
-            return q;
-          });
-        });
-        setActionMessage(`Memanggil nomor antrean ${res.queueNumber}`);
-      } else if (res.error) {
-        setActionMessage(res.error);
-      }
+                counter_name: counters.find((c) => c.id === selectedCounterId)?.name || null,
+              }
+            : q,
+        ),
+      );
+      setActionMessage(`Memanggil nomor antrean ${called.queue_number}`);
     });
   };
 
@@ -146,10 +203,14 @@ export default function AntreanManager({
           ) : (
             <div className="flex min-h-[140px] flex-col items-center justify-center gap-4 py-8 text-center sm:h-[182px]">
               <span className="font-display text-[32px] font-semibold text-queue-idle/60 sm:text-[40px]">
-                Tidak Ada Antrean
+                {queues.length === 0 ? "Belum Ada Antrean Hari Ini" : "Tidak Ada Antrean"}
               </span>
               <p className="max-w-md text-sm text-muted">
-                Loket ini belum memanggil antrean aktif. Tekan tombol panggil di bawah untuk melayani pemohon berikutnya.
+                {queues.length === 0
+                  ? "Belum ada tiket yang dipesan untuk hari ini. Antrean akan muncul di sini begitu ada warga yang booking."
+                  : remainingCount > 0
+                    ? `Loket ini belum memanggil antrean aktif. Ada ${remainingCount} pemohon menunggu — tekan tombol panggil di bawah.`
+                    : "Loket ini belum memanggil antrean aktif, dan tidak ada lagi pemohon yang menunggu."}
               </p>
             </div>
           )}
@@ -158,9 +219,11 @@ export default function AntreanManager({
         {activeQueue ? (
           <div className="grid grid-cols-2 gap-4 sm:flex sm:justify-between">
             <DetailField label="Nama Lengkap" value={activeQueue.user_name} />
+            {/* "No HP" dihapus: tidak ada kolom telepon di skema, jadi yang
+                tampil selama ini satu nomor karangan yang sama untuk semua. */}
             <DetailField
-              label="No HP"
-              value={activeQueue.user_phone}
+              label="Sesi"
+              value={activeQueue.time_block}
               valueClassName="leading-6 tracking-[0.05em]"
             />
             <DetailField

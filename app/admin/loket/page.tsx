@@ -7,7 +7,7 @@ import PageHeader from "../../components/admin/PageHeader";
 import SearchBar from "../../components/SearchBar";
 import StatusBadge, { type Status } from "../../components/StatusBadge";
 
-import { getAdminCounters } from "@/lib/data/admin";
+import { getAdminCounters, resolveAgencyId } from "@/lib/data/admin";
 
 export const metadata: Metadata = {
   title: "Loket — CiviGo",
@@ -71,7 +71,7 @@ const COLUMNS: DataTableColumn<Loket>[] = [
 ];
 
 export default async function LoketPage() {
-  const counters = await getAdminCounters(1);
+  const counters = await getAdminCounters(await resolveAgencyId());
 
   return (
     <div className="flex flex-col gap-[34px]">

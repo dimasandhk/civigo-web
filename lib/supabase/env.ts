@@ -41,3 +41,25 @@ export function supabaseEnv(): SupabaseEnv {
 
   return env;
 }
+
+/**
+ * The secret / `service_role` key, which bypasses Row Level Security entirely.
+ *
+ * Kept in its own reader rather than folded into `SupabaseEnv` so it can never
+ * be picked up by accident: everything that returns `SupabaseEnv` is safe to
+ * reach for from anywhere, this one is not.
+ */
+export function supabaseSecretKey(): string {
+  const secretKey = process.env.SUPABASE_SECRET_KEY;
+
+  if (!secretKey) {
+    throw new Error(
+      "SUPABASE_SECRET_KEY is missing. Add it to .env.local from your project's " +
+        "dashboard (Project Settings -> API Keys -> secret key). It must NOT be " +
+        "prefixed with NEXT_PUBLIC_ — that would ship a key that bypasses RLS to " +
+        "the browser.",
+    );
+  }
+
+  return secretKey;
+}

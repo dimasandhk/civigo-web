@@ -25,11 +25,14 @@ const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin/antrean", label: "Antrean", icon: Users },
   { href: "/admin/loket", label: "Loket", icon: Building },
   { href: "/admin/layanan", label: "Layanan", icon: ClipboardList },
-  { href: "/display/antrean", label: "Display", icon: Monitor },
   { href: "/admin/ulasan", label: "Ulasan", icon: UserStar },
 ];
 
+// Papan display tidak punya sesi, jadi instansinya harus ikut di URL.
+const displayHref = (agencyId: number) => `/display/${agencyId}/antrean`;
+
 export type SidebarProps = {
+  agencyId: number;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
   isCollapsed?: boolean;
@@ -37,6 +40,7 @@ export type SidebarProps = {
 };
 
 export default function Sidebar({
+  agencyId,
   isMobileOpen = false,
   onCloseMobile,
   isCollapsed = false,
@@ -132,7 +136,11 @@ export default function Sidebar({
 
           {/* Navigasi Menu */}
           <nav className="flex flex-col gap-1.5">
-            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+            {[
+              ...NAV_ITEMS.slice(0, 4),
+              { href: displayHref(agencyId), label: "Display", icon: Monitor },
+              ...NAV_ITEMS.slice(4),
+            ].map(({ href, label, icon: Icon }) => {
               const isActive = pathname === href;
               const isDisplay = href.startsWith("/display");
 
@@ -223,6 +231,7 @@ export default function Sidebar({
 
       {/* Modal Dialog Konfirmasi saat mengklik Display */}
       <DisplayConfirmModal
+        href={displayHref(agencyId)}
         isOpen={isDisplayModalOpen}
         onClose={() => setIsDisplayModalOpen(false)}
       />

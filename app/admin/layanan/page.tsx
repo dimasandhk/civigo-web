@@ -7,7 +7,7 @@ import PageHeader from "../../components/admin/PageHeader";
 import SearchBar from "../../components/SearchBar";
 import StatusBadge, { type Status } from "../../components/StatusBadge";
 
-import { getAdminServices } from "@/lib/data/admin";
+import { getAdminServices, resolveAgencyId } from "@/lib/data/admin";
 
 export const metadata: Metadata = {
   title: "Layanan — CiviGo",
@@ -50,7 +50,7 @@ const COLUMNS: DataTableColumn<Layanan>[] = [
 ];
 
 export default async function LayananPage() {
-  const services = await getAdminServices(1);
+  const services = await getAdminServices(await resolveAgencyId());
 
   return (
     <div className="flex flex-col gap-[34px]">

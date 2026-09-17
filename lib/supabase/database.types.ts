@@ -24,19 +24,28 @@ export type Database = {
     Tables: {
       agencies: {
         Row: {
+          close_time: string
           description: string | null
           id: number
           name: string
+          open_time: string
+          operating_days: number[]
         }
         Insert: {
+          close_time?: string
           description?: string | null
           id?: number
           name: string
+          open_time?: string
+          operating_days?: number[]
         }
         Update: {
+          close_time?: string
           description?: string | null
           id?: number
           name?: string
+          open_time?: string
+          operating_days?: number[]
         }
         Relationships: []
       }
@@ -109,10 +118,12 @@ export type Database = {
           counter_id: number | null
           created_at: string | null
           id: string
+          nik: string | null
           queue_number: string
+          rescheduled_from: string | null
           schedule_date: string
           service_id: number | null
-          status: string | null
+          status: string
           time_block: string
           user_id: string | null
         }
@@ -120,10 +131,12 @@ export type Database = {
           counter_id?: number | null
           created_at?: string | null
           id?: string
+          nik?: string | null
           queue_number: string
+          rescheduled_from?: string | null
           schedule_date: string
           service_id?: number | null
-          status?: string | null
+          status?: string
           time_block: string
           user_id?: string | null
         }
@@ -131,10 +144,12 @@ export type Database = {
           counter_id?: number | null
           created_at?: string | null
           id?: string
+          nik?: string | null
           queue_number?: string
+          rescheduled_from?: string | null
           schedule_date?: string
           service_id?: number | null
-          status?: string | null
+          status?: string
           time_block?: string
           user_id?: string | null
         }
@@ -144,6 +159,13 @@ export type Database = {
             columns: ["counter_id"]
             isOneToOne: false
             referencedRelation: "counters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "queues_rescheduled_from_fkey"
+            columns: ["rescheduled_from"]
+            isOneToOne: true
+            referencedRelation: "queues"
             referencedColumns: ["id"]
           },
           {

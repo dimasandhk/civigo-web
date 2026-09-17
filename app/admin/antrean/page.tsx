@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
 import PageHeader from "../../components/admin/PageHeader";
 import AntreanManager from "../../components/admin/AntreanManager";
-import { getAdminCounters, getTodayQueues } from "@/lib/data/admin";
+import { getAdminCounters, getTodayQueues, resolveAgencyId } from "@/lib/data/admin";
 
 export const metadata: Metadata = {
   title: "Antrean — CiviGo",
 };
 
 export default async function AntreanPage() {
+  const agencyId = await resolveAgencyId();
+
   const [counters, queues] = await Promise.all([
-    getAdminCounters(1),
-    getTodayQueues(1),
+    getAdminCounters(agencyId),
+    getTodayQueues(agencyId),
   ]);
 
   return (

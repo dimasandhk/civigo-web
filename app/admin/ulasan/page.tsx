@@ -7,7 +7,7 @@ import ReviewCard from "../../components/admin/ReviewCard";
 import ReviewStat from "../../components/admin/ReviewStat";
 import { RATINGS, RATING_LEVELS } from "../../components/admin/ratings";
 
-import { getAdminReviews } from "@/lib/data/admin";
+import { getAdminReviews, resolveAgencyId } from "@/lib/data/admin";
 
 export const metadata: Metadata = {
   title: "Ulasan — CiviGo",
@@ -38,7 +38,7 @@ const RATING_OPTIONS = [
 const PANEL = "rounded-[20px] bg-white shadow-soft";
 
 export default async function UlasanPage() {
-  const { stats, breakdown, reviews } = await getAdminReviews(1);
+  const { stats, breakdown, reviews } = await getAdminReviews(await resolveAgencyId());
   return (
     <div className="flex flex-col gap-[35px]">
       <PageHeader

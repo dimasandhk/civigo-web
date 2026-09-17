@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export type DisplayConfirmModalProps = {
+  /** Papan display instansi yang sedang dibuka petugas. */
+  href: string;
   isOpen: boolean;
   onClose: () => void;
 };
 
 export default function DisplayConfirmModal({
+  href,
   isOpen,
   onClose,
 }: DisplayConfirmModalProps) {
@@ -94,7 +97,7 @@ export default function DisplayConfirmModal({
               <button
                 type="button"
                 onClick={() => {
-                  window.open("/display/antrean", "_blank");
+                  window.open(href, "_blank");
                   onClose();
                 }}
                 className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[8px] bg-brand px-3.5 py-2 font-display text-[13px] font-semibold text-white shadow-xs transition-opacity hover:opacity-95 sm:flex-initial"
@@ -106,7 +109,7 @@ export default function DisplayConfirmModal({
                 type="button"
                 onClick={() => {
                   onClose();
-                  router.push("/display/antrean");
+                  router.push(href);
                 }}
                 className="cursor-pointer rounded-[8px] border border-line bg-white px-3 py-2 font-display text-[13px] font-medium text-ink transition-colors hover:bg-board"
               >
