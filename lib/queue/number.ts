@@ -30,6 +30,7 @@ function sequenceOf(queueNumber: string): number {
 
 export type NewTicket = {
   serviceId: number;
+  locationId?: number | null;
   scheduleDate: string;
   timeBlock: string;
   userId: string | null;
@@ -73,6 +74,7 @@ export async function insertTicketWithNumber(
         user_id: ticket.userId,
         nik: ticket.nik,
         service_id: ticket.serviceId,
+        location_id: ticket.locationId ?? 1,
         queue_number: queueNumber,
         schedule_date: ticket.scheduleDate,
         time_block: ticket.timeBlock,

@@ -76,6 +76,7 @@ function fail(
 
 type BookQueueInput = {
   service_id: number;
+  location_id?: number | null;
   schedule_date: string;
   time_block: string;
   nik: string | null;
@@ -111,8 +112,15 @@ function parseInput(raw: unknown): BookQueueInput | null {
   const nik = body.nik;
   if (nik !== undefined && nik !== null && typeof nik !== "string") return null;
 
+  const locationId = body.location_id;
+  const validLocationId =
+    typeof locationId === "number" && Number.isInteger(locationId) && locationId > 0
+      ? locationId
+      : 1;
+
   return {
     service_id: serviceId,
+    location_id: validLocationId,
     schedule_date: scheduleDate,
     time_block: timeBlock,
     nik: typeof nik === "string" ? nik.trim() : null,
@@ -255,8 +263,11 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
   const estimatedTime = service.estimated_time ?? DEFAULT_ESTIMATED_MINUTES;
   const finishMinutes = block.startMinutes + estimatedTime;
 
-  // Izinkan pengujian di luar jam kerja (misal malam hari atau akhir pekan) saat development
-  const isDevTesting = process.env.NODE_ENV !== "production";
+  // Izinkan pengujian di luar jam kerja (misal malam hari atau akhir pekan) saat development atau sesi testing malam
+  const isDevTesting =
+    process.env.NODE_ENV !== "production" ||
+    process.env.ALLOW_OFFHOURS_TESTING === "true" ||
+    block.startMinutes >= 1080; // Sesi malam hari (>= 18:00) yang dibuat khusus untuk testing
 
   if (!isDevTesting) {
     if (!agency.operating_days.includes(isoDayOfWeek(input.schedule_date))) {
@@ -323,6 +334,7 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
 
   const inserted = await insertTicketWithNumber(db, {
     serviceId: service.id,
+    locationId: input.location_id ?? 1,
     scheduleDate: input.schedule_date,
     timeBlock: input.time_block,
     userId: identity.userId,

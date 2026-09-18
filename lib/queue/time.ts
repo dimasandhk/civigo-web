@@ -49,7 +49,7 @@ export function minutesToTime(total: number): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
-const TIME_BLOCK_PATTERN = /^([01]\d|2[0-3]):([0-5]\d) - ([01]\d|2[0-3]):([0-5]\d)$/;
+const TIME_BLOCK_PATTERN = /^([01]\d|2[0-3]):([0-5]\d) - ([01]\d|2[0-4]):([0-5]\d)$/;
 
 export type TimeBlock = {
   startMinutes: number;
@@ -63,13 +63,20 @@ export type TimeBlock = {
  * so this is the only thing standing between a typo and a permanently
  * unreadable session label. Returns `null` when the input does not match, or
  * when the range runs backwards.
+ * Mendukung batas akhir 24:00 untuk sesi malam hari.
  */
 export function parseTimeBlock(raw: string): TimeBlock | null {
   const match = TIME_BLOCK_PATTERN.exec(raw);
   if (!match) return null;
 
   const startMinutes = Number(match[1]) * 60 + Number(match[2]);
-  const endMinutes = Number(match[3]) * 60 + Number(match[4]);
+  const endHour = Number(match[3]);
+  const endMinute = Number(match[4]);
+
+  // Jam 24 hanya valid untuk 24:00 (batas akhir tengah malam)
+  if (endHour === 24 && endMinute !== 0) return null;
+
+  const endMinutes = endHour * 60 + endMinute;
 
   if (endMinutes <= startMinutes) return null;
 
