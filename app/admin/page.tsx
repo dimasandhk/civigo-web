@@ -18,7 +18,7 @@ import {
   getAdminDashboardStats,
   getServiceDonutData,
   getWeeklyQueueData,
-  resolveAgencyId,
+  resolveAgencyContext,
 } from "@/lib/data/admin";
 
 export const metadata: Metadata = {
@@ -26,11 +26,11 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminBerandaPage() {
-  const agencyId = await resolveAgencyId();
+  const context = await resolveAgencyContext();
   const [stats, donutItems, weeklyData] = await Promise.all([
-    getAdminDashboardStats(agencyId),
-    getServiceDonutData(agencyId),
-    getWeeklyQueueData(agencyId),
+    getAdminDashboardStats(context.agencyId, context.locationId),
+    getServiceDonutData(context.agencyId, context.locationId),
+    getWeeklyQueueData(context.agencyId, context.locationId),
   ]);
 
   const metricCards: MetricCardProps[] = [
@@ -80,7 +80,11 @@ export default async function AdminBerandaPage() {
     <div className="flex flex-col gap-[35px]">
       <PageHeader
         title="Beranda"
-        description="Lihat ringkasan dan kondisi antrean hari ini"
+        description={
+          context.locationName
+            ? `Lihat ringkasan dan kondisi antrean hari ini — ${context.locationName}`
+            : "Lihat ringkasan dan kondisi antrean hari ini"
+        }
       />
 
       {/* Baris 1: 4 Kartu Metrik KPI Utama */}

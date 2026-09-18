@@ -19,7 +19,10 @@ import QueueDisplayLive, {
  * jelas bukan sesuatu yang layak ditayangkan.
  */
 
-type Props = { params: Promise<{ agencyId: string }> };
+type Props = {
+  params: Promise<{ agencyId: string }>;
+  searchParams?: Promise<{ locationId?: string }>;
+};
 
 async function loadAgency(agencyId: number) {
   const supabase = createServiceClient();
@@ -39,11 +42,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: agency ? `Antrean ${agency.name} — Display` : "Antrean — Display" };
 }
 
-export default async function QueueDisplayPage({ params }: Props) {
+export default async function QueueDisplayPage({ params, searchParams }: Props) {
   const { agencyId: raw } = await params;
   const agencyId = Number(raw);
 
   if (!Number.isInteger(agencyId) || agencyId < 1) notFound();
+
+  const { locationId: rawLoc } = (await searchParams) ?? {};
+  const locationId = rawLoc && Number.isInteger(Number(rawLoc)) ? Number(rawLoc) : null;
 
   const agency = await loadAgency(agencyId);
   if (!agency) notFound();
@@ -51,7 +57,7 @@ export default async function QueueDisplayPage({ params }: Props) {
   const supabase = createServiceClient();
   const today = todayInJakarta();
 
-  const { data: counters } = await supabase
+  let countersQuery = supabase
     .from("counters")
     .select("id, counter_name")
     .eq("agency_id", agencyId)
@@ -59,11 +65,23 @@ export default async function QueueDisplayPage({ params }: Props) {
     .order("id", { ascending: true })
     .limit(4);
 
-  const { data: queues } = await supabase
+  if (locationId) {
+    countersQuery = countersQuery.eq("location_id", locationId);
+  }
+
+  const { data: counters } = await countersQuery;
+
+  let queuesQuery = supabase
     .from("queues")
     .select("queue_number, counter_id, status, service:services!inner(agency_id, estimated_time)")
     .eq("schedule_date", today)
     .eq("service.agency_id", agencyId);
+
+  if (locationId) {
+    queuesQuery = queuesQuery.eq("location_id", locationId);
+  }
+
+  const { data: queues } = await queuesQuery;
 
   const list = queues ?? [];
 

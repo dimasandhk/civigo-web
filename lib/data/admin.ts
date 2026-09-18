@@ -93,19 +93,37 @@ export type DashboardStats = {
   activeServices: number;
 };
 
-export async function getAdminDashboardStats(agencyId: number): Promise<DashboardStats> {
+type QueueStatusRow = { id: string; status: string };
+
+export async function getAdminDashboardStats(
+  agencyId: number,
+  locationId?: number | null,
+): Promise<DashboardStats> {
   const supabase = createServiceClient();
   const today = todayInJakarta();
 
-  const { data: queues, error } = await supabase
+  let queueQuery = supabase
     .from("queues")
     .select("id, status, service:services!inner(agency_id)")
     .eq("schedule_date", today)
     .eq("service.agency_id", agencyId);
 
-  if (error) throw new Error(`Gagal memuat antrean hari ini: ${error.message}`);
+  if (locationId) {
+    queueQuery = queueQuery.eq("location_id", locationId);
+  }
 
-  const list = queues ?? [];
+  const { data: queues, error } = await queueQuery;
+
+  let list: QueueStatusRow[] = (queues as unknown as QueueStatusRow[]) ?? [];
+  if (error) {
+    const fallback = await supabase
+      .from("queues")
+      .select("id, status, service:services!inner(agency_id)")
+      .eq("schedule_date", today)
+      .eq("service.agency_id", agencyId);
+    list = (fallback.data as unknown as QueueStatusRow[]) ?? [];
+  }
+
   const totalToday = list.length;
   const completedToday = list.filter((q) => q.status === "completed").length;
   const skippedCount = list.filter((q) => q.status === "skipped").length;
@@ -113,11 +131,17 @@ export async function getAdminDashboardStats(agencyId: number): Promise<Dashboar
     ["scheduled", "present", "served"].includes(q.status),
   ).length;
 
-  const { count: activeCountersCount } = await supabase
+  let countersQuery = supabase
     .from("counters")
     .select("id", { count: "exact", head: true })
     .eq("agency_id", agencyId)
     .eq("status", "active");
+
+  if (locationId) {
+    countersQuery = countersQuery.eq("location_id", locationId);
+  }
+
+  const { count: activeCountersCount } = await countersQuery;
 
   const { count: activeServicesCount } = await supabase
     .from("services")
@@ -142,17 +166,35 @@ export async function getAdminDashboardStats(agencyId: number): Promise<Dashboar
   };
 }
 
-export async function getAdminCounters(agencyId: number) {
+export async function getAdminCounters(
+  agencyId: number,
+  locationId?: number | null,
+) {
   const supabase = createServiceClient();
-  const { data: counters, error } = await supabase
+  let query = supabase
     .from("counters")
     .select("*")
     .eq("agency_id", agencyId)
     .order("id", { ascending: true });
 
-  if (error) throw new Error(`Gagal memuat loket: ${error.message}`);
+  if (locationId) {
+    query = query.eq("location_id", locationId);
+  }
 
-  return (counters ?? []).map((c) => ({
+  const { data: counters, error } = await query;
+
+  let list = counters;
+  if (error) {
+    const fallback = await supabase
+      .from("counters")
+      .select("*")
+      .eq("agency_id", agencyId)
+      .order("id", { ascending: true });
+    if (fallback.error) throw new Error(`Gagal memuat loket: ${fallback.error.message}`);
+    list = fallback.data;
+  }
+
+  return (list ?? []).map((c) => ({
     id: c.id,
     name: c.counter_name,
     status: (c.status === "active" ? "aktif" : "nonaktif") as "aktif" | "nonaktif",
@@ -449,13 +491,22 @@ const DONUT_COLORS = [
   "#F59E0B",
 ];
 
-export async function getServiceDonutData(agencyId: number): Promise<ServiceDonutItem[]> {
+export async function getServiceDonutData(
+  agencyId: number,
+  locationId?: number | null,
+): Promise<ServiceDonutItem[]> {
   const supabase = createServiceClient();
 
-  const { data: queues, error } = await supabase
+  let queueQuery = supabase
     .from("queues")
     .select("id, service:services!inner(id, name, agency_id)")
     .eq("service.agency_id", agencyId);
+
+  if (locationId) {
+    queueQuery = queueQuery.eq("location_id", locationId);
+  }
+
+  const { data: queues, error } = await queueQuery;
 
   if (error || !queues || queues.length === 0) {
     const { data: services } = await supabase
@@ -512,7 +563,10 @@ export type WeeklyQueueResult = {
   yAxisGrid: { y: number; label: string }[];
 };
 
-export async function getWeeklyQueueData(agencyId: number): Promise<WeeklyQueueResult> {
+export async function getWeeklyQueueData(
+  agencyId: number,
+  locationId?: number | null,
+): Promise<WeeklyQueueResult> {
   const supabase = createServiceClient();
   const today = todayInJakarta();
 
@@ -533,12 +587,18 @@ export async function getWeeklyQueueData(agencyId: number): Promise<WeeklyQueueR
   const startDate = weekDays[0].date;
   const endDate = weekDays[4].date;
 
-  const { data: queues } = await supabase
+  let queueQuery = supabase
     .from("queues")
     .select("id, schedule_date, service:services!inner(agency_id)")
     .eq("service.agency_id", agencyId)
     .gte("schedule_date", startDate)
     .lte("schedule_date", endDate);
+
+  if (locationId) {
+    queueQuery = queueQuery.eq("location_id", locationId);
+  }
+
+  const { data: queues } = await queueQuery;
 
   const dateCounts: Record<string, number> = {};
   for (const q of queues ?? []) {

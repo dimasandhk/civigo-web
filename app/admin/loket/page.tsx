@@ -1,20 +1,25 @@
 import type { Metadata } from "next";
 import PageHeader from "../../components/admin/PageHeader";
 import LoketTableManager from "../../components/admin/LoketTableManager";
-import { getAdminCounters, resolveAgencyId } from "@/lib/data/admin";
+import { getAdminCounters, resolveAgencyContext } from "@/lib/data/admin";
 
 export const metadata: Metadata = {
   title: "Loket — CiviGo",
 };
 
 export default async function LoketPage() {
-  const counters = await getAdminCounters(await resolveAgencyId());
+  const context = await resolveAgencyContext();
+  const counters = await getAdminCounters(context.agencyId, context.locationId);
 
   return (
     <div className="flex flex-col gap-[34px]">
       <PageHeader
         title="Loket"
-        description="Kelola loket yang melayani antrean"
+        description={
+          context.locationName
+            ? `Kelola loket yang melayani antrean — ${context.locationName}`
+            : "Kelola loket yang melayani antrean"
+        }
       />
 
       <LoketTableManager initialCounters={counters} />

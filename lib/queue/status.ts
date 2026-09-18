@@ -255,7 +255,7 @@ export async function callNextQueue(raw: unknown): Promise<CallNextResult> {
   // this call belongs to.
   const { data: counterRow } = await db
     .from("counters")
-    .select("id, counter_name, status, agency_id")
+    .select("id, counter_name, status, agency_id, location_id")
     .eq("id", counterId)
     .maybeSingle();
 
@@ -273,12 +273,18 @@ export async function callNextQueue(raw: unknown): Promise<CallNextResult> {
 
   const today = todayInJakarta();
 
-  const { data: waiting, error } = await db
+  let waitingQuery = db
     .from("queues")
     .select("id, queue_number, status, time_block, service:services!inner(id, name, agency_id)")
     .eq("schedule_date", today)
     .eq("service.agency_id", agencyId)
     .in("status", WAITING_STATUSES);
+
+  if (counterRow.location_id) {
+    waitingQuery = waitingQuery.eq("location_id", counterRow.location_id);
+  }
+
+  const { data: waiting, error } = await waitingQuery;
 
   if (error) {
     return fail(500, "INTERNAL_ERROR", error.message);

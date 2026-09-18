@@ -11,7 +11,7 @@ export default async function AntreanPage() {
   const context = await resolveAgencyContext();
 
   const [counters, queues] = await Promise.all([
-    getAdminCounters(context.agencyId),
+    getAdminCounters(context.agencyId, context.locationId),
     getTodayQueues(context.agencyId, context.locationId),
   ]);
 

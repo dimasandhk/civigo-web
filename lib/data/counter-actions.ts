@@ -44,8 +44,9 @@ export async function toggleCounterStatusAction(
 
 export async function createCounterAction(name: string): Promise<ActionResponse> {
   try {
-    await requireOfficer();
-    const agencyId = await resolveAgencyId();
+    const profile = await requireOfficer();
+    const agencyId = profile.agency_id ?? (await resolveAgencyId());
+    const locationId = profile.location_id ?? 1;
     const trimmedName = name.trim();
 
     if (!trimmedName) {
@@ -56,6 +57,7 @@ export async function createCounterAction(name: string): Promise<ActionResponse>
     const { error } = await supabase.from("counters").insert({
       counter_name: trimmedName,
       agency_id: agencyId,
+      location_id: locationId,
       status: "active",
     });
 
