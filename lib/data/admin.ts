@@ -2,6 +2,8 @@ import { requireOfficer } from "@/lib/auth/session";
 import { todayInJakarta } from "@/lib/queue/time";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { RatingLevel } from "@/app/components/admin/ratings";
+import type { ServiceDonutItem } from "@/app/components/admin/ServiceDonutChart";
+import type { WeeklyDataPoint } from "@/app/components/admin/WeeklyQueueChart";
 
 /**
  * Data untuk dashboard admin.
@@ -322,3 +324,140 @@ export async function getAdminReviews(agencyId: number) {
     }) as ReviewItem[],
   };
 }
+
+const DONUT_COLORS = [
+  "#8979FF",
+  "#FFAE4C",
+  "#3CC3DF",
+  "#FF928A",
+  "#10B981",
+  "#6366F1",
+  "#EC4899",
+  "#F59E0B",
+];
+
+export async function getServiceDonutData(agencyId: number): Promise<ServiceDonutItem[]> {
+  const supabase = createServiceClient();
+
+  const { data: queues, error } = await supabase
+    .from("queues")
+    .select("id, service:services!inner(id, name, agency_id)")
+    .eq("service.agency_id", agencyId);
+
+  if (error || !queues || queues.length === 0) {
+    const { data: services } = await supabase
+      .from("services")
+      .select("name")
+      .eq("agency_id", agencyId)
+      .limit(4);
+
+    if (services && services.length > 0) {
+      return services.map((s, idx) => ({
+        name: s.name,
+        color: DONUT_COLORS[idx % DONUT_COLORS.length],
+        percentage: 0,
+        strokeDasharray: "0 226.2",
+        strokeDashoffset: 0,
+      }));
+    }
+
+    return [];
+  }
+
+  const counts: Record<string, number> = {};
+  for (const q of queues) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sName = (q.service as any)?.name ?? "Layanan";
+    counts[sName] = (counts[sName] || 0) + 1;
+  }
+
+  const total = queues.length;
+  const CIRCUMFERENCE = 2 * Math.PI * 36; // ~226.195
+
+  const sortedEntries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  let accumulatedOffset = 0;
+
+  return sortedEntries.map(([name, count], index) => {
+    const percentage = Math.round((count / total) * 100);
+    const arcLength = (count / total) * CIRCUMFERENCE;
+    const strokeDasharray = `${arcLength.toFixed(2)} ${(CIRCUMFERENCE - arcLength).toFixed(2)}`;
+    const strokeDashoffset = -accumulatedOffset;
+    accumulatedOffset += arcLength;
+
+    return {
+      name,
+      color: DONUT_COLORS[index % DONUT_COLORS.length],
+      percentage,
+      strokeDasharray,
+      strokeDashoffset,
+    };
+  });
+}
+
+export type WeeklyQueueResult = {
+  points: WeeklyDataPoint[];
+  yAxisGrid: { y: number; label: string }[];
+};
+
+export async function getWeeklyQueueData(agencyId: number): Promise<WeeklyQueueResult> {
+  const supabase = createServiceClient();
+  const today = todayInJakarta();
+
+  // Calculate Monday through Friday of the current week (WIB)
+  const d = new Date(`${today}T00:00:00Z`);
+  const dayOfWeek = d.getUTCDay(); // 0 is Sun, 1 is Mon, 5 is Fri, 6 is Sat
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(d);
+  monday.setUTCDate(d.getUTCDate() + mondayOffset);
+
+  const dayNames = ["Sen", "Sel", "Rab", "Kam", "Jum"];
+  const weekDays = dayNames.map((label, i) => {
+    const cur = new Date(monday);
+    cur.setUTCDate(monday.getUTCDate() + i);
+    return { label, date: cur.toISOString().slice(0, 10) };
+  });
+
+  const startDate = weekDays[0].date;
+  const endDate = weekDays[4].date;
+
+  const { data: queues } = await supabase
+    .from("queues")
+    .select("id, schedule_date, service:services!inner(agency_id)")
+    .eq("service.agency_id", agencyId)
+    .gte("schedule_date", startDate)
+    .lte("schedule_date", endDate);
+
+  const dateCounts: Record<string, number> = {};
+  for (const q of queues ?? []) {
+    dateCounts[q.schedule_date] = (dateCounts[q.schedule_date] || 0) + 1;
+  }
+
+  const rawPoints = weekDays.map(({ label, date }) => ({
+    day: label,
+    count: dateCounts[date] || 0,
+  }));
+
+  const maxCount = Math.max(...rawPoints.map((p) => p.count));
+  const ceiling = Math.max(9, Math.ceil(maxCount / 3) * 3);
+
+  const yAxisGrid = [
+    { y: 15, label: String(ceiling) },
+    { y: 55, label: String(Math.round((ceiling * 2) / 3)) },
+    { y: 95, label: String(Math.round(ceiling / 3)) },
+    { y: 135, label: "0" },
+  ];
+
+  const points: WeeklyDataPoint[] = rawPoints.map((p, index) => {
+    const x = 35 + index * 110; // 35, 145, 255, 365, 475
+    const y = Math.round(135 - (p.count / ceiling) * 120);
+    return {
+      day: p.day,
+      count: p.count,
+      x,
+      y: Math.min(135, Math.max(15, y)),
+    };
+  });
+
+  return { points, yAxisGrid };
+}
+

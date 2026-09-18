@@ -1,29 +1,31 @@
-# Plan: Integrasi Menyeluruh Supabase ke CiviGo Web
+# Plan: Integrasi Lanjutan Kios, Grafik Beranda, & Manajemen Loket
 
-## 1. Setup Database: Tabel Reviews, Akun Instansi, & Seed Data
-- [x] Buat tabel `reviews` migration SQL di `supabase/migrations/20260912020000_create_reviews_table.sql`
-- [x] Buat akun auth instansi (`disdukcapil@civigo.com`) di Supabase Auth dan assign ke `public.users` dengan role `'instansi'` dan `agency_id: 1`
-- [x] Seed data awal: loket Disdukcapil (Loket 1-8), layanan, dan antrean hari ini di Supabase live
-- [x] Perbarui `lib/supabase/database.types.ts` dengan tipe tabel `reviews` dan `users` yang akurat
+## 1. Koreksi File Migrasi SQL Reviews
+- [x] Perbaiki `queue_id uuid` di `supabase/migrations/20260912020000_create_reviews_table.sql`
 
-## 2. Integrasi Autentikasi Login Instansi
-- [x] Update form login di `app/page.tsx` menjadi interaktif dengan Server Action
-- [x] Dukung input email instansi / username instansi dengan pesan error interaktif
-- [x] Pastikan redirect ke `/admin` setelah login berhasil
+## 2. Integrasi Kios Walk-in & Check-in Mandiri
+- [x] Implementasi Check-in di `/display/input-code`:
+  - [x] Buat form interaktif yang menerima kode/nomor antrean (`CheckInForm.tsx`)
+  - [x] Verifikasi tiket antrean hari ini dan ubah status `scheduled` → `present` (`/api/queue/check-in`)
+  - [x] Tampilkan kartu/modal sukses check-in dengan nomor antrean dan instruksi ruang tunggu
+- [x] Implementasi Pendaftaran Walk-in di `/display/select-layanan`:
+  - [x] Ambil layanan aktif dari database Supabase secara dinamis
+  - [x] Ketika layanan diklik, buka dialog/modal input NIK dan konfirmasi pendaftaran walk-in (`KioskServiceSelection.tsx`)
+  - [x] Panggil `POST /api/queue/book` untuk menerbitkan tiket antrean baru
+  - [x] Tampilkan struk tiket nomor antrean hasil booking walk-in
 
-## 3. Integrasi Data Nyata pada Halaman Admin
-- [x] `app/admin/page.tsx` (Beranda): Ambil statistik antrean, sisa antrean, dan loket aktif dari Supabase
-- [x] `app/admin/loket/page.tsx`: Tampilkan daftar loket riil dari tabel `counters`
-- [x] `app/admin/layanan/page.tsx`: Tampilkan katalog layanan riil dari tabel `services`
-- [x] `app/admin/antrean/page.tsx`: Tampilkan antrean aktif per loket, fungsikan tombol "Selesaikan Layanan", "Hanguskan Antrean", dan "Panggil Antrean"
-- [x] `app/admin/ulasan/page.tsx`: Tampilkan statistik ulasan dan ulasan terbaru dari tabel `reviews`
+## 3. Integrasi Grafik Beranda Admin Dinamis (`/admin`)
+- [x] Hitung data distribusi antrean per layanan dari tabel `queues` untuk `ServiceDonutChart`
+- [x] Hitung data tren antrean 7 hari terakhir dari tabel `queues` untuk `WeeklyQueueChart`
+- [x] Pasang data dinamis tersebut di `app/admin/page.tsx`
 
-## 4. Integrasi Layar Kios & Display TV
-- [x] `app/display/select-layanan/page.tsx`: Katalog layanan terintegrasi
-- [x] `app/display/antrean/page.tsx`: Tampilkan nomor antrean per loket dari tabel `queues` & aktifkan Supabase Realtime via `QueueDisplayLive`
+## 4. Manajemen Status Loket di Admin (`/admin/loket`)
+- [x] Buat Server Action / handler untuk toggle status loket (`active` ↔ `inactive`) dan tambah loket baru (`counter-actions.ts`)
+- [x] Tambahkan modal dialog "Tambah Loket" (`LoketTableManager.tsx`)
+- [x] Ubah tombol aksi pada baris loket agar interaktif (toggle status buka/tutup dan edit/hapus loket)
 
-## 5. Verifikasi & Finalisasi
-- [x] Uji alur login instansi
-- [x] Uji pemanggilan antrean dan update realtime
-- [x] Jalankan `pnpm run lint` dan `pnpm run build` (lulus bersih tanpa error)
-- [x] Commit dan push ke repository
+## 5. Verifikasi Menyeluruh (Tanpa Push)
+- [x] Jalankan `pnpm run lint` (pass - 0 errors, 0 warnings)
+- [x] Jalankan `pnpm run build` (pass - 17/17 routes generated cleanly)
+- [x] Verifikasi semua alur berjalan lancar
+

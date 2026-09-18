@@ -6,7 +6,7 @@ create table if not exists public.reviews (
   agency_id bigint not null references public.agencies (id) on delete cascade,
   service_id bigint references public.services (id) on delete set null,
   counter_id bigint references public.counters (id) on delete set null,
-  queue_id bigint references public.queues (id) on delete set null,
+  queue_id uuid references public.queues (id) on delete set null,
   user_id uuid references public.users (id) on delete set null,
   rating smallint not null check (rating >= 1 and rating <= 5),
   comment text,

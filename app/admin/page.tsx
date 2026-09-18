@@ -14,14 +14,24 @@ import PerformanceCard from "../components/admin/PerformanceCard";
 import ServiceDonutChart from "../components/admin/ServiceDonutChart";
 import WeeklyQueueChart from "../components/admin/WeeklyQueueChart";
 
-import { getAdminDashboardStats, resolveAgencyId } from "@/lib/data/admin";
+import {
+  getAdminDashboardStats,
+  getServiceDonutData,
+  getWeeklyQueueData,
+  resolveAgencyId,
+} from "@/lib/data/admin";
 
 export const metadata: Metadata = {
   title: "Beranda — CiviGo",
 };
 
 export default async function AdminBerandaPage() {
-  const stats = await getAdminDashboardStats(await resolveAgencyId());
+  const agencyId = await resolveAgencyId();
+  const [stats, donutItems, weeklyData] = await Promise.all([
+    getAdminDashboardStats(agencyId),
+    getServiceDonutData(agencyId),
+    getWeeklyQueueData(agencyId),
+  ]);
 
   const metricCards: MetricCardProps[] = [
     {
@@ -110,8 +120,15 @@ export default async function AdminBerandaPage() {
 
       {/* Baris 3: Grafik Layanan & Mingguan */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        <ServiceDonutChart className="lg:col-span-5" />
-        <WeeklyQueueChart className="lg:col-span-7" />
+        <ServiceDonutChart
+          items={donutItems}
+          className="lg:col-span-5"
+        />
+        <WeeklyQueueChart
+          points={weeklyData.points}
+          yAxisGrid={weeklyData.yAxisGrid}
+          className="lg:col-span-7"
+        />
       </div>
     </div>
   );

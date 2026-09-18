@@ -24,12 +24,14 @@ const Y_AXIS_GRID = [
 
 export type WeeklyQueueChartProps = {
   points?: WeeklyDataPoint[];
+  yAxisGrid?: { y: number; label: string }[];
   filterLabel?: string;
   className?: string;
 };
 
 export default function WeeklyQueueChart({
   points = DEFAULT_POINTS,
+  yAxisGrid = Y_AXIS_GRID,
   filterLabel = "Minggu Ini",
   className = "",
 }: WeeklyQueueChartProps) {
@@ -56,7 +58,7 @@ export default function WeeklyQueueChart({
         <div className="relative h-44 w-full">
           <svg viewBox="0 0 500 160" className="size-full overflow-visible">
             {/* Grid horizontal & label sumbu Y */}
-            {Y_AXIS_GRID.map(({ y, label }) => (
+            {yAxisGrid.map(({ y, label }) => (
               <g key={label}>
                 <text
                   x="10"
