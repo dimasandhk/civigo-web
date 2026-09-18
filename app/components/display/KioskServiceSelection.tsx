@@ -189,6 +189,20 @@ export default function KioskServiceSelection({
       blocks.push({ label, disabled, reason });
     }
 
+    // Jika seluruh sesi reguler hari ini telah lewat (misal pengujian malam hari / luar jam kantor):
+    const allDisabled = blocks.every((b) => b.disabled);
+    if (isToday && (allDisabled || blocks.length === 0)) {
+      const currentHour = Math.floor(nowMin / 60);
+      const testStart = currentHour * 60;
+      const testEnd = (currentHour + 1) * 60;
+      const testLabel = `${minutesToTime(testStart)} - ${minutesToTime(testEnd)}`;
+      blocks.unshift({
+        label: testLabel,
+        disabled: false,
+        reason: "Sesi Testing Malam Hari",
+      });
+    }
+
     return blocks;
   }, [selectedService, targetDate]);
 
@@ -214,6 +228,13 @@ export default function KioskServiceSelection({
           break;
         }
       }
+
+      // Jika seluruh sesi reguler telah lewat (misal malam hari), pilih sesi testing jam sekarang
+      if (!firstBlock) {
+        const currentHour = Math.floor(nowMin / 60);
+        firstBlock = `${minutesToTime(currentHour * 60)} - ${minutesToTime((currentHour + 1) * 60)}`;
+      }
+
       setSelectedTimeBlock(firstBlock);
     }
   };

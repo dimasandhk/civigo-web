@@ -228,10 +228,6 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
     );
   }
 
-  if (!agency.operating_days.includes(isoDayOfWeek(input.schedule_date))) {
-    return fail(422, "AGENCY_CLOSED", `${agency.name} tutup pada tanggal ${input.schedule_date}.`);
-  }
-
   const block = parseTimeBlock(input.time_block);
 
   if (!block) {
@@ -242,38 +238,46 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
     );
   }
 
-  const openMinutes = timeToMinutes(agency.open_time);
-  const closeMinutes = timeToMinutes(agency.close_time);
-
-  if (block.startMinutes < openMinutes || block.startMinutes >= closeMinutes) {
-    return fail(
-      422,
-      "OUTSIDE_OPERATING_HOURS",
-      `Sesi ${minutesToTime(block.startMinutes)} di luar jam operasional ${agency.name} ` +
-        `(${minutesToTime(openMinutes)} - ${minutesToTime(closeMinutes)}).`,
-    );
-  }
-
-  // The stand-in for quota: the service has to be able to finish before closing.
   const estimatedTime = service.estimated_time ?? DEFAULT_ESTIMATED_MINUTES;
   const finishMinutes = block.startMinutes + estimatedTime;
 
-  if (finishMinutes > closeMinutes) {
-    return fail(
-      422,
-      "SERVICE_EXCEEDS_CLOSING",
-      `Layanan ${service.name} (${estimatedTime} menit) pada sesi ` +
-        `${minutesToTime(block.startMinutes)} diperkirakan selesai ` +
-        `${minutesToTime(finishMinutes)}, melewati jam tutup ${minutesToTime(closeMinutes)}.`,
-    );
-  }
+  // Izinkan pengujian di luar jam kerja (misal malam hari atau akhir pekan) saat development
+  const isDevTesting = process.env.NODE_ENV !== "production";
 
-  if (dayOffset === 0 && block.startMinutes <= nowMinutesInJakarta()) {
-    return fail(
-      422,
-      "TIME_BLOCK_PASSED",
-      `Sesi ${minutesToTime(block.startMinutes)} hari ini sudah lewat.`,
-    );
+  if (!isDevTesting) {
+    if (!agency.operating_days.includes(isoDayOfWeek(input.schedule_date))) {
+      return fail(422, "AGENCY_CLOSED", `${agency.name} tutup pada tanggal ${input.schedule_date}.`);
+    }
+
+    const openMinutes = timeToMinutes(agency.open_time);
+    const closeMinutes = timeToMinutes(agency.close_time);
+
+    if (block.startMinutes < openMinutes || block.startMinutes >= closeMinutes) {
+      return fail(
+        422,
+        "OUTSIDE_OPERATING_HOURS",
+        `Sesi ${minutesToTime(block.startMinutes)} di luar jam operasional ${agency.name} ` +
+          `(${minutesToTime(openMinutes)} - ${minutesToTime(closeMinutes)}).`,
+      );
+    }
+
+    if (finishMinutes > closeMinutes) {
+      return fail(
+        422,
+        "SERVICE_EXCEEDS_CLOSING",
+        `Layanan ${service.name} (${estimatedTime} menit) pada sesi ` +
+          `${minutesToTime(block.startMinutes)} diperkirakan selesai ` +
+          `${minutesToTime(finishMinutes)}, melewati jam tutup ${minutesToTime(closeMinutes)}.`,
+      );
+    }
+
+    if (dayOffset === 0 && block.startMinutes <= nowMinutesInJakarta()) {
+      return fail(
+        422,
+        "TIME_BLOCK_PASSED",
+        `Sesi ${minutesToTime(block.startMinutes)} hari ini sudah lewat.`,
+      );
+    }
   }
 
   // Prevent duplicate booking for the same service and date (by userId or by NIK)
