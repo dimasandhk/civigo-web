@@ -190,6 +190,7 @@ export type Database = {
           estimated_time: number | null
           id: number
           name: string
+          output_documents: string[] | null
           requirements: Json | null
         }
         Insert: {
@@ -197,6 +198,7 @@ export type Database = {
           estimated_time?: number | null
           id?: number
           name: string
+          output_documents?: string[] | null
           requirements?: Json | null
         }
         Update: {
@@ -204,6 +206,7 @@ export type Database = {
           estimated_time?: number | null
           id?: number
           name?: string
+          output_documents?: string[] | null
           requirements?: Json | null
         }
         Relationships: [

@@ -34,6 +34,8 @@ export type KioskService = {
     close_time: string;
     operating_days: number[];
   } | null;
+  requirements?: string[];
+  output_documents?: string[];
 };
 
 type IssuedTicket = {
@@ -483,6 +485,46 @@ export default function KioskServiceSelection({
                   <Clock size={14} /> Estimasi pengerjaan: {selectedService.estimated_time ?? 15} menit
                 </span>
               </header>
+ 
+              {((selectedService.output_documents && selectedService.output_documents.length > 0) ||
+                (selectedService.requirements && selectedService.requirements.length > 0)) && (
+                <div className="mt-4 flex flex-col gap-2.5 rounded-xl border border-line bg-board/30 p-3.5 text-xs">
+                  {selectedService.output_documents && selectedService.output_documents.length > 0 && (
+                    <div>
+                      <span className="font-semibold text-emerald-800 uppercase tracking-wider text-[11px] block">
+                        Dokumen yang Diterbitkan:
+                      </span>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {selectedService.output_documents.map((doc, idx) => (
+                          <span
+                            key={idx}
+                            className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800"
+                          >
+                            {doc}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {selectedService.requirements && selectedService.requirements.length > 0 && (
+                    <div>
+                      <span className="font-semibold text-slate-700 uppercase tracking-wider text-[11px] block">
+                        Persyaratan Dokumen:
+                      </span>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {selectedService.requirements.map((req, idx) => (
+                          <span
+                            key={idx}
+                            className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700"
+                          >
+                            {req}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {bookingError && (
                 <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-700">

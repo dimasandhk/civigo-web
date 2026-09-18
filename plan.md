@@ -1,31 +1,34 @@
-# Plan: Integrasi Lanjutan Kios, Grafik Beranda, & Manajemen Loket
+# Plan: Dev 2 Tugas 2 — Field Dokumen Output Layanan & API Cross-Agency Logic
 
-## 1. Koreksi File Migrasi SQL Reviews
-- [x] Perbaiki `queue_id uuid` di `supabase/migrations/20260912020000_create_reviews_table.sql`
+## 1. File Migrasi SQL
+- [x] Buat file migrasi `supabase/migrations/20260918220000_add_output_documents_to_services.sql`
+  - Tambah kolom `output_documents text[] default array[]::text[]` pada tabel `services`
+  - Seed dokumen output untuk 6 layanan eksisting (Disdukcapil, Samsat, Imigrasi)
 
-## 2. Integrasi Kios Walk-in & Check-in Mandiri
-- [x] Implementasi Check-in di `/display/input-code`:
-  - [x] Buat form interaktif yang menerima kode/nomor antrean (`CheckInForm.tsx`)
-  - [x] Verifikasi tiket antrean hari ini dan ubah status `scheduled` → `present` (`/api/queue/check-in`)
-  - [x] Tampilkan kartu/modal sukses check-in dengan nomor antrean dan instruksi ruang tunggu
-- [x] Implementasi Pendaftaran Walk-in di `/display/select-layanan`:
-  - [x] Ambil layanan aktif dari database Supabase secara dinamis
-  - [x] Ketika layanan diklik, buka dialog/modal input NIK dan konfirmasi pendaftaran walk-in (`KioskServiceSelection.tsx`)
-  - [x] Panggil `POST /api/queue/book` untuk menerbitkan tiket antrean baru
-  - [x] Tampilkan struk tiket nomor antrean hasil booking walk-in
+## 2. Core Engine Algoritma Cross-Agency
+- [x] Buat modul `lib/queue/cross-agency.ts`:
+  - Definisi tipe data & `DEFAULT_OUTPUT_DOCUMENTS` (fallback aman jika kolom remote belum dibuat di GUI Supabase)
+  - Logika normalisasi teks dan matching dokumen (fuzzy / synonym tags: KTP, KK, STNK, Paspor, dll.)
+  - Evaluasi prasyarat: pisahkan `fulfilled` dan `missing`
+  - Deteksi cross-agency service: hubungkan missing document ke service penghasilnya
+  - Deteksi dokumen eksternal (RT/RW, KUA, Leasing/Polri)
+  - Penyusunan roadmap kunjungan antar-instansi (`suggested_flow`)
 
-## 3. Integrasi Grafik Beranda Admin Dinamis (`/admin`)
-- [x] Hitung data distribusi antrean per layanan dari tabel `queues` untuk `ServiceDonutChart`
-- [x] Hitung data tren antrean 7 hari terakhir dari tabel `queues` untuk `WeeklyQueueChart`
-- [x] Pasang data dinamis tersebut di `app/admin/page.tsx`
+## 3. Implementasi API Routes untuk Mobile & Web
+- [x] `GET /api/services`: Katalog layanan lengkap dengan agensi, requirements, dan output documents
+- [x] `GET & POST /api/services/[id]/prerequisites`: Analisis prasyarat per ID layanan
+- [x] `POST /api/services/cross-agency`: Endpoint fleksibel cross-agency evaluation
 
-## 4. Manajemen Status Loket di Admin (`/admin/loket`)
-- [x] Buat Server Action / handler untuk toggle status loket (`active` ↔ `inactive`) dan tambah loket baru (`counter-actions.ts`)
-- [x] Tambahkan modal dialog "Tambah Loket" (`LoketTableManager.tsx`)
-- [x] Ubah tombol aksi pada baris loket agar interaktif (toggle status buka/tutup dan edit/hapus loket)
+## 4. Tampilan Web Admin Layanan
+- [x] Update `lib/data/admin.ts` (`getAdminServices`) untuk memuat `output_documents` dan `requirements`
+- [x] Update `app/admin/layanan/page.tsx` untuk menampilkan kolom Dokumen Output & Persyaratan
+- [x] Update `app/display/select-layanan/page.tsx` & `KioskServiceSelection.tsx` untuk menampilkan informasi dokumen output & persyaratan di kios
 
-## 5. Verifikasi Menyeluruh (Tanpa Push)
+## 5. Dokumentasi Kontrak Bisnis
+- [x] Buat `business-flow/dev2-task2-contract.md` melengkapi Task 1 dan Task 3
+
+## 6. Verifikasi & Local Commit (Tanpa Push)
+- [x] Uji fungsionalitas algoritma & API via test script
 - [x] Jalankan `pnpm run lint` (pass - 0 errors, 0 warnings)
-- [x] Jalankan `pnpm run build` (pass - 17/17 routes generated cleanly)
-- [x] Verifikasi semua alur berjalan lancar
-
+- [x] Jalankan `pnpm run build` (pass - 19/19 routes generated cleanly)
+- [x] Simpan commit lokal (JANGAN PUSH)

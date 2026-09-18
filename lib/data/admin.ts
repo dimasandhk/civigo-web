@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import type { RatingLevel } from "@/app/components/admin/ratings";
 import type { ServiceDonutItem } from "@/app/components/admin/ServiceDonutChart";
 import type { WeeklyDataPoint } from "@/app/components/admin/WeeklyQueueChart";
+import { DEFAULT_OUTPUT_DOCUMENTS } from "@/lib/queue/cross-agency";
 
 /**
  * Data untuk dashboard admin.
@@ -126,7 +127,17 @@ export async function getAdminCounters(agencyId: number) {
   }));
 }
 
-export async function getAdminServices(agencyId: number) {
+export type AdminServiceItem = {
+  id: number;
+  name: string;
+  category: string;
+  status: "aktif" | "nonaktif";
+  estimate: string;
+  requirements: string[];
+  output_documents: string[];
+};
+
+export async function getAdminServices(agencyId: number): Promise<AdminServiceItem[]> {
   const supabase = createServiceClient();
   const { data: services, error } = await supabase
     .from("services")
@@ -136,13 +147,32 @@ export async function getAdminServices(agencyId: number) {
 
   if (error) throw new Error(`Gagal memuat layanan: ${error.message}`);
 
-  return (services ?? []).map((s) => ({
-    id: s.id,
-    name: s.name,
-    category: "Kependudukan",
-    status: "aktif" as const,
-    estimate: s.estimated_time ? `${s.estimated_time} menit` : "-",
-  }));
+  return (services ?? []).map((s) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawReq = (s as any).requirements;
+    const requirements: string[] = Array.isArray(rawReq)
+      ? rawReq.map(String)
+      : typeof rawReq === "string"
+      ? [rawReq]
+      : [];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawOut = (s as any).output_documents;
+    const output_documents: string[] =
+      Array.isArray(rawOut) && rawOut.length > 0
+        ? rawOut.map(String)
+        : (DEFAULT_OUTPUT_DOCUMENTS[s.id] ?? []);
+
+    return {
+      id: s.id,
+      name: s.name,
+      category: "Kependudukan",
+      status: "aktif" as const,
+      estimate: s.estimated_time ? `${s.estimated_time} menit` : "-",
+      requirements,
+      output_documents,
+    };
+  });
 }
 
 export type QueueItem = {

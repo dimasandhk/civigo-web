@@ -3,32 +3,29 @@ import BackButton from "../../components/display/BackButton";
 import KioskServiceSelection, {
   type KioskService,
 } from "../../components/display/KioskServiceSelection";
-import { createServiceClient } from "@/lib/supabase/service";
+import { getAllServices } from "@/lib/queue/cross-agency";
 
 export const metadata: Metadata = {
   title: "Pilih Layanan atau Instansi — CiviGo",
 };
 
 export default async function SelectLayananPage() {
-  const supabase = createServiceClient();
-  const { data: services } = await supabase
-    .from("services")
-    .select(`
-      id,
-      name,
-      estimated_time,
-      agency_id,
-      agency:agencies(id, name, open_time, close_time, operating_days)
-    `)
-    .order("id", { ascending: true });
+  const allServices = await getAllServices();
 
-  const kioskServices: KioskService[] = (services ?? []).map((s) => ({
+  const kioskServices: KioskService[] = allServices.map((s) => ({
     id: s.id,
     name: s.name,
     estimated_time: s.estimated_time,
     agency_id: s.agency_id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    agency: s.agency as any,
+    agency: {
+      id: s.agency.id,
+      name: s.agency.name,
+      open_time: s.agency.open_time ?? "08:00",
+      close_time: s.agency.close_time ?? "16:00",
+      operating_days: s.agency.operating_days ?? [1, 2, 3, 4, 5],
+    },
+    requirements: s.requirements,
+    output_documents: s.output_documents,
   }));
 
   return (
