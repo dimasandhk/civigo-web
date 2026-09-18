@@ -226,7 +226,7 @@ export type Database = {
           counter_id: number | null
           created_at: string
           id: number
-          queue_id: number | null
+          queue_id: string | null
           rating: number
           service_id: number | null
           user_id: string | null
@@ -237,7 +237,7 @@ export type Database = {
           counter_id?: number | null
           created_at?: string
           id?: number
-          queue_id?: number | null
+          queue_id?: string | null
           rating: number
           service_id?: number | null
           user_id?: string | null
@@ -248,7 +248,7 @@ export type Database = {
           counter_id?: number | null
           created_at?: string
           id?: number
-          queue_id?: number | null
+          queue_id?: string | null
           rating?: number
           service_id?: number | null
           user_id?: string | null

@@ -8,7 +8,9 @@ Snapshot struktur database terbaru: [`db-structure_2026-09-13.txt`](./db-structu
 
 Kontrak API:
 - Booking — [`dev2-task1-contract.md`](./dev2-task1-contract.md)
+- Dokumen Output & Cross-Agency Logic — [`dev2-task2-contract.md`](./dev2-task2-contract.md)
 - Status & reschedule — [`dev2-task3-contract.md`](./dev2-task3-contract.md)
+- Ulasan & Rating Pelayanan — `POST & GET /api/reviews`
 
 > **Keputusan tetap:** kuota (per time-block maupun di `services`) **tidak akan
 > pernah** dibuat. Kapasitas dijaga jam operasional, bukan kuota.
@@ -105,13 +107,14 @@ Halaman antrean, input code, dan pemilihan layanan untuk layar/kiosk di lokasi.
 - `users.agency_id` ditambahkan: satu akun instansi terikat ke satu agency.
 - `services.info_procedure` ditambahkan (info prosedur layanan untuk warga).
 
-### 12/09/2026 — fitur ulasan (BELUM aktif)
-Migrasi `20260912020000_create_reviews_table.sql` ada di repo tapi **belum
-diterapkan** ke database remote, dan akan gagal kalau dijalankan apa adanya:
-`reviews.queue_id` bertipe `bigint` sementara `queues.id` bertipe `uuid`.
-
-Akibatnya `getAdminReviews()` selalu jatuh ke fallback dummy, jadi halaman
-`/admin/ulasan` menampilkan angka karangan (Total Ulasan 500, rata-rata 4.6).
+### 12/09/2026 s/d 18/09/2026 — fitur ulasan (tabel & API)
+Migrasi `20260912020000_create_reviews_table.sql` telah dikoreksi tipe relasinya:
+`agency_id`, `service_id`, dan `counter_id` bertipe `integer` (sesuai PK tabel asal),
+serta `queue_id` dan `user_id` bertipe `uuid`.
+Tersedia endpoint `GET & POST /api/reviews` untuk integrasi penerimaan feedback warga
+(baik mobile, kiosk, maupun web).
+Halaman `/admin/ulasan` membaca data langsung dari tabel `reviews` dengan fallback otomatis
+jika tabel belum dieksekusi di remote.
 
 ### 13/09/2026 — endpoint booking (Dev 2, Tugas 1)
 Migrasi `20260913130836_queue_booking_prerequisites`:

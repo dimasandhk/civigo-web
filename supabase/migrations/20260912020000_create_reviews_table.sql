@@ -3,9 +3,9 @@
 
 create table if not exists public.reviews (
   id bigint generated always as identity primary key,
-  agency_id bigint not null references public.agencies (id) on delete cascade,
-  service_id bigint references public.services (id) on delete set null,
-  counter_id bigint references public.counters (id) on delete set null,
+  agency_id integer not null references public.agencies (id) on delete cascade,
+  service_id integer references public.services (id) on delete set null,
+  counter_id integer references public.counters (id) on delete set null,
   queue_id uuid references public.queues (id) on delete set null,
   user_id uuid references public.users (id) on delete set null,
   rating smallint not null check (rating >= 1 and rating <= 5),
@@ -24,7 +24,7 @@ create index if not exists reviews_created_at_idx on public.reviews (created_at 
 alter table public.reviews enable row level security;
 
 -- Policies:
--- 1. Anyone (or authenticated users) can read reviews for their agency
+-- 1. Anyone can read reviews
 create policy "Reviews are viewable by everyone"
   on public.reviews
   for select
@@ -37,7 +37,14 @@ create policy "Authenticated users can insert reviews"
   to authenticated
   with check (true);
 
--- 3. Service role can perform all actions
+-- 3. Anonymous users (e.g. walk-in kiosk tickets) can insert reviews
+create policy "Anon users can insert reviews"
+  on public.reviews
+  for insert
+  to anon
+  with check (true);
+
+-- 4. Service role has full access
 create policy "Service role has full access to reviews"
   on public.reviews
   for all
