@@ -35,6 +35,7 @@ export default function CheckInForm() {
         const res = await fetch("/api/queue/check-in", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "omit",
           body: JSON.stringify({ code: code.trim() }),
         });
 

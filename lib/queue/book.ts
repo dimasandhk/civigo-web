@@ -141,10 +141,24 @@ async function resolveIdentity(
 
   if (profile) {
     if (profile.role !== "user") {
+      // Jika terdapat NIK warga (kiosk mode atau petugas mendaftarkan antrean walk-in untuk warga):
+      if (input.nik && NIK_PATTERN.test(input.nik)) {
+        const { data: account } = await db
+          .from("users")
+          .select("id, role")
+          .eq("nik", input.nik)
+          .maybeSingle();
+
+        return {
+          userId: account && account.role === "user" ? account.id : null,
+          nik: input.nik,
+        };
+      }
+
       return fail(
         403,
         "ROLE_NOT_ALLOWED",
-        "Akun instansi tidak bisa mengambil antrean. Gunakan akun warga atau kiosk.",
+        "Akun instansi tidak bisa mengambil antrean untuk diri sendiri. Gunakan akun warga atau kiosk.",
       );
     }
 

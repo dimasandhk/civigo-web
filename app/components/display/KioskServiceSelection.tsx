@@ -267,6 +267,7 @@ export default function KioskServiceSelection({
         const res = await fetch("/api/queue/book", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "omit",
           body: JSON.stringify({
             service_id: selectedService.id,
             schedule_date: targetDate,
@@ -285,6 +286,7 @@ export default function KioskServiceSelection({
             await fetch("/api/queue/check-in", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
+              credentials: "omit",
               body: JSON.stringify({ code: data.ticket.queue_number }),
             }).catch(() => {});
           }
