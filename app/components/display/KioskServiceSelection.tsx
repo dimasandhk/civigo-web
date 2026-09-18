@@ -259,6 +259,14 @@ export default function KioskServiceSelection({
         if (!res.ok || !data.ok) {
           setBookingError(data?.error?.message ?? "Gagal mengambil nomor antrean. Silakan coba lagi.");
         } else {
+          // Untuk pendaftaran walk-in langsung di kiosk pada hari ini, otomatis catat kehadiran (check-in)
+          if (targetDate === getTodayJakarta()) {
+            await fetch("/api/queue/check-in", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ code: data.ticket.queue_number }),
+            }).catch(() => {});
+          }
           setIssuedTicket(data.ticket);
         }
       } catch {

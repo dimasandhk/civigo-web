@@ -63,8 +63,13 @@ export default function QueueDisplayLive({
       )
       .subscribe();
 
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 10000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(interval);
     };
   }, [router]);
 

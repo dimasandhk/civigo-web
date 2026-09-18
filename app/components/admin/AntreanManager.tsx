@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useOptimistic, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Button from "../Button";
 import AdjacentQueueCard from "./AdjacentQueueCard";
 import DetailField from "./DetailField";
 import LoketTab from "./LoketTab";
 import type { QueueItem } from "@/lib/data/admin";
+import { createClient } from "@/lib/supabase/client";
 import { Loader2, Megaphone } from "lucide-react";
 
 export type AntreanManagerProps = {
@@ -15,14 +17,6 @@ export type AntreanManagerProps = {
 
 type ApiError = { code: string; message: string };
 
-/**
- * Talks to the queue endpoints.
- *
- * These used to be Server Actions writing through the cookie client, which RLS
- * silently reduced to zero-row updates — the buttons reported success while
- * changing nothing. The endpoints run on the service_role client and do their
- * own authorization, so failures now come back as real messages worth showing.
- */
 async function callQueueApi<T>(
   url: string,
   method: "POST" | "PATCH",
@@ -62,12 +56,65 @@ export default function AntreanManager({
   counters,
   initialQueues,
 }: AntreanManagerProps) {
+  const router = useRouter();
   const [selectedCounterId, setSelectedCounterId] = useState<number>(
     counters[0]?.id ?? 1,
   );
-  const [queues, setQueues] = useState<QueueItem[]>(initialQueues);
   const [isPending, startTransition] = useTransition();
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  // Optimistic queue state tied directly to server-rendered initialQueues
+  const [queues, setOptimisticQueues] = useOptimistic(
+    initialQueues,
+    (
+      state,
+      update: {
+        id: string;
+        status: string;
+        counter_id?: number | null;
+        counter_name?: string | null;
+      },
+    ) =>
+      state.map((q) =>
+        q.id === update.id
+          ? {
+              ...q,
+              status: update.status,
+              counter_id: update.counter_id !== undefined ? update.counter_id : q.counter_id,
+              counter_name: update.counter_name !== undefined ? update.counter_name : q.counter_name,
+            }
+          : q,
+      ),
+  );
+
+  // Realtime subscription: sync with Kiosk registrations and other counters
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel("public:queues-admin-sync")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "queues",
+        },
+        () => {
+          router.refresh();
+        },
+      )
+      .subscribe();
+
+    // Fallback periodic sync every 12 seconds
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 12000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [router]);
 
   // Active queue currently being served at the selected counter
   const activeQueue = queues.find(
@@ -89,38 +136,38 @@ export default function AntreanManager({
   const handleComplete = () => {
     if (!activeQueue) return;
     startTransition(async () => {
+      setOptimisticQueues({ id: activeQueue.id, status: "completed" });
       const res = await callQueueApi(`/api/queue/${activeQueue.id}/status`, "PATCH", {
         status: "completed",
       });
 
       if (!res.ok) {
         setActionMessage(res.error.message);
+        router.refresh();
         return;
       }
 
-      setQueues((prev) =>
-        prev.map((q) => (q.id === activeQueue.id ? { ...q, status: "completed" } : q)),
-      );
       setActionMessage(`Antrean ${activeQueue.queue_number} berhasil diselesaikan.`);
+      router.refresh();
     });
   };
 
   const handleSkip = () => {
     if (!activeQueue) return;
     startTransition(async () => {
+      setOptimisticQueues({ id: activeQueue.id, status: "skipped" });
       const res = await callQueueApi(`/api/queue/${activeQueue.id}/status`, "PATCH", {
         status: "skipped",
       });
 
       if (!res.ok) {
         setActionMessage(res.error.message);
+        router.refresh();
         return;
       }
 
-      setQueues((prev) =>
-        prev.map((q) => (q.id === activeQueue.id ? { ...q, status: "skipped" } : q)),
-      );
       setActionMessage(`Antrean ${activeQueue.queue_number} ditandai hangus.`);
+      router.refresh();
     });
   };
 
@@ -136,41 +183,57 @@ export default function AntreanManager({
         return;
       }
 
-      // The endpoint reports which ticket it actually called, so we no longer
-      // have to guess by re-running the ordering rules on the client.
       const called = res.data.ticket;
+      const counterName = counters.find((c) => c.id === selectedCounterId)?.name || "Loket";
 
-      setQueues((prev) =>
-        prev.map((q) =>
-          q.id === called.id
-            ? {
-                ...q,
-                status: "served",
-                counter_id: selectedCounterId,
-                counter_name: counters.find((c) => c.id === selectedCounterId)?.name || null,
-              }
-            : q,
-        ),
-      );
-      setActionMessage(`Memanggil nomor antrean ${called.queue_number}`);
+      setOptimisticQueues({
+        id: called.id,
+        status: "served",
+        counter_id: selectedCounterId,
+        counter_name: counterName,
+      });
+
+      setActionMessage(`Memanggil nomor antrean ${called.queue_number} ke ${counterName}`);
+
+      // Suara panggilan loket otomatis (Text-to-Speech)
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        try {
+          const utterance = new SpeechSynthesisUtterance(
+            `Nomor antrean ${called.queue_number}, silakan menuju ke ${counterName}`,
+          );
+          utterance.lang = "id-ID";
+          utterance.rate = 0.9;
+          window.speechSynthesis.speak(utterance);
+        } catch {
+          // Abaikan jika browser memblokir audio otomatis
+        }
+      }
+
+      router.refresh();
     });
   };
 
   return (
     <div className="flex flex-col gap-[35px]">
-      {/* Loket Tabs */}
-      <div className="flex gap-3 overflow-x-auto pb-2 sm:gap-5 scrollbar-none">
-        {counters.map((counter) => (
-          <LoketTab
-            key={counter.id}
-            label={counter.name}
-            isActive={selectedCounterId === counter.id}
-            onClick={() => {
-              setSelectedCounterId(counter.id);
-              setActionMessage(null);
-            }}
-          />
-        ))}
+      {/* Loket Tabs & Live Indicator */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-3 overflow-x-auto pb-2 sm:gap-5 scrollbar-none flex-1">
+          {counters.map((counter) => (
+            <LoketTab
+              key={counter.id}
+              label={counter.name}
+              isActive={selectedCounterId === counter.id}
+              onClick={() => {
+                setSelectedCounterId(counter.id);
+                setActionMessage(null);
+              }}
+            />
+          ))}
+        </div>
+        <div className="flex items-center gap-2 self-start sm:self-center rounded-full bg-emerald-50 px-3.5 py-1.5 border border-emerald-200 text-xs font-semibold text-emerald-700 shadow-xs">
+          <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Live Sync Kiosk</span>
+        </div>
       </div>
 
       {actionMessage && (

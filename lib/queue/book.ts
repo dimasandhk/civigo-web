@@ -276,25 +276,31 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
     );
   }
 
-  if (identity.userId) {
-    const { data: duplicate } = await db
-      .from("queues")
-      .select("queue_number")
-      .eq("user_id", identity.userId)
-      .eq("service_id", service.id)
-      .eq("schedule_date", input.schedule_date)
-      .in("status", ACTIVE_STATUSES)
-      .limit(1)
-      .maybeSingle();
+  // Prevent duplicate booking for the same service and date (by userId or by NIK)
+  let duplicateQuery = db
+    .from("queues")
+    .select("queue_number")
+    .eq("service_id", service.id)
+    .eq("schedule_date", input.schedule_date)
+    .in("status", ACTIVE_STATUSES);
 
-    if (duplicate) {
-      return fail(
-        409,
-        "DUPLICATE_BOOKING",
-        `Anda sudah punya antrean aktif (${duplicate.queue_number}) untuk layanan ` +
-          `${service.name} pada tanggal ${input.schedule_date}.`,
-      );
-    }
+  if (identity.userId && identity.nik) {
+    duplicateQuery = duplicateQuery.or(`user_id.eq.${identity.userId},nik.eq.${identity.nik}`);
+  } else if (identity.userId) {
+    duplicateQuery = duplicateQuery.eq("user_id", identity.userId);
+  } else if (identity.nik) {
+    duplicateQuery = duplicateQuery.eq("nik", identity.nik);
+  }
+
+  const { data: duplicate } = await duplicateQuery.limit(1).maybeSingle();
+
+  if (duplicate) {
+    return fail(
+      409,
+      "DUPLICATE_BOOKING",
+      `NIK atau akun ini sudah memiliki antrean aktif (${duplicate.queue_number}) untuk layanan ` +
+        `${service.name} pada tanggal ${input.schedule_date}.`,
+    );
   }
 
   const inserted = await insertTicketWithNumber(db, {
