@@ -17,6 +17,7 @@ export type Profile = {
   email: string;
   role: Role;
   agency_id: number | null;
+  location_id: number | null;
 };
 
 /**
@@ -37,11 +38,26 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Pro
 
   // RLS restricts this to the caller's own row, so the filter is a query hint
   // rather than the access control.
-  const { data: profile } = await supabase
+  const { data: profile, error: selectErr } = await supabase
     .from("users")
-    .select("id, nik, full_name, email, role, agency_id")
+    .select("id, nik, full_name, email, role, agency_id, location_id")
     .eq("id", userId)
     .single();
+
+  if (selectErr && (selectErr.code === "42703" || selectErr.message.includes("location_id"))) {
+    const { data: fallbackProfile } = await supabase
+      .from("users")
+      .select("id, nik, full_name, email, role, agency_id")
+      .eq("id", userId)
+      .single();
+
+    if (!fallbackProfile) return null;
+
+    return {
+      ...(fallbackProfile as unknown as Profile),
+      location_id: null,
+    };
+  }
 
   return (profile as unknown as Profile) ?? null;
 });

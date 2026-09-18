@@ -8,9 +8,13 @@ import Sidebar from "./Sidebar";
 export default function AdminShell({
   children,
   agencyId,
+  agencyName,
+  locationName,
 }: {
   children: ReactNode;
   agencyId: number;
+  agencyName?: string;
+  locationName?: string | null;
 }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -19,6 +23,8 @@ export default function AdminShell({
     <div className="flex min-h-screen bg-board">
       <Sidebar
         agencyId={agencyId}
+        agencyName={agencyName}
+        locationName={locationName}
         isMobileOpen={isMobileOpen}
         onCloseMobile={() => setIsMobileOpen(false)}
         isCollapsed={isCollapsed}
@@ -52,9 +58,11 @@ export default function AdminShell({
           </div>
           <div className="text-right">
             <p className="text-[13px] font-bold leading-tight text-ink">
-              Disdukcapil MPP Siola
+              {agencyName ?? "Disdukcapil"}
             </p>
-            <p className="text-[11px] font-medium text-muted">Surabaya</p>
+            <p className="text-[11px] font-medium text-brand">
+              {locationName ?? "Gedung Pelayanan"}
+            </p>
           </div>
         </header>
 

@@ -1,25 +1,29 @@
 import type { Metadata } from "next";
 import PageHeader from "../../components/admin/PageHeader";
 import AntreanManager from "../../components/admin/AntreanManager";
-import { getAdminCounters, getTodayQueues, resolveAgencyId } from "@/lib/data/admin";
+import { getAdminCounters, getTodayQueues, resolveAgencyContext } from "@/lib/data/admin";
 
 export const metadata: Metadata = {
   title: "Antrean — CiviGo",
 };
 
 export default async function AntreanPage() {
-  const agencyId = await resolveAgencyId();
+  const context = await resolveAgencyContext();
 
   const [counters, queues] = await Promise.all([
-    getAdminCounters(agencyId),
-    getTodayQueues(agencyId),
+    getAdminCounters(context.agencyId),
+    getTodayQueues(context.agencyId, context.locationId),
   ]);
 
   return (
     <div className="flex flex-col gap-[35px]">
       <PageHeader
         title="Antrean"
-        description="Kelola antrean di loket pelayanan"
+        description={
+          context.locationName
+            ? `Kelola antrean di loket pelayanan — ${context.locationName}`
+            : "Kelola antrean di loket pelayanan"
+        }
       />
 
       <AntreanManager

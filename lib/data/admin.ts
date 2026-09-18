@@ -46,6 +46,42 @@ export async function resolveAgencyId(): Promise<number> {
   return data.id;
 }
 
+export type AgencyContext = {
+  agencyId: number;
+  agencyName: string;
+  locationId: number | null;
+  locationName: string | null;
+};
+
+export async function resolveAgencyContext(): Promise<AgencyContext> {
+  const profile = await requireOfficer();
+  const agencyId = profile.agency_id ?? (await resolveAgencyId());
+  const supabase = createServiceClient();
+
+  const { data: agency } = await supabase
+    .from("agencies")
+    .select("name")
+    .eq("id", agencyId)
+    .maybeSingle();
+
+  let locationName: string | null = null;
+  if (profile.location_id) {
+    const { data: loc } = await supabase
+      .from("locations")
+      .select("name")
+      .eq("id", profile.location_id)
+      .maybeSingle();
+    locationName = loc?.name ?? null;
+  }
+
+  return {
+    agencyId,
+    agencyName: agency?.name ?? "Instansi",
+    locationId: profile.location_id,
+    locationName: locationName ?? (profile.location_id ? `Cabang #${profile.location_id}` : null),
+  };
+}
+
 export type DashboardStats = {
   totalToday: number;
   completedToday: number;
@@ -182,6 +218,7 @@ export type QueueItem = {
   time_block: string;
   schedule_date: string;
   counter_id: number | null;
+  location_id?: number | null;
   service_name: string;
   counter_name: string | null;
   user_name: string;
@@ -194,11 +231,28 @@ function maskNik(nik: string | null): string {
   return nik.length >= 6 ? `${nik.slice(0, 4)}••••••••••${nik.slice(-2)}` : nik;
 }
 
-export async function getTodayQueues(agencyId: number): Promise<QueueItem[]> {
+type RawQueueRow = {
+  id: string;
+  queue_number: string;
+  status: string;
+  time_block: string;
+  schedule_date: string;
+  counter_id: number | null;
+  location_id?: number | null;
+  nik: string | null;
+  counter?: { id: number; counter_name: string } | null;
+  service?: { id: number; name: string; agency_id: number } | null;
+  user?: { id: string; full_name: string; nik: string | null } | null;
+};
+
+export async function getTodayQueues(
+  agencyId: number,
+  locationId?: number | null
+): Promise<QueueItem[]> {
   const supabase = createServiceClient();
   const today = todayInJakarta();
 
-  const { data: queues, error } = await supabase
+  let query = supabase
     .from("queues")
     .select(`
       id,
@@ -207,6 +261,7 @@ export async function getTodayQueues(agencyId: number): Promise<QueueItem[]> {
       time_block,
       schedule_date,
       counter_id,
+      location_id,
       nik,
       counter:counters(id, counter_name),
       service:services!inner(id, name, agency_id),
@@ -216,15 +271,42 @@ export async function getTodayQueues(agencyId: number): Promise<QueueItem[]> {
     .eq("service.agency_id", agencyId)
     .order("queue_number", { ascending: true });
 
-  if (error) throw new Error(`Gagal memuat antrean: ${error.message}`);
+  if (locationId) {
+    query = query.eq("location_id", locationId);
+  }
 
-  return (queues ?? []).map((q) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const user = q.user as any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const service = q.service as any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const counter = q.counter as any;
+  const { data: queues, error } = await query;
+
+  let list: RawQueueRow[] = (queues as unknown as RawQueueRow[]) ?? [];
+
+  if (error) {
+    // Fallback jika kolom location_id belum dieksekusi di database remote
+    const fallbackQuery = await supabase
+      .from("queues")
+      .select(`
+        id,
+        queue_number,
+        status,
+        time_block,
+        schedule_date,
+        counter_id,
+        nik,
+        counter:counters(id, counter_name),
+        service:services!inner(id, name, agency_id),
+        user:users(id, full_name, nik)
+      `)
+      .eq("schedule_date", today)
+      .eq("service.agency_id", agencyId)
+      .order("queue_number", { ascending: true });
+
+    if (fallbackQuery.error) throw new Error(`Gagal memuat antrean: ${fallbackQuery.error.message}`);
+    list = (fallbackQuery.data as unknown as RawQueueRow[]) ?? [];
+  }
+
+  return list.map((q) => {
+    const user = q.user;
+    const service = q.service;
+    const counter = q.counter;
 
     return {
       id: q.id,
@@ -233,6 +315,7 @@ export async function getTodayQueues(agencyId: number): Promise<QueueItem[]> {
       time_block: q.time_block,
       schedule_date: q.schedule_date,
       counter_id: q.counter_id,
+      location_id: q.location_id ?? null,
       service_name: service?.name ?? "-",
       counter_name: counter?.counter_name ?? null,
       // Tiket walk-in tidak punya akun. Katakan apa adanya, jangan dikarang

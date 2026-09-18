@@ -33,6 +33,8 @@ const displayHref = (agencyId: number) => `/display/${agencyId}/antrean`;
 
 export type SidebarProps = {
   agencyId: number;
+  agencyName?: string;
+  locationName?: string | null;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
   isCollapsed?: boolean;
@@ -41,6 +43,8 @@ export type SidebarProps = {
 
 export default function Sidebar({
   agencyId,
+  agencyName,
+  locationName,
   isMobileOpen = false,
   onCloseMobile,
   isCollapsed = false,
@@ -196,9 +200,11 @@ export default function Sidebar({
             ) : (
               <div className="flex flex-col gap-0.5 overflow-hidden pr-2">
                 <p className="truncate text-[13px] font-bold leading-tight text-ink">
-                  Disdukcapil MPP Siola
+                  {agencyName ?? "Disdukcapil"}
                 </p>
-                <p className="text-[11px] font-medium text-muted">Surabaya</p>
+                <p className="truncate text-[11px] font-medium text-brand">
+                  {locationName ?? "Gedung Pelayanan"}
+                </p>
               </div>
             )}
 

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { requireOfficer } from "@/lib/auth/session";
-import { resolveAgencyId } from "@/lib/data/admin";
+import { resolveAgencyContext } from "@/lib/data/admin";
 import AdminShell from "../components/admin/AdminShell";
 
 /**
@@ -10,6 +10,15 @@ import AdminShell from "../components/admin/AdminShell";
  */
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   await requireOfficer();
+  const context = await resolveAgencyContext();
 
-  return <AdminShell agencyId={await resolveAgencyId()}>{children}</AdminShell>;
+  return (
+    <AdminShell
+      agencyId={context.agencyId}
+      agencyName={context.agencyName}
+      locationName={context.locationName}
+    >
+      {children}
+    </AdminShell>
+  );
 }

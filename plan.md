@@ -1,32 +1,28 @@
-# Plan: Step 4 — Pembuatan & Integrasi Tabel Reviews (Ulasan)
+# Plan: Multi-Cabang & Entitas Lokasi (Locations & Branch Support)
 
-## 1. Penyempurnaan File Migrasi SQL Reviews
-- [x] Koreksi tipe kolom foreign key di `supabase/migrations/20260912020000_create_reviews_table.sql`:
-  - `agency_id integer` (bukan bigint)
-  - `service_id integer` (bukan bigint)
-  - `counter_id integer` (bukan bigint)
-  - `queue_id uuid`
-  - Policy RLS untuk `select` publik, `insert` (authenticated + anon), dan `service_role`
-  - Seed data awal untuk Disdukcapil (agency_id = 1)
+## 1. File Migrasi SQL
+- [x] Buat file migrasi `supabase/migrations/20260918231500_create_locations_and_branch_support.sql`:
+  - Tabel `public.locations` (id, name, address, city, type, latitude, longitude, created_at)
+  - Tabel `public.agency_locations` (agency_id, location_id)
+  - Tambah kolom `location_id` pada tabel `counters`, `queues`, dan `users`
+  - Index & RLS policies untuk `locations` dan `agency_locations`
+  - Seed awal 4 lokasi (1 Gedung MPP + 3 Kantor Induk) & relasi dinas
+  - Backfill aman data eksisting ke `location_id = 1` (MPP)
 
-## 2. Sinkronisasi Tipe Database
-- [x] Update `lib/supabase/database.types.ts` untuk `reviews`:
-  - Perbaiki `queue_id: string | null` (tipe UUID)
+## 2. Sinkronisasi Tipe Database & Sesi
+- [x] Update `lib/supabase/database.types.ts`:
+  - Tambahkan tipe `locations` dan `agency_locations`
+  - Tambahkan `location_id: number | null` pada `counters`, `queues`, dan `users`
+- [x] Update `lib/auth/session.ts`:
+  - Tambahkan `location_id: number | null` pada tipe `Profile`
+  - Ambil `location_id` saat membaca profil akun petugas
 
-## 3. Endpoint API Reviews (`/api/reviews`)
-- [x] Buat `app/api/reviews/route.ts`:
-  - `GET /api/reviews`: Ambil ulasan berdasarkan `agency_id` / `service_id`
-  - `POST /api/reviews`: Kirim ulasan baru (rating 1-5, comment, service_id, counter_id, queue_id)
+## 3. Integrasi Web Dashboard Admin
+- [x] Update `lib/data/admin.ts`:
+  - Dukung isolasi antrean per lokasi cabang (`location_id`) pada `getTodayQueues` dan `getAdminDashboardStats`
+- [x] Update tampilan admin agar menampilkan informasi cabang/lokasi yang sedang aktif
 
-## 4. Integrasi & Fallback Halaman Admin Ulasan
-- [x] Verifikasi `lib/data/admin.ts` (`getAdminReviews`) dan `app/admin/ulasan/page.tsx`
-  - Fallback anggun jika tabel belum dieksekusi di remote
-  - Otomatis menampilkan data nyata begitu tabel di-create di Supabase
-
-## 5. Dokumentasi & Panduan Eksekusi SQL Supabase
-- [x] Siapkan panduan jelas beserta SQL siap salin ke Supabase SQL Editor
-
-## 6. Verifikasi & Local Commit (Tanpa Push)
-- [x] Jalankan `pnpm run lint` (pass - 0 errors, 0 warnings)
-- [x] Jalankan `pnpm run build` (pass - 20/20 routes generated cleanly)
+## 4. Verifikasi & Local Commit (Tanpa Push)
+- [x] Jalankan `pnpm run lint`
+- [x] Jalankan `pnpm run build`
 - [x] Simpan commit lokal (JANGAN PUSH)

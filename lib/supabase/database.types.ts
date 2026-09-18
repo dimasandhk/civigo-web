@@ -54,18 +54,21 @@ export type Database = {
           agency_id: number | null
           counter_name: string
           id: number
+          location_id: number | null
           status: string | null
         }
         Insert: {
           agency_id?: number | null
           counter_name: string
           id?: number
+          location_id?: number | null
           status?: string | null
         }
         Update: {
           agency_id?: number | null
           counter_name?: string
           id?: number
+          location_id?: number | null
           status?: string | null
         }
         Relationships: [
@@ -118,6 +121,7 @@ export type Database = {
           counter_id: number | null
           created_at: string | null
           id: string
+          location_id: number | null
           nik: string | null
           queue_number: string
           rescheduled_from: string | null
@@ -131,6 +135,7 @@ export type Database = {
           counter_id?: number | null
           created_at?: string | null
           id?: string
+          location_id?: number | null
           nik?: string | null
           queue_number: string
           rescheduled_from?: string | null
@@ -144,6 +149,7 @@ export type Database = {
           counter_id?: number | null
           created_at?: string | null
           id?: string
+          location_id?: number | null
           nik?: string | null
           queue_number?: string
           rescheduled_from?: string | null
@@ -298,6 +304,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          location_id: number | null
           nik: string | null
           role: string
         }
@@ -307,6 +314,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          location_id?: number | null
           nik?: string | null
           role?: string
         }
@@ -316,6 +324,7 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          location_id?: number | null
           nik?: string | null
           role?: string
         }
@@ -325,6 +334,69 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locations: {
+        Row: {
+          address: string
+          city: string | null
+          created_at: string
+          id: number
+          latitude: number | null
+          longitude: number | null
+          name: string
+          type: string
+        }
+        Insert: {
+          address: string
+          city?: string | null
+          created_at?: string
+          id?: number
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          type?: string
+        }
+        Update: {
+          address?: string
+          city?: string | null
+          created_at?: string
+          id?: number
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      agency_locations: {
+        Row: {
+          agency_id: number
+          location_id: number
+        }
+        Insert: {
+          agency_id: number
+          location_id: number
+        }
+        Update: {
+          agency_id?: number
+          location_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_locations_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_locations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
