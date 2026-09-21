@@ -6,14 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "ingest": "tsx scripts/ingest.ts",
     "lint": "eslint",
     "db:types": "supabase gen types typescript --linked > lib/supabase/database.types.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.6",
     "@supabase/supabase-js": "^2.115.0",
+    "dotenv": "^18.0.1",
     "lucide-react": "^1.38.0",
     "next": "16.3.3",
+    "openai": "^7.20.0",
+    "pdf-parse": "^2.4.5",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
@@ -25,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   },
   "packageManager": "pnpm@10.32.1"

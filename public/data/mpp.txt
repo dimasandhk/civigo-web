@@ -1,0 +1,13 @@
+LAYANAN KTP
+
+Persyaratan:
+1. Kartu Keluarga
+2. Dokumen pendukung lainnya
+
+Prosedur:
+1. Pemohon mengambil nomor antrean.
+2. Pemohon melakukan verifikasi dokumen.
+3. Petugas memproses permohonan.
+
+Jam pelayanan:
+Senin-Jumat, 08.00-15.00
