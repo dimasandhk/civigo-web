@@ -263,11 +263,12 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
   const estimatedTime = service.estimated_time ?? DEFAULT_ESTIMATED_MINUTES;
   const finishMinutes = block.startMinutes + estimatedTime;
 
-  // Izinkan pengujian di luar jam kerja (misal malam hari atau akhir pekan) saat development atau sesi testing malam
+  // Izinkan pengujian di luar jam kerja (misal malam hari, akhir pekan, atau testing) saat development atau testing
   const isDevTesting =
     process.env.NODE_ENV !== "production" ||
     process.env.ALLOW_OFFHOURS_TESTING === "true" ||
-    block.startMinutes >= 1080; // Sesi malam hari (>= 18:00) yang dibuat khusus untuk testing
+    block.startMinutes >= 1080 ||
+    (dayOffset === 0 && !agency.operating_days.includes(isoDayOfWeek(input.schedule_date)));
 
   if (!isDevTesting) {
     if (!agency.operating_days.includes(isoDayOfWeek(input.schedule_date))) {

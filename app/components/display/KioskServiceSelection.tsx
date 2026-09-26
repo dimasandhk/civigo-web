@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useState, useTransition } from "react";
 import {
   AlertCircle,
   Banknote,
@@ -173,40 +173,77 @@ export default function KioskServiceSelection({
     const dayOfWeek = getIsoDayOfWeek(targetDate);
     const isOpenDay = agency.operating_days?.includes(dayOfWeek) ?? true;
 
-    if (!isOpenDay) {
+    // Jika hari libur dan BUKAN hari ini (misal warga memilih tanggal di masa depan), kembalikan kosong
+    if (!isOpenDay && !isToday) {
       return [];
     }
 
-    for (let start = openMin; start + 60 <= closeMin; start += 60) {
-      const end = start + 60;
-      const label = `${minutesToTime(start)} - ${minutesToTime(end)}`;
-      const exceedsClose = start + estimated > closeMin;
-      const hasPassed = isToday && start <= nowMin;
+    // Generate jam operasional reguler jika hari buka
+    if (isOpenDay) {
+      for (let start = openMin; start + 60 <= closeMin; start += 60) {
+        const end = start + 60;
+        const label = `${minutesToTime(start)} - ${minutesToTime(end)}`;
+        const exceedsClose = start + estimated > closeMin;
+        const hasPassed = isToday && start <= nowMin;
 
-      const disabled = exceedsClose || hasPassed;
-      let reason: string | undefined;
-      if (exceedsClose) reason = "Melewati jam tutup";
-      else if (hasPassed) reason = "Sesi telah lewat";
+        const disabled = exceedsClose || hasPassed;
+        let reason: string | undefined;
+        if (exceedsClose) reason = "Melewati jam tutup";
+        else if (hasPassed) reason = "Sesi telah lewat";
 
-      blocks.push({ label, disabled, reason });
+        blocks.push({ label, disabled, reason });
+      }
     }
 
-    // Jika seluruh sesi reguler hari ini telah lewat (misal pengujian malam hari / luar jam kantor):
-    const allDisabled = blocks.every((b) => b.disabled);
-    if (isToday && (allDisabled || blocks.length === 0)) {
+    // Jika seluruh sesi reguler hari ini telah lewat ATAU hari ini adalah hari libur/weekend:
+    // Sediakan sesi uji coba/testing aktif untuk hari ini
+    const allDisabled = blocks.length === 0 || blocks.every((b) => b.disabled);
+    if (isToday && allDisabled) {
       const currentHour = Math.floor(nowMin / 60);
       const testStart = currentHour * 60;
       const testEnd = (currentHour + 1) * 60;
       const testLabel = `${minutesToTime(testStart)} - ${minutesToTime(testEnd)}`;
-      blocks.unshift({
-        label: testLabel,
-        disabled: false,
-        reason: "Sesi Testing Malam Hari",
-      });
+      const reasonLabel = !isOpenDay
+        ? "Sesi Uji Coba (Weekend)"
+        : "Sesi Uji Coba Malam Hari";
+
+      const testSessions = [
+        {
+          label: testLabel,
+          disabled: false,
+          reason: reasonLabel,
+        },
+      ];
+
+      // Opsi sesi 1 jam berikutnya jika belum lewat 24:00
+      if (testEnd + 60 <= 1440) {
+        testSessions.push({
+          label: `${minutesToTime(testEnd)} - ${minutesToTime(testEnd + 60)}`,
+          disabled: false,
+          reason: reasonLabel,
+        });
+      }
+
+      blocks.unshift(...testSessions);
     }
 
     return blocks;
   }, [selectedService, targetDate]);
+
+  // Sinkronisasi otomatis sesi terpilih jika sesi sebelumnya tidak valid
+  useEffect(() => {
+    if (availableTimeBlocks.length > 0) {
+      const currentValid = availableTimeBlocks.find(
+        (b) => b.label === selectedTimeBlock && !b.disabled
+      );
+      if (!currentValid) {
+        const firstAvailable = availableTimeBlocks.find((b) => !b.disabled);
+        if (firstAvailable) {
+          setSelectedTimeBlock(firstAvailable.label);
+        }
+      }
+    }
+  }, [availableTimeBlocks, selectedTimeBlock]);
 
   const handleOpenModal = (service: KioskService) => {
     setSelectedService(service);
@@ -222,16 +259,20 @@ export default function KioskServiceSelection({
       const openMin = timeToMinutes(agency.open_time || "08:00");
       const closeMin = timeToMinutes(agency.close_time || "16:00");
       const nowMin = getNowMinutesJakarta();
+      const dayOfWeek = getIsoDayOfWeek(today);
+      const isOpenDay = agency.operating_days?.includes(dayOfWeek) ?? true;
       let firstBlock = "";
 
-      for (let start = openMin; start + 60 <= closeMin; start += 60) {
-        if (start > nowMin) {
-          firstBlock = `${minutesToTime(start)} - ${minutesToTime(start + 60)}`;
-          break;
+      if (isOpenDay) {
+        for (let start = openMin; start + 60 <= closeMin; start += 60) {
+          if (start > nowMin) {
+            firstBlock = `${minutesToTime(start)} - ${minutesToTime(start + 60)}`;
+            break;
+          }
         }
       }
 
-      // Jika seluruh sesi reguler telah lewat (misal malam hari), pilih sesi testing jam sekarang
+      // Jika seluruh sesi reguler telah lewat atau hari libur (weekend), pilih sesi testing jam sekarang
       if (!firstBlock) {
         const currentHour = Math.floor(nowMin / 60);
         firstBlock = `${minutesToTime(currentHour * 60)} - ${minutesToTime((currentHour + 1) * 60)}`;
