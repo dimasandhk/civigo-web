@@ -30,8 +30,9 @@ Skema database menggunakan tipe enum `public.user_role`:
   - Mendaftar mandiri (self-signup) via Supabase Auth.
 - **`instansi` (Petugas / Operator Instansi)**:
   - Wajib terikat pada `agency_id` (`agency_id IS NOT NULL`).
+  - Terikat pada cabang fisik lokasi bertugas via `location_id` (`location_id IS NOT NULL`).
   - NIK bersifat opsional (karena mewakili akun instansi/loket).
-  - Kebijakan saat ini: 1 akun instansi per agensi (`unique index users_one_account_per_agency`).
+  - Kebijakan akun: Akun operator dibuat dedicated per cabang/lokasi (misal: `agency_id = 1, location_id = 1` untuk Disdukcapil MPP, dan `agency_id = 1, location_id = 2` untuk Disdukcapil Kantor Induk).
 - **`super_admin` (Admin Sistem Global)**:
   - Scope global (tidak terikat agensi spesifik, `agency_id IS NULL`).
 
@@ -68,11 +69,14 @@ Skema database menggunakan tipe enum `public.user_role`:
 
 ## 4. Struktur Database & Entitas Utama
 
-- **`agencies`**: Data instansi pemerintah (nama, deskripsi).
-- **`users`**: Mirror dari `auth.users` Supabase (id, nik, full_name, email, role, agency_id).
-- **`services`**: Katalog layanan per instansi (nama, requirements JSONB, estimasi waktu, info_procedure).
-- **`counters`**: Loket fisik layanan per instansi (counter_name, status operasional).
-- **`queues`**: Transaksi antrean (nomor antrean, schedule_date, time_block, status, user_id, service_id, counter_id, agency_id).
+- **`agencies`**: Data instansi induk pemerintah (id, nama, deskripsi). Tetap bersih hanya berisi instansi induk (1 = Disdukcapil, 2 = Samsat, 3 = Imigrasi) tanpa menduplikasi nama instansi per cabang.
+- **`locations`**: Master lokasi fisik/gedung pelayanan (id, name, address, city, type: 'mpp' | 'kantor_induk'). Contoh: ID 1 = MPP Grha Sawala, ID 2 = Kantor Disdukcapil Jl. Ambon.
+- **`agency_locations`**: Relasi instansi dengan lokasi cabang fisiknya (many-to-many: Disdukcapil ada di MPP & Kantor Induk).
+- **`users`**: Mirror dari `auth.users` Supabase (id, nik, full_name, email, role, agency_id, location_id).
+- **`services`**: Katalog layanan per instansi (nama, requirements JSONB, output_documents, estimasi waktu, info_procedure).
+- **`counters`**: Loket fisik layanan per instansi dan lokasi cabang (counter_name, status, agency_id, location_id).
+- **`queues`**: Transaksi antrean (nomor antrean, schedule_date, time_block, status, user_id, nik, service_id, counter_id, location_id).
+- **`reviews`**: Ulasan dan penilaian kepuasan layanan warga (rating 1-5, comment, agency_id, service_id, counter_id, queue_id, user_id).
 - **`family_members`**: Anggota keluarga warga untuk pendaftaran antrean perwakilan.
 
 ---
@@ -81,3 +85,18 @@ Skema database menggunakan tipe enum `public.user_role`:
 1. **Supabase SSR**: Menggunakan `@supabase/ssr` dengan penanganan sesi token di `proxy.ts` (Next.js 16 proxy convention).
 2. **Composite Foreign Keys**: `queues` memiliki composite FK ke `services(id, agency_id)` dan `counters(id, agency_id)` untuk menjamin integritas relasi antar-instansi di tingkat database.
 3. **Trigger Keamanan**: `handle_new_user()` berjalan di level database dengan `security definer` untuk membuat baris di `public.users` dengan role default `user`, mencegah eskalasi hak akses dari payload client.
+4. **Arsitektur Multi-Cabang & Pemisahan Instansi vs Lokasi**:
+   - **Tabel `agencies`** tetap bersih hanya berisi master instansi induk:
+     - `id = 1`: Disdukcapil
+     - `id = 2`: Samsat
+     - `id = 3`: Imigrasi
+     *(Tidak menduplikasi instansi menjadi "Disdukcapil MPP", "Disdukcapil Induk", dsb. karena katalog layanannya sama-sama milik Disdukcapil).*
+   - **Tabel `locations`** mendefinisikan lokasi fisik gedungnya:
+     - `id = 1`: Mall Pelayanan Publik (MPP) Grha Sawala
+     - `id = 2`: Kantor Disdukcapil (Kantor Induk)
+     - `id = 3`: Kantor Samsat Bandung Timur
+     - `id = 4`: Kantor Imigrasi Kelas I TPI Bandung
+   - **Tabel `users`** menyimpan akun operator:
+     - Akun MPP: `agency_id = 1`, `location_id = 1`
+     - Akun Kantor Induk: `agency_id = 1`, `location_id = 2`
+   - **Isolasi Dashboard Admin**: Saat petugas login, `resolveAgencyContext()` otomatis membaca `agency_id` dan `location_id`. Antrean di `/admin/antrean`, daftar loket, dan antrean berikutnya yang dipanggil (`callNextQueue`) otomatis terfilter khusus untuk lokasi cabang tersebut.
