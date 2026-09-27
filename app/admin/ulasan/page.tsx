@@ -1,44 +1,60 @@
 import type { Metadata } from "next";
 import { Fragment } from "react";
-import FilterSelect from "../../components/FilterSelect";
 import PageHeader from "../../components/admin/PageHeader";
 import RatingBar from "../../components/admin/RatingBar";
 import ReviewCard from "../../components/admin/ReviewCard";
+import ReviewFilters from "../../components/admin/ReviewFilters";
 import ReviewStat from "../../components/admin/ReviewStat";
-import { RATINGS, RATING_LEVELS } from "../../components/admin/ratings";
+import { RATINGS, RATING_LEVELS, type RatingLevel } from "../../components/admin/ratings";
 
-import { getAdminReviews, resolveAgencyId } from "@/lib/data/admin";
+import {
+  getAdminReviews,
+  getReviewFilterOptions,
+  resolveAgencyId,
+} from "@/lib/data/admin";
 
 export const metadata: Metadata = {
   title: "Ulasan — CiviGo",
 };
 
-const LAYANAN_OPTIONS = [
-  "Semua Layanan",
-  "Pembuatan KTP-el",
-  "Aktivasi Identitas Kependudukan Digital",
-  "Konsultasi Administrasi Kependudukan",
-  "Layanan Administrasi Kependudukan",
-];
-
-const LOKET_OPTIONS = [
-  "Semua Loket",
-  "Loket 1",
-  "Loket 2",
-  "Loket 3",
-  "Loket 4",
-  "Loket 5",
-];
-
 const RATING_OPTIONS = [
-  "Semua Rating",
-  ...RATING_LEVELS.map((level) => RATINGS[level].label),
+  { value: "", label: "Semua Rating" },
+  ...RATING_LEVELS.map((level) => ({ value: String(level), label: RATINGS[level].label })),
 ];
 
 const PANEL = "rounded-[20px] bg-white shadow-soft";
 
-export default async function UlasanPage() {
-  const { stats, breakdown, reviews } = await getAdminReviews(await resolveAgencyId());
+function firstParam(value: string | string[] | undefined): string {
+  return (Array.isArray(value) ? value[0] : value) ?? "";
+}
+
+export default async function UlasanPage({ searchParams }: PageProps<"/admin/ulasan">) {
+  const agencyId = await resolveAgencyId();
+  const [params, options] = await Promise.all([
+    searchParams,
+    getReviewFilterOptions(agencyId),
+  ]);
+
+  // Nilai yang tidak ada di opsi instansi ini (id layanan instansi lain, rating
+  // 7, teks acak) diperlakukan sebagai "Semua", supaya dropdown dan data yang
+  // disaring selalu sepakat.
+  const pick = (raw: string, allowed: { value: string }[]) =>
+    allowed.some((option) => option.value === raw) ? raw : "";
+
+  const current = {
+    layanan: pick(firstParam(params.layanan), options.services),
+    loket: pick(firstParam(params.loket), options.counters),
+    rating: pick(firstParam(params.rating), RATING_OPTIONS.slice(1)),
+  };
+
+  const { stats, breakdown, reviews } = await getAdminReviews(agencyId, {
+    serviceId: current.layanan ? Number(current.layanan) : null,
+    counterId: current.loket ? Number(current.loket) : null,
+    rating: current.rating ? (Number(current.rating) as RatingLevel) : null,
+  });
+
+  const hasFilter = Object.values(current).some(Boolean);
+
   return (
     <div className="flex flex-col gap-[35px]">
       <PageHeader
@@ -46,26 +62,12 @@ export default async function UlasanPage() {
         description="Lihat penilaian dan masukan pengguna terhadap layanan"
       />
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap lg:justify-between lg:gap-5">
-        <FilterSelect
-          id="filter-layanan"
-          label="Saring menurut layanan"
-          options={LAYANAN_OPTIONS}
-          containerClassName="w-full sm:w-auto sm:flex-1 min-w-[200px]"
-        />
-        <FilterSelect
-          id="filter-loket"
-          label="Saring menurut loket"
-          options={LOKET_OPTIONS}
-          containerClassName="w-full sm:w-auto sm:flex-1 min-w-[200px]"
-        />
-        <FilterSelect
-          id="filter-rating"
-          label="Saring menurut rating"
-          options={RATING_OPTIONS}
-          containerClassName="w-full sm:w-auto sm:flex-1 min-w-[200px]"
-        />
-      </div>
+      <ReviewFilters
+        serviceOptions={[{ value: "", label: "Semua Layanan" }, ...options.services]}
+        counterOptions={[{ value: "", label: "Semua Loket" }, ...options.counters]}
+        ratingOptions={RATING_OPTIONS}
+        current={current}
+      />
 
       <section
         className={`grid grid-cols-2 gap-6 p-6 sm:flex sm:flex-wrap sm:items-center sm:justify-around sm:px-[60px] sm:py-5 ${PANEL}`}
@@ -104,9 +106,20 @@ export default async function UlasanPage() {
           <h2 className="font-display text-[22px] font-medium text-ink">
             Ulasan Terbaru
           </h2>
-          {reviews.map((review) => (
-            <ReviewCard key={review.id} {...review} />
-          ))}
+          {reviews.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-[10px] border border-dashed border-line px-6 py-12 text-center">
+              <p className="font-display text-[18px] font-medium text-ink">
+                {hasFilter ? "Tidak ada ulasan yang cocok" : "Belum ada ulasan"}
+              </p>
+              <p className="font-display text-[14px] text-queue-idle">
+                {hasFilter
+                  ? "Coba ubah atau reset filter layanan, loket, dan rating."
+                  : "Ulasan warga akan muncul di sini setelah layanan diselesaikan dan dinilai."}
+              </p>
+            </div>
+          ) : (
+            reviews.map((review) => <ReviewCard key={review.id} {...review} />)
+          )}
         </section>
       </div>
     </div>

@@ -9,13 +9,15 @@ Web:
         - Akun tanpa location_id tidak lagi jatuh ke lokasi 1: tambah loket ditolak dengan pesan jelas. (28/09/2026)
         - Toggle/ubah/hapus loket dicek dulu milik instansi + cabang petugas; id loket instansi lain ditolak. (28/09/2026)
         - Catatan: kolom "Dibuat Pada" selalu "-" karena tabel counters tidak punya kolom created_at.
-    2. [ ] Integrasi CRUD layanan.
-        - Tombol Tambah/Lihat/Ubah/Hapus di /admin/layanan belum punya handler; API services baru GET.
-    3. [~] Integrasi page review.
-        - Sudah: membaca data asli dari tabel reviews.
-        - Belum: filter layanan/loket/rating masih opsi hardcoded dan belum menyaring.
-        - Belum: "Bulan Ini" masih rata-rata keseluruhan, bukan bulan ini.
-        - Belum: agency tanpa ulasan menampilkan data karangan (500 ulasan, 4.6/5) — fallback di getAdminReviews.
+    2. [x] Integrasi CRUD layanan. (28/09/2026)
+        - Tambah, lihat detail, ubah, hapus, dan cari layanan di /admin/layanan; semua tulisan dibatasi agency_id petugas.
+        - Dokumen dipilih dari master service_documents (bisa tambah dokumen baru); id dan nama selalu ditulis berpasangan.
+        - Hapus ditolak kalau layanan sudah punya antrean/ulasan (services tidak punya kolom status, jadi tidak bisa dinonaktifkan).
+        - Catatan: /api/services tidak diubah (masih GET-only, bentuk respons sama).
+    3. [x] Integrasi page review. (28/09/2026)
+        - Filter layanan/loket/rating memakai data asli instansi dan menyaring statistik, rincian rating, dan daftar (lewat URL ?layanan=&loket=&rating=).
+        - "Bulan Ini" = rata-rata ulasan bulan berjalan (WIB).
+        - Fallback data karangan dihapus; query gagal dilempar, nol ulasan tampil sebagai empty state.
     4. [x] Integrasi login instansi.
         - Catatan: login pakai username diubah jadi <prefix>@civigo.com, jadi akun per cabang tidak bisa dibedakan lewat username.
     5. [ ] Tambah tombol "Mundurkan Antrean" (ke urutan paling akhir) di dasbor antrean loket. ⭐ (Baru)

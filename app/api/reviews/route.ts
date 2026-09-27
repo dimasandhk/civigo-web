@@ -9,6 +9,17 @@ import {
 import { isUuid } from "@/lib/queue/shared";
 import { createServiceClient } from "@/lib/supabase/service";
 
+/** Tidak diisi (`undefined`/`null`/`""`) = null; isian yang bukan bilangan bulat positif = NaN. */
+function parseOptionalId(value: unknown): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : Number.NaN;
+}
+
+function fail(status: number, code: string, message: string): Response {
+  return errorResponse({ ok: false, status, code, message });
+}
+
 /**
  * GET /api/reviews
  *
@@ -97,6 +108,10 @@ export async function GET(request: NextRequest) {
  *     "counter_id": 1,
  *     "queue_id": "e66966c3-9f2f-44b6-b4e6-d4c6f3863a4f"
  *   }
+ *
+ * service_id, counter_id, dan antrean dari queue_id harus milik agency_id yang
+ * sama (422 *_AGENCY_MISMATCH); id yang tidak ada dijawab 404, bukan 500 dari
+ * foreign key.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -108,62 +123,109 @@ export async function POST(request: NextRequest) {
     // Validasi rating
     const rating = Number(body.rating);
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-      return errorResponse({
-        ok: false,
-        status: 400,
-        code: "INVALID_RATING",
-        message: "Rating wajib berupa bilangan bulat antara 1 sampai 5.",
-      });
+      return fail(400, "INVALID_RATING", "Rating wajib berupa bilangan bulat antara 1 sampai 5.");
+    }
+
+    const agencyIdInput = parseOptionalId(body.agency_id);
+    let serviceId = parseOptionalId(body.service_id);
+    const counterId = parseOptionalId(body.counter_id);
+    for (const [field, value] of [
+      ["agency_id", agencyIdInput],
+      ["service_id", serviceId],
+      ["counter_id", counterId],
+    ] as const) {
+      if (Number.isNaN(value)) {
+        return fail(400, "INVALID_ID", `${field} harus berupa bilangan bulat positif.`);
+      }
     }
 
     const supabase = createServiceClient();
-    let agencyId = body.agency_id ? Number(body.agency_id) : null;
-    let serviceId = body.service_id ? Number(body.service_id) : null;
-    const counterId = body.counter_id ? Number(body.counter_id) : null;
     const rawQueueId = body.queue_id ? String(body.queue_id).trim() : null;
 
-    // Jika ada queue_id, validasi UUID dan cari relasi agency/service jika belum diisi
+    // Instansi pemilik tiap relasi, untuk dicocokkan di bawah.
+    let queueAgencyId: number | null = null;
+    let serviceAgencyId: number | null = null;
+
     if (rawQueueId) {
       if (!isUuid(rawQueueId)) {
-        return errorResponse({
-          ok: false,
-          status: 400,
-          code: "INVALID_QUEUE_ID",
-          message: "queue_id harus berupa format UUID yang valid.",
-        });
+        return fail(400, "INVALID_QUEUE_ID", "queue_id harus berupa format UUID yang valid.");
       }
 
       const { data: ticket } = await supabase
         .from("queues")
-        .select("id, service_id, counter_id, service:services(agency_id)")
+        .select("id, service_id, service:services(agency_id)")
         .eq("id", rawQueueId)
         .maybeSingle();
 
-      if (ticket) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const svc = ticket.service as any;
-        if (!agencyId && svc?.agency_id) agencyId = svc.agency_id;
-        if (!serviceId && ticket.service_id) serviceId = ticket.service_id;
+      if (!ticket) {
+        return fail(404, "QUEUE_NOT_FOUND", `Antrean dengan id ${rawQueueId} tidak ditemukan.`);
       }
+
+      queueAgencyId = ticket.service?.agency_id ?? null;
+      if (!serviceId && ticket.service_id) serviceId = ticket.service_id;
     }
 
-    // Jika agency_id masih belum ada tetapi ada service_id, cari agency_id dari service
-    if (!agencyId && serviceId) {
+    if (serviceId) {
       const { data: svc } = await supabase
         .from("services")
         .select("agency_id")
         .eq("id", serviceId)
         .maybeSingle();
-      if (svc?.agency_id) agencyId = svc.agency_id;
+
+      if (!svc) {
+        return fail(404, "SERVICE_NOT_FOUND", `Layanan dengan id ${serviceId} tidak ditemukan.`);
+      }
+      serviceAgencyId = svc.agency_id;
     }
 
+    // agency_id boleh tidak dikirim kalau bisa diturunkan dari queue_id/service_id.
+    const agencyId = agencyIdInput ?? queueAgencyId ?? serviceAgencyId;
+
     if (!agencyId) {
-      return errorResponse({
-        ok: false,
-        status: 400,
-        code: "AGENCY_REQUIRED",
-        message: "agency_id wajib disertakan atau dapat diturunkan dari service_id/queue_id.",
-      });
+      return fail(
+        400,
+        "AGENCY_REQUIRED",
+        "agency_id wajib disertakan atau dapat diturunkan dari service_id/queue_id.",
+      );
+    }
+
+    // Semua relasi ulasan harus milik instansi yang sama. Sebelumnya tidak
+    // dicek, dan ulasan Samsat (reviews.id = 8) tersimpan dengan loket milik
+    // Disdukcapil — filter loket di /admin/ulasan tidak akan pernah
+    // menemukannya, dan loket Disdukcapil "menerima" ulasan instansi lain.
+    if (queueAgencyId !== null && queueAgencyId !== agencyId) {
+      return fail(
+        422,
+        "QUEUE_AGENCY_MISMATCH",
+        `Antrean ${rawQueueId} bukan milik instansi ${agencyId}.`,
+      );
+    }
+
+    if (serviceAgencyId !== null && serviceAgencyId !== agencyId) {
+      return fail(
+        422,
+        "SERVICE_AGENCY_MISMATCH",
+        `Layanan ${serviceId} bukan milik instansi ${agencyId}.`,
+      );
+    }
+
+    if (counterId) {
+      const { data: counter } = await supabase
+        .from("counters")
+        .select("agency_id")
+        .eq("id", counterId)
+        .maybeSingle();
+
+      if (!counter) {
+        return fail(404, "COUNTER_NOT_FOUND", `Loket dengan id ${counterId} tidak ditemukan.`);
+      }
+      if (counter.agency_id !== agencyId) {
+        return fail(
+          422,
+          "COUNTER_AGENCY_MISMATCH",
+          `Loket ${counterId} bukan milik instansi ${agencyId}.`,
+        );
+      }
     }
 
     // Ambil user ID jika warga sedang login (opsional)

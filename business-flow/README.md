@@ -177,6 +177,15 @@ Terverifikasi: petugas Samsat melihat C-01/C-02 dan **tidak** melihat A-01
 milik Disdukcapil; tombol "Panggil Antrean" dan "Selesaikan Layanan" berhasil
 `200` dengan UUID asli dari halaman.
 
+### 28/09/2026 — CRUD layanan & filter ulasan
+- `/admin/layanan`: tambah, detail, ubah, hapus, cari. Dokumen dipilih dari
+  `service_documents`; `*_doc_ids` dan nama teksnya selalu ditulis berpasangan
+  oleh server. Semua tulisan dibatasi `agency_id` petugas.
+- Hapus layanan yang sudah punya antrean/ulasan ditolak (tidak ada kolom status
+  untuk menonaktifkan).
+- `/admin/ulasan`: filter layanan/loket/rating dari data asli lewat URL,
+  "Bulan Ini" = bulan berjalan WIB, fallback data karangan dihapus.
+
 ---
 
 ## Utang teknis yang diketahui
@@ -191,8 +200,13 @@ milik Disdukcapil; tombol "Panggil Antrean" dan "Selesaikan Layanan" berhasil
 - **`avgTimeMinutes` selalu `null`.** Durasi layanan nyata belum bisa dihitung
   karena `queues` tidak punya `called_at` / `served_at` / `completed_at`.
   Sebelumnya di sini ada angka 15 yang hardcoded tanpa syarat.
-- **Halaman ulasan masih memakai data karangan.** Satu-satunya fallback dummy
-  yang tersisa, karena tabel `reviews` memang belum ada.
+- ~~**Halaman ulasan masih memakai data karangan.**~~ Beres 28/09/2026:
+  fallback dihapus, filter & "Bulan Ini" memakai data asli. Lihat
+  `business-flow-notes.md` poin 5.8.
+- **`services` tidak punya kolom status.** Layanan yang sudah dipakai antrean
+  atau ulasan tidak bisa dihapus maupun dinonaktifkan (sejak 28/09/2026 hapusnya
+  ditolak dengan alasan). Kalau perlu menyembunyikan layanan lama, butuh kolom
+  `is_active` + penyaringan di booking dan `/api/services`.
 - ~~**Realtime belum aktif.**~~ Beres 27/09/2026: display antrean live lewat
   Realtime Broadcast dari trigger `queues_broadcast_to_display`. Lihat
   `business-flow-notes.md` poin 5.6.

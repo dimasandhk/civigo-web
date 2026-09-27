@@ -30,6 +30,16 @@ export function todayInJakarta(): string {
   return DATE_FORMATTER.format(new Date());
 }
 
+/**
+ * Awal bulan berjalan di Jakarta, sebagai instant. Jakarta tidak mengenal DST,
+ * jadi offset +07:00 selalu benar. Antara 00:00 dan 07:00 WIB tanggal 1, UTC
+ * masih di bulan sebelumnya — justru itu yang harus dihindari.
+ */
+export function startOfMonthInJakarta(now: Date = new Date()): Date {
+  const month = DATE_FORMATTER.format(now).slice(0, 7);
+  return new Date(`${month}-01T00:00:00+07:00`);
+}
+
 /** Minutes since midnight, Jakarta time. */
 export function nowMinutesInJakarta(): number {
   const [hours, minutes] = TIME_FORMATTER.format(new Date()).split(":");

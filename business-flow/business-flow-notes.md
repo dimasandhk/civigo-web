@@ -63,7 +63,7 @@ Skema database menggunakan tipe enum `public.user_role`:
 
 ### D. Alur Ulasan & Feedback (`/admin/ulasan`)
 1. Setelah layanan diselesaikan, warga dapat memberikan rating (1-5 bintang) dan komentar.
-2. Dashboard admin menyajikan rekap total ulasan, rata-rata skor, tingkat kepuasan, dan filter per loket/layanan.
+2. Dashboard admin menyajikan rekap total ulasan, rata-rata skor, tingkat kepuasan, rata-rata bulan berjalan (WIB), dan filter per layanan/loket/rating (lihat poin 5.8).
 
 ---
 
@@ -120,3 +120,14 @@ Skema database menggunakan tipe enum `public.user_role`:
    - Tambah loket tidak lagi diam-diam menaruh loket di lokasi 1 kalau akun petugas tidak punya `location_id`; aksinya ditolak dengan pesan agar admin mengisi lokasi cabang akun.
    - Loket tidak punya jam operasional — jam operasional diatur per instansi (`agencies.open_time/close_time/operating_days`). Kolom "Jadwal Buka" yang isinya hardcoded "Senin - Jumat / 08:00 - 16:00" dihapus dari tabel loket.
    - Sesi yang habis saat menekan tombol loket kini benar-benar di-redirect ke halaman login (`unstable_rethrow`), bukan muncul sebagai pesan error "NEXT_REDIRECT".
+8. **CRUD layanan & filter ulasan di dashboard instansi (28/09/2026)**:
+   - **`/admin/layanan` kini bisa tambah, lihat detail, ubah, hapus, dan cari.** Aksinya di `lib/data/service-actions.ts` (server action, service_role) dan setiap tulisan dibatasi `agency_id` petugas — petugas tidak bisa mengubah layanan instansi lain lewat id.
+   - **Dokumen dipilih dari master `service_documents`**, bukan diketik bebas. Kalau belum ada, petugas bisa menambah dokumen baru dari pemilih (nama unik global; nama yang sudah ada langsung dipilih, tidak diduplikasi). Katalognya global karena dokumen dipakai lintas instansi (mis. "KTP Asli" milik Disdukcapil jadi syarat Samsat & Imigrasi).
+   - **Id dan nama dokumen selalu ditulis berpasangan.** Server menerima id saja (`requirement_doc_ids` / `output_doc_ids`), lalu mengambil nama dari `service_documents` dan menulis `requirements` / `output_documents` dengan urutan yang sama. API mobile tetap membaca nama teks, jadi `/api/services` tidak berubah.
+   - **Hapus layanan ditolak kalau sudah dipakai.** `services` tidak punya kolom status, jadi layanan tidak bisa "dinonaktifkan" seperti loket (keputusan 28/09/2026: tanpa migrasi). `queues.service_id` tanpa ON DELETE (hapus akan gagal FK) dan `reviews.service_id` ON DELETE SET NULL (ulasan kehilangan layanannya diam-diam), jadi aksi hapus mengecek keduanya dan menolak dengan jumlah antrean/ulasan. Layanan yang belum pernah dipakai dihapus permanen.
+   - Badge status "Aktif" di tabel layanan dihapus — nilainya selama ini hardcoded, tidak ada kolomnya di database.
+   - **`/admin/ulasan` memakai filter asli.** Opsi layanan & loket diambil dari data instansi; pilihan disimpan di URL (`?layanan=&loket=&rating=`) dan menyaring statistik, rincian rating, dan daftar sekaligus. Nilai URL yang bukan milik instansi dianggap "Semua". Tidak ada filter per lokasi (tidak diperlukan).
+   - **"Bulan Ini" = rata-rata ulasan bulan berjalan WIB** (`startOfMonthInJakarta()` di `lib/queue/time.ts`), bukan lagi rata-rata keseluruhan. Waktu ulasan juga ditampilkan dalam WIB.
+   - **Fallback data karangan ulasan dihapus** (500 ulasan, 4.6/5, komentar contoh). Query gagal dilempar seperti loader admin lain; instansi tanpa ulasan melihat angka nol dan empty state.
+   - Temuan data: ulasan Samsat id 8 menunjuk `counter_id = 4` (Loket 3 milik Disdukcapil). Filter loket Samsat karenanya tidak menemukan ulasan itu. Dikoreksi 28/09/2026 ke `counter_id = 3` (Loket 1, satu-satunya loket Samsat); sekarang 0 ulasan dengan relasi lintas instansi. Sumbernya tiket antrean B-001 (20/09/2026) yang juga tercatat di loket 4, dan ada satu tiket lain yang serupa (B-01, 11/09/2026: layanan Disdukcapil di loket Samsat). Dua tiket itu juga dikoreksi 28/09/2026: B-001 → loket 3 (Loket 1 Samsat), B-01 → loket 2 (Loket 2 Disdukcapil, loket yang dipakai ulasan layanan KK). Sekarang 0 tiket dan 0 ulasan dengan relasi lintas instansi. Database belum mencegah ini untuk `queues` — yang menjaga baru kode pemanggil.
+   - **`POST /api/reviews` kini menolak relasi lintas instansi.** Layanan, loket, dan antrean (dari `queue_id`) harus milik `agency_id` ulasan; kalau tidak → `422` `SERVICE_/COUNTER_/QUEUE_AGENCY_MISMATCH`. Id yang tidak ada dijawab `404` (`SERVICE_/COUNTER_/QUEUE_NOT_FOUND`) dan id yang bukan bilangan bulat `400 INVALID_ID` — sebelumnya keduanya jadi `500` dari foreign key / query. `agency_id` dan `service_id` tetap boleh diturunkan dari `queue_id`.
