@@ -202,7 +202,7 @@ milik Disdukcapil; tombol "Panggil Antrean" dan "Selesaikan Layanan" berhasil
   Sebelumnya di sini ada angka 15 yang hardcoded tanpa syarat.
 - ~~**Halaman ulasan masih memakai data karangan.**~~ Beres 28/09/2026:
   fallback dihapus, filter & "Bulan Ini" memakai data asli. Lihat
-  `business-flow-notes.md` poin 5.7.
+  `business-flow-notes.md` poin 5.8.
 - **`services` tidak punya kolom status.** Layanan yang sudah dipakai antrean
   atau ulasan tidak bisa dihapus maupun dinonaktifkan (sejak 28/09/2026 hapusnya
   ditolak dengan alasan). Kalau perlu menyembunyikan layanan lama, butuh kolom

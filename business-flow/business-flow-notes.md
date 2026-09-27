@@ -63,7 +63,7 @@ Skema database menggunakan tipe enum `public.user_role`:
 
 ### D. Alur Ulasan & Feedback (`/admin/ulasan`)
 1. Setelah layanan diselesaikan, warga dapat memberikan rating (1-5 bintang) dan komentar.
-2. Dashboard admin menyajikan rekap total ulasan, rata-rata skor, tingkat kepuasan, rata-rata bulan berjalan (WIB), dan filter per layanan/loket/rating (lihat poin 5.7).
+2. Dashboard admin menyajikan rekap total ulasan, rata-rata skor, tingkat kepuasan, rata-rata bulan berjalan (WIB), dan filter per layanan/loket/rating (lihat poin 5.8).
 
 ---
 
@@ -114,7 +114,13 @@ Skema database menggunakan tipe enum `public.user_role`:
    - Payload sengaja tanpa data tiket (hanya `agency_id`), jadi topic publik aman dan `queues` tetap tertutup untuk anon — NIK tidak ikut terbuka.
    - `QueueDisplayLive` subscribe ke topic tersebut lalu `router.refresh()`; data tetap dibaca server lewat service_role. Polling diturunkan jadi 60 detik sebagai jaring pengaman.
    - Publikasi `queues` tetap dipertahankan untuk klien yang login (mis. mobile warga), karena RLS mengizinkan mereka melihat tiket sendiri.
-7. **CRUD layanan & filter ulasan di dashboard instansi (28/09/2026)**:
+7. **Manajemen loket dibatasi instansi + cabang petugas (28/09/2026)**:
+   - Temuan: server action loket (`lib/data/counter-actions.ts`) menerima `counterId` dari client tanpa cek kepemilikan. Petugas Samsat bisa mengubah nama, menonaktifkan, atau menghapus loket Disdukcapil cukup dengan mengirim id-nya — server action adalah endpoint POST yang bisa dipanggil tanpa lewat UI.
+   - Sekarang setiap toggle/ubah nama/hapus mencari loketnya dulu di cakupan yang sama dengan halaman `/admin/loket`: `agency_id` petugas, plus `location_id` kalau akunnya terikat cabang. Loket di luar cakupan ditolak dengan "Loket tidak ditemukan di instansi atau cabang Anda." tanpa menulis apa pun.
+   - Tambah loket tidak lagi diam-diam menaruh loket di lokasi 1 kalau akun petugas tidak punya `location_id`; aksinya ditolak dengan pesan agar admin mengisi lokasi cabang akun.
+   - Loket tidak punya jam operasional — jam operasional diatur per instansi (`agencies.open_time/close_time/operating_days`). Kolom "Jadwal Buka" yang isinya hardcoded "Senin - Jumat / 08:00 - 16:00" dihapus dari tabel loket.
+   - Sesi yang habis saat menekan tombol loket kini benar-benar di-redirect ke halaman login (`unstable_rethrow`), bukan muncul sebagai pesan error "NEXT_REDIRECT".
+8. **CRUD layanan & filter ulasan di dashboard instansi (28/09/2026)**:
    - **`/admin/layanan` kini bisa tambah, lihat detail, ubah, hapus, dan cari.** Aksinya di `lib/data/service-actions.ts` (server action, service_role) dan setiap tulisan dibatasi `agency_id` petugas — petugas tidak bisa mengubah layanan instansi lain lewat id.
    - **Dokumen dipilih dari master `service_documents`**, bukan diketik bebas. Kalau belum ada, petugas bisa menambah dokumen baru dari pemilih (nama unik global; nama yang sudah ada langsung dipilih, tidak diduplikasi). Katalognya global karena dokumen dipakai lintas instansi (mis. "KTP Asli" milik Disdukcapil jadi syarat Samsat & Imigrasi).
    - **Id dan nama dokumen selalu ditulis berpasangan.** Server menerima id saja (`requirement_doc_ids` / `output_doc_ids`), lalu mengambil nama dari `service_documents` dan menulis `requirements` / `output_documents` dengan urutan yang sama. API mobile tetap membaca nama teks, jadi `/api/services` tidak berubah.
