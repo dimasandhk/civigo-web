@@ -135,3 +135,35 @@ Seluruh spesifikasi API CiviGo telah didokumentasikan lengkap menggunakan standa
 
 ### G. AI Chatbot
 - `POST /api/chatbot`: Asisten virtual berbasis OpenAI embedding dan vector search `match_documents` pada Supabase untuk menjawab pertanyaan prosedur MPP dan persyaratan dokumen warga.
+
+---
+
+## 7. Automated Test Suite (Vitest)
+
+Proyek ini telah dilengkapi dengan test suite terotomatisasi menggunakan **Vitest** dengan jaminan **Zero API Quota / Zero Cost Exhaustion**.
+
+### Cara Menjalankan Tes:
+```bash
+# Menjalankan seluruh test suite sekali jalan
+pnpm test
+
+# Menjalankan test dalam mode watch (interaktif saat development)
+pnpm test:watch
+```
+
+### Jaminan Keamanan Kuota Layanan Eksternal:
+- **OpenAI API (Chatbot RAG)**: Di-mock penuh (`tests/api/chatbot-safety.test.ts`), sehingga 0 token OpenAI terpakai saat menjalankan test.
+- **Supabase Auth Mailer (Forgot Password)**: Fungsi pengiriman email di-mock penuh (`tests/api/auth.test.ts`), sehingga tidak ada email yang terkirim atau menghabiskan kuota rate limit SMTP.
+- **Database Supabase**: Menggunakan mock service client terisolasi untuk tes unit dan integrasi, menjamin data remote live tidak tercemar data testing.
+
+### Cakupan 10 Test Suite (39 Tests 100% Pass):
+1. `tests/unit/cross-agency.test.ts` (Evaluasi 3 kondisi dokumen: sudah_tersedia, belum_memiliki, hilang_rusak $\rightarrow$ SKTLK).
+2. `tests/unit/queue-postpone.test.ts` (Logika memundurkan antrean dan pengurutan prioritas).
+3. `tests/api/postpone.test.ts` (Endpoint `POST /api/queue/[id]/postpone`).
+4. `tests/api/cross-agency-route.test.ts` (Endpoint `POST /api/services/cross-agency`).
+5. `tests/api/agencies.test.ts` (Endpoint `GET /api/agencies` & `GET /api/agencies/[id]`).
+6. `tests/api/family-members.test.ts` (Endpoint `GET`, `POST`, `DELETE /api/family-members`).
+7. `tests/api/queue-my.test.ts` (Endpoint `GET /api/queue/my` pemisahan tiket aktif vs riwayat).
+8. `tests/api/auth.test.ts` (Endpoint forgot password & reset password).
+9. `tests/api/analytics.test.ts` (Endpoint analitik kepuasan dan antrean operasional).
+10. `tests/api/chatbot-safety.test.ts` (Endpoint chatbot AI).

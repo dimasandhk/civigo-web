@@ -227,6 +227,10 @@ export type PostponeQueueResult =
  * status diatur ke `present`, dan counter_id dikosongkan.
  */
 export async function postponeQueue(ticketId: string): Promise<PostponeQueueResult> {
+  if (!isUuid(ticketId)) {
+    return fail(400, "INVALID_TICKET_ID", "Id tiket harus berupa UUID.");
+  }
+
   const caller = await resolveCaller();
   const db = createServiceClient();
 
