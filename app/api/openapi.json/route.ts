@@ -841,6 +841,9 @@ export async function GET() {
           },
           responses: {
             "201": { description: "Ulasan berhasil disimpan." },
+            "400": { description: "Rating, id, atau queue_id tidak valid (INVALID_RATING, INVALID_ID, INVALID_QUEUE_ID), atau instansi tidak diketahui (AGENCY_REQUIRED)." },
+            "404": { description: "Layanan, loket, atau antrean tidak ditemukan (SERVICE_NOT_FOUND, COUNTER_NOT_FOUND, QUEUE_NOT_FOUND)." },
+            "422": { description: "Layanan, loket, atau antrean bukan milik agency_id ulasan (SERVICE_AGENCY_MISMATCH, COUNTER_AGENCY_MISMATCH, QUEUE_AGENCY_MISMATCH)." },
           },
         },
       },
