@@ -42,7 +42,7 @@ export type TicketContext = {
     nik: string | null;
     queue_number: string;
     schedule_date: string;
-    time_block: string;
+    time_block: string | null;
     status: QueueStatus;
     counter_id: number | null;
     service_id: number | null;

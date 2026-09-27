@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 import {
   AlertCircle,
   Banknote,
@@ -230,19 +230,15 @@ export default function KioskServiceSelection({
     return blocks;
   }, [selectedService, targetDate]);
 
-  // Sinkronisasi otomatis sesi terpilih jika sesi sebelumnya tidak valid
-  useEffect(() => {
-    if (availableTimeBlocks.length > 0) {
-      const currentValid = availableTimeBlocks.find(
-        (b) => b.label === selectedTimeBlock && !b.disabled
-      );
-      if (!currentValid) {
-        const firstAvailable = availableTimeBlocks.find((b) => !b.disabled);
-        if (firstAvailable) {
-          setSelectedTimeBlock(firstAvailable.label);
-        }
-      }
-    }
+  // Derivasi sesi aktif yang valid tanpa memicu cascading setState di effect
+  const effectiveTimeBlock = useMemo(() => {
+    if (availableTimeBlocks.length === 0) return "";
+    const isCurrentValid = availableTimeBlocks.some(
+      (b) => b.label === selectedTimeBlock && !b.disabled
+    );
+    if (isCurrentValid) return selectedTimeBlock;
+    const firstAvailable = availableTimeBlocks.find((b) => !b.disabled);
+    return firstAvailable ? firstAvailable.label : "";
   }, [availableTimeBlocks, selectedTimeBlock]);
 
   const handleOpenModal = (service: KioskService) => {
@@ -298,7 +294,7 @@ export default function KioskServiceSelection({
       return;
     }
 
-    if (!selectedTimeBlock) {
+    if (!effectiveTimeBlock) {
       setBookingError("Silakan pilih sesi jam layanan.");
       return;
     }
@@ -314,7 +310,7 @@ export default function KioskServiceSelection({
           body: JSON.stringify({
             service_id: selectedService.id,
             schedule_date: targetDate,
-            time_block: selectedTimeBlock,
+            time_block: effectiveTimeBlock,
             nik: nik.trim(),
           }),
         });
@@ -605,7 +601,7 @@ export default function KioskServiceSelection({
                   ) : (
                     <div className="grid grid-cols-2 gap-2">
                       {availableTimeBlocks.map((block) => {
-                        const isSelected = selectedTimeBlock === block.label;
+                        const isSelected = effectiveTimeBlock === block.label;
                         return (
                           <button
                             key={block.label}
@@ -655,7 +651,7 @@ export default function KioskServiceSelection({
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  disabled={isPending || !selectedTimeBlock || nik.length !== 16}
+                  disabled={isPending || !effectiveTimeBlock || nik.length !== 16}
                   className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[14px] bg-linear-to-b from-counter-top to-counter-bottom py-3.5 font-display text-sm font-semibold text-white shadow-soft transition-opacity hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isPending ? (

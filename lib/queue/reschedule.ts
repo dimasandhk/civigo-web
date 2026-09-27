@@ -38,7 +38,7 @@ export type RescheduleResult =
         estimated_finish: string;
         service: { id: number; name: string };
         agency: { id: number; name: string };
-        rescheduled_from: { id: string; queue_number: string; time_block: string };
+        rescheduled_from: { id: string; queue_number: string; time_block: string | null };
       };
     }
   | Failure;
@@ -132,7 +132,7 @@ export async function rescheduleQueue(ticketId: string): Promise<RescheduleResul
   }
 
   const grid = sessionGrid(agency.open_time, agency.close_time);
-  const currentStart = parseTimeBlock(ticket.time_block)?.startMinutes ?? -1;
+  const currentStart = ticket.time_block ? parseTimeBlock(ticket.time_block)?.startMinutes ?? -1 : -1;
   const closeMinutes = timeToMinutes(agency.close_time);
   const estimatedTime = service.estimated_time ?? DEFAULT_ESTIMATED_MINUTES;
   const nowMinutes = nowMinutesInJakarta();

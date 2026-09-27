@@ -123,12 +123,14 @@ export type Database = {
           id: string
           location_id: number | null
           nik: string | null
+          postponed: boolean
+          postponed_at: string | null
           queue_number: string
           rescheduled_from: string | null
           schedule_date: string
           service_id: number | null
           status: string
-          time_block: string
+          time_block: string | null
           user_id: string | null
         }
         Insert: {
@@ -137,12 +139,14 @@ export type Database = {
           id?: string
           location_id?: number | null
           nik?: string | null
+          postponed?: boolean
+          postponed_at?: string | null
           queue_number: string
           rescheduled_from?: string | null
           schedule_date: string
           service_id?: number | null
           status?: string
-          time_block: string
+          time_block?: string | null
           user_id?: string | null
         }
         Update: {
@@ -151,12 +155,14 @@ export type Database = {
           id?: string
           location_id?: number | null
           nik?: string | null
+          postponed?: boolean
+          postponed_at?: string | null
           queue_number?: string
           rescheduled_from?: string | null
           schedule_date?: string
           service_id?: number | null
           status?: string
-          time_block?: string
+          time_block?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -196,7 +202,9 @@ export type Database = {
           estimated_time: number | null
           id: number
           name: string
+          output_doc_ids: number[] | null
           output_documents: string[] | null
+          requirement_doc_ids: number[] | null
           requirements: Json | null
         }
         Insert: {
@@ -204,7 +212,9 @@ export type Database = {
           estimated_time?: number | null
           id?: number
           name: string
+          output_doc_ids?: number[] | null
           output_documents?: string[] | null
+          requirement_doc_ids?: number[] | null
           requirements?: Json | null
         }
         Update: {
@@ -212,7 +222,9 @@ export type Database = {
           estimated_time?: number | null
           id?: number
           name?: string
+          output_doc_ids?: number[] | null
           output_documents?: string[] | null
+          requirement_doc_ids?: number[] | null
           requirements?: Json | null
         }
         Relationships: [
@@ -397,6 +409,38 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_documents: {
+        Row: {
+          agency_id: number | null
+          created_at: string
+          description: string | null
+          id: number
+          name: string
+        }
+        Insert: {
+          agency_id?: number | null
+          created_at?: string
+          description?: string | null
+          id?: number
+          name: string
+        }
+        Update: {
+          agency_id?: number | null
+          created_at?: string
+          description?: string | null
+          id?: number
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_documents_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
         ]

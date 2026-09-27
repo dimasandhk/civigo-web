@@ -136,3 +136,32 @@ export async function signOut() {
 
   redirect("/");
 }
+
+export async function requestPasswordReset(
+  _state: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const email = text(formData, "email").toLowerCase();
+
+  if (!email) {
+    return { fieldErrors: { email: "Email wajib diisi." } };
+  }
+
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return { fieldErrors: { email: "Format email tidak valid." } };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://civigo.com"}/reset-password`,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return {
+    message: "Tautan reset kata sandi telah dikirim ke email Anda. Silakan periksa inbox atau spam.",
+  };
+}
+

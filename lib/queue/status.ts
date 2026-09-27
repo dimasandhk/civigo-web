@@ -42,7 +42,7 @@ export type TicketSummary = {
   queue_number: string;
   status: QueueStatus;
   schedule_date: string;
-  time_block: string;
+  time_block: string | null;
   counter_id: number | null;
   counter_name: string | null;
   service: { id: number; name: string };
@@ -294,7 +294,7 @@ export async function callNextQueue(raw: unknown): Promise<CallNextResult> {
     const priority = (status: string) => (status === "present" ? 0 : 1);
     if (priority(a.status) !== priority(b.status)) return priority(a.status) - priority(b.status);
 
-    const startOf = (block: string) => parseTimeBlock(block)?.startMinutes ?? Number.MAX_SAFE_INTEGER;
+    const startOf = (block: string | null) => (block ? parseTimeBlock(block)?.startMinutes ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER);
     if (startOf(a.time_block) !== startOf(b.time_block)) {
       return startOf(a.time_block) - startOf(b.time_block);
     }
