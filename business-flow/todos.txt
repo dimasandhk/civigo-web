@@ -13,9 +13,7 @@ Web:
         - Sudah: membaca data asli dari tabel reviews.
         - Belum: filter layanan/loket/rating masih opsi hardcoded dan belum menyaring.
         - Belum: "Bulan Ini" masih rata-rata keseluruhan, bukan bulan ini.
-        - Belum: agency tanpa ulasan menampilkan data karangan (500 ulasan, 4.6/5) — fallback di getAdminReviews.
-        - Belum: tidak ada filter per location_id cabang.
-    4. [x] Integrasi login instansi.
+        - Belum: agency tanpa ulasan menampilkan data karangan (500 ulasan, 4.6/5) — fallback di getAdminReviews.    4. [x] Integrasi login instansi.
         - Catatan: login pakai username diubah jadi <prefix>@civigo.com, jadi akun per cabang tidak bisa dibedakan lewat username.
     5. [ ] Tambah tombol "Mundurkan Antrean" (ke urutan paling akhir) di dasbor antrean loket. ⭐ (Baru)
         - API sudah ada (POST /api/queue/[id]/postpone), tinggal dipanggil dari AntreanManager.
