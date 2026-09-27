@@ -1,5 +1,5 @@
 import { requireOfficer } from "@/lib/auth/session";
-import { todayInJakarta } from "@/lib/queue/time";
+import { startOfMonthInJakarta, todayInJakarta } from "@/lib/queue/time";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { RatingLevel } from "@/app/components/admin/ratings";
 import type { ServiceDonutItem } from "@/app/components/admin/ServiceDonutChart";
@@ -411,16 +411,90 @@ export type ReviewItem = {
   time: string;
 };
 
-/**
- * Tabel `reviews` belum ada di database — migrasi lokalnya pun akan gagal
- * (`queue_id bigint` vs `queues.id uuid`). Fallback di bawah sengaja
- * dipertahankan sampai tabelnya dibuat, karena membuangnya sekarang hanya
- * mengosongkan halaman tanpa ada penggantinya.
- */
-export async function getAdminReviews(agencyId: number) {
+export type ReviewFilters = {
+  serviceId: number | null;
+  counterId: number | null;
+  rating: RatingLevel | null;
+};
+
+export type ReviewStatItem = { label: string; value: string; unit?: string };
+
+export type AdminReviewsResult = {
+  stats: ReviewStatItem[];
+  /** Persentase per level rating, 0 semua kalau tidak ada ulasan. */
+  breakdown: Record<number, number>;
+  reviews: ReviewItem[];
+};
+
+export type ReviewFilterOption = { value: string; label: string };
+
+/** Opsi filter halaman ulasan: layanan & loket milik instansi ini saja. */
+export async function getReviewFilterOptions(agencyId: number): Promise<{
+  services: ReviewFilterOption[];
+  counters: ReviewFilterOption[];
+}> {
   const supabase = createServiceClient();
 
-  const { data: reviews, error } = await supabase
+  const [servicesRes, countersRes] = await Promise.all([
+    supabase
+      .from("services")
+      .select("id, name")
+      .eq("agency_id", agencyId)
+      .order("name", { ascending: true }),
+    supabase
+      .from("counters")
+      .select("id, counter_name, location_id")
+      .eq("agency_id", agencyId)
+      .order("id", { ascending: true }),
+  ]);
+
+  if (servicesRes.error) throw new Error(`Gagal memuat layanan: ${servicesRes.error.message}`);
+  if (countersRes.error) throw new Error(`Gagal memuat loket: ${countersRes.error.message}`);
+
+  const counters = countersRes.data ?? [];
+  const nameCount = new Map<string, number>();
+  for (const c of counters) nameCount.set(c.counter_name, (nameCount.get(c.counter_name) ?? 0) + 1);
+
+  return {
+    services: (servicesRes.data ?? []).map((s) => ({ value: String(s.id), label: s.name })),
+    // Nama loket bisa sama di cabang berbeda ("Loket 1" di MPP dan di kantor
+    // induk), jadi cabangnya disebut hanya kalau namanya bentrok.
+    counters: counters.map((c) => ({
+      value: String(c.id),
+      label:
+        (nameCount.get(c.counter_name) ?? 0) > 1
+          ? `${c.counter_name} (Cabang #${c.location_id})`
+          : c.counter_name,
+    })),
+  };
+}
+
+const REVIEW_TIME_FORMATTER = new Intl.DateTimeFormat("id-ID", {
+  timeZone: "Asia/Jakarta",
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+function average(ratings: number[]): string {
+  if (ratings.length === 0) return "-";
+  return (ratings.reduce((acc, r) => acc + r, 0) / ratings.length).toFixed(1);
+}
+
+/**
+ * Ulasan instansi beserta ringkasannya. Filter berlaku untuk semuanya —
+ * statistik, rincian rating, dan daftar — karena ketiganya dihitung dari hasil
+ * query yang sama.
+ *
+ * Tidak ada lagi fallback data karangan (500 ulasan, 4.6/5): query gagal
+ * dilempar, nol ulasan dikembalikan sebagai nol.
+ */
+export async function getAdminReviews(
+  agencyId: number,
+  filters: ReviewFilters = { serviceId: null, counterId: null, rating: null },
+): Promise<AdminReviewsResult> {
+  const supabase = createServiceClient();
+
+  let query = supabase
     .from("reviews")
     .select(`
       id,
@@ -433,81 +507,56 @@ export async function getAdminReviews(agencyId: number) {
     .eq("agency_id", agencyId)
     .order("created_at", { ascending: false });
 
-  if (error || !reviews || reviews.length === 0) {
-    return {
-      stats: [
-        { label: "Total Ulasan", value: "500" },
-        { label: "Rata-rata", value: "4.6", unit: "/5" },
-        { label: "Sangat Puas", value: "78", unit: "%" },
-        { label: "Bulan Ini", value: "4.8" },
-      ],
-      breakdown: { 5: 78, 4: 14, 3: 5, 2: 2, 1: 1 } as Record<number, number>,
-      reviews: [
-        {
-          id: "rev-1",
-          rating: 5,
-          comment: "Pelayanannya sangat cepat dan petugasnya ramah.",
-          service: "Pembuatan KTP-el",
-          counter: "Loket 1",
-          time: "5 menit lalu",
-        },
-        {
-          id: "rev-2",
-          rating: 4,
-          comment: "Pelayanannya sudah bagus dan cukup membantu.",
-          service: "Aktivasi Identitas Kependudukan Digital",
-          counter: "Loket 2",
-          time: "10 menit lalu",
-        },
-        {
-          id: "rev-3",
-          rating: 5,
-          comment: "Antrean teratur, nomor panggilan display jelas terlihat dan terdengar.",
-          service: "Cetak Kartu Keluarga (KK)",
-          counter: "Loket 3",
-          time: "35 menit lalu",
-        },
-      ] as ReviewItem[],
-    };
-  }
+  if (filters.serviceId !== null) query = query.eq("service_id", filters.serviceId);
+  if (filters.counterId !== null) query = query.eq("counter_id", filters.counterId);
+  if (filters.rating !== null) query = query.eq("rating", filters.rating);
 
-  const total = reviews.length;
-  const sumRating = reviews.reduce((acc, r) => acc + r.rating, 0);
-  const avgRating = total > 0 ? (sumRating / total).toFixed(1) : "5.0";
-  const veryHappy = Math.round(
-    (reviews.filter((r) => r.rating === 5).length / total) * 100,
-  );
+  const { data: reviews, error } = await query;
+
+  if (error) throw new Error(`Gagal memuat ulasan: ${error.message}`);
+
+  const list = reviews ?? [];
+  const total = list.length;
+
+  // "Bulan Ini" = bulan berjalan WIB. Dibandingkan sebagai instant, bukan
+  // string: created_at dari PostgREST berformat "+00:00".
+  const monthStart = startOfMonthInJakarta().getTime();
+  const thisMonth = list.filter((r) => new Date(r.created_at).getTime() >= monthStart);
 
   const breakdown = [1, 2, 3, 4, 5].reduce<Record<number, number>>((acc, level) => {
-    acc[level] = Math.round(
-      (reviews.filter((r) => r.rating === level).length / total) * 100,
-    );
+    acc[level] =
+      total > 0 ? Math.round((list.filter((r) => r.rating === level).length / total) * 100) : 0;
     return acc;
   }, {});
 
   return {
     stats: [
       { label: "Total Ulasan", value: String(total) },
-      { label: "Rata-rata", value: avgRating, unit: "/5" },
-      { label: "Sangat Puas", value: String(veryHappy), unit: "%" },
-      { label: "Bulan Ini", value: avgRating },
+      {
+        label: "Rata-rata",
+        value: average(list.map((r) => r.rating)),
+        unit: total > 0 ? "/5" : undefined,
+      },
+      {
+        label: "Sangat Puas",
+        value: total > 0 ? String(breakdown[5]) : "-",
+        unit: total > 0 ? "%" : undefined,
+      },
+      {
+        label: "Bulan Ini",
+        value: average(thisMonth.map((r) => r.rating)),
+        unit: thisMonth.length > 0 ? "/5" : undefined,
+      },
     ],
     breakdown,
-    reviews: reviews.map((r) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const service = r.service as any;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const counter = r.counter as any;
-
-      return {
-        id: String(r.id),
-        rating: r.rating as RatingLevel,
-        comment: r.comment ?? "",
-        service: service?.name ?? "-",
-        counter: counter?.counter_name ?? "-",
-        time: new Date(r.created_at).toLocaleString("id-ID"),
-      };
-    }) as ReviewItem[],
+    reviews: list.map((r) => ({
+      id: String(r.id),
+      rating: r.rating as RatingLevel,
+      comment: r.comment ?? "",
+      service: r.service?.name ?? "-",
+      counter: r.counter?.counter_name ?? "-",
+      time: REVIEW_TIME_FORMATTER.format(new Date(r.created_at)),
+    })),
   };
 }
 
