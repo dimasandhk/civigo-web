@@ -12,12 +12,14 @@ export type CounterDisplay = {
 };
 
 export type QueueDisplayLiveProps = {
+  agencyId: number;
   initialCounters: CounterDisplay[];
   initialUpcoming: string[];
   agencyName?: string;
 };
 
 export default function QueueDisplayLive({
+  agencyId,
   initialCounters: counters,
   initialUpcoming: upcoming,
   agencyName = "DisdukCapil",
@@ -43,35 +45,29 @@ export default function QueueDisplayLive({
     return () => clearInterval(interval);
   }, []);
 
-  // Supabase Realtime Subscription for Queues
+  // Realtime: trigger `queues_broadcast_to_display` broadcasts a content-free
+  // signal per agency. postgres_changes cannot be used here — the TV is anon
+  // and RLS on `queues` hides every row from anon, so it would get no events.
   useEffect(() => {
     const supabase = createClient();
 
     const channel = supabase
-      .channel("public:queues-display")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "queues",
-        },
-        () => {
-          // Re-fetch data from server
-          router.refresh();
-        },
-      )
+      .channel(`display:agency:${agencyId}`)
+      .on("broadcast", { event: "queue_changed" }, () => {
+        router.refresh();
+      })
       .subscribe();
 
+    // Safety net in case the socket drops and misses a signal.
     const interval = setInterval(() => {
       router.refresh();
-    }, 10000);
+    }, 60000);
 
     return () => {
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [router]);
+  }, [agencyId, router]);
 
   return (
     <main className="relative flex h-screen max-h-screen flex-col justify-between overflow-hidden bg-board px-6 py-5 sm:px-10 sm:py-6 lg:px-14 lg:py-7">

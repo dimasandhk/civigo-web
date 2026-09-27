@@ -106,6 +106,7 @@ export default async function QueueDisplayPage({ params, searchParams }: Props) 
 
   return (
     <QueueDisplayLive
+      agencyId={agencyId}
       initialCounters={activeCounters}
       initialUpcoming={upcoming}
       agencyName={agency.name}
