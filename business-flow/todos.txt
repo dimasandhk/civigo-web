@@ -2,10 +2,10 @@ Status dicek 27/09/2026 (kode di main 2ccb974 + DB remote via Supabase MCP)
 Legenda: [x] selesai, [~] sebagian, [ ] belum
 
 Web:
-    1. [~] Integrasi tambah loket, edit loket, hapus loket (jam operasional & location_id cabang).
+    1. [~] Integrasi tambah loket, edit loket, hapus loket (location_id cabang).
         - Sudah: tambah, ubah nama, hapus, toggle status tersimpan ke DB; location_id diambil dari profil petugas.
-        - Belum: jam operasional tidak ada di form (jam disimpan per agency, bukan per loket).
-        - Belum: location_id jatuh ke 1 kalau profil petugas tidak punya location_id.
+        - Loket memang tidak punya jam operasional; jam operasional diatur per agency (agencies.open_time/close_time).
+        - Belum: location_id jatuh ke 1 kalau profil petugas tidak punya location_id (DB tidak mewajibkan location_id untuk akun instansi).
         - Belum: aksi loket tidak mengecek loket milik agency petugas (petugas bisa ubah/hapus loket instansi lain lewat id).
     2. [ ] Integrasi CRUD layanan.
         - Tombol Tambah/Lihat/Ubah/Hapus di /admin/layanan belum punya handler; API services baru GET.
