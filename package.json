@@ -8,7 +8,7 @@
     "start": "next start",
     "ingest": "tsx scripts/ingest.ts",
     "lint": "eslint",
-    "db:types": "supabase gen types typescript --linked > lib/supabase/database.types.ts"
+    "db:types": "npx supabase gen types typescript --linked > lib/supabase/database.types.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.6",

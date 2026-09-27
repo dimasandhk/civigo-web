@@ -1,12 +1,4 @@
-/**
- * Generated from the live schema. Do not edit by hand — regenerate with:
- *
- *   npx supabase login
- *   npx supabase link --project-ref pcaadxclrsrdeutcwtsp
- *   pnpm db:types
- */
-
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -49,6 +41,39 @@ export type Database = {
         }
         Relationships: []
       }
+      agency_locations: {
+        Row: {
+          agency_id: number
+          created_at: string
+          location_id: number
+        }
+        Insert: {
+          agency_id: number
+          created_at?: string
+          location_id: number
+        }
+        Update: {
+          agency_id?: number
+          created_at?: string
+          location_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_locations_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_locations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       counters: {
         Row: {
           agency_id: number | null
@@ -79,7 +104,35 @@ export type Database = {
             referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "counters_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      documents: {
+        Row: {
+          content: string
+          embedding: string | null
+          id: number
+          metadata: Json | null
+        }
+        Insert: {
+          content: string
+          embedding?: string | null
+          id?: never
+          metadata?: Json | null
+        }
+        Update: {
+          content?: string
+          embedding?: string | null
+          id?: never
+          metadata?: Json | null
+        }
+        Relationships: []
       }
       family_members: {
         Row: {
@@ -115,6 +168,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      locations: {
+        Row: {
+          address: string
+          city: string | null
+          created_at: string
+          id: number
+          latitude: number | null
+          longitude: number | null
+          name: string
+          type: string
+        }
+        Insert: {
+          address: string
+          city?: string | null
+          created_at?: string
+          id?: number
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          type?: string
+        }
+        Update: {
+          address?: string
+          city?: string | null
+          created_at?: string
+          id?: number
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          type?: string
+        }
+        Relationships: []
       }
       queues: {
         Row: {
@@ -174,9 +260,16 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "queues_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "queues_rescheduled_from_fkey"
             columns: ["rescheduled_from"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "queues"
             referencedColumns: ["id"]
           },
@@ -192,47 +285,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      services: {
-        Row: {
-          agency_id: number | null
-          estimated_time: number | null
-          id: number
-          name: string
-          output_doc_ids: number[] | null
-          output_documents: string[] | null
-          requirement_doc_ids: number[] | null
-          requirements: Json | null
-        }
-        Insert: {
-          agency_id?: number | null
-          estimated_time?: number | null
-          id?: number
-          name: string
-          output_doc_ids?: number[] | null
-          output_documents?: string[] | null
-          requirement_doc_ids?: number[] | null
-          requirements?: Json | null
-        }
-        Update: {
-          agency_id?: number | null
-          estimated_time?: number | null
-          id?: number
-          name?: string
-          output_doc_ids?: number[] | null
-          output_documents?: string[] | null
-          requirement_doc_ids?: number[] | null
-          requirements?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "services_agency_id_fkey"
-            columns: ["agency_id"]
-            isOneToOne: false
-            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
         ]
@@ -254,7 +306,7 @@ export type Database = {
           comment?: string | null
           counter_id?: number | null
           created_at?: string
-          id?: number
+          id?: never
           queue_id?: string | null
           rating: number
           service_id?: number | null
@@ -265,7 +317,7 @@ export type Database = {
           comment?: string | null
           counter_id?: number | null
           created_at?: string
-          id?: number
+          id?: never
           queue_id?: string | null
           rating?: number
           service_id?: number | null
@@ -309,110 +361,6 @@ export type Database = {
           },
         ]
       }
-      users: {
-        Row: {
-          agency_id: number | null
-          created_at: string | null
-          email: string
-          full_name: string
-          id: string
-          location_id: number | null
-          nik: string | null
-          role: string
-        }
-        Insert: {
-          agency_id?: number | null
-          created_at?: string | null
-          email: string
-          full_name: string
-          id: string
-          location_id?: number | null
-          nik?: string | null
-          role?: string
-        }
-        Update: {
-          agency_id?: number | null
-          created_at?: string | null
-          email?: string
-          full_name?: string
-          id?: string
-          location_id?: number | null
-          nik?: string | null
-          role?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "users_agency_id_fkey"
-            columns: ["agency_id"]
-            isOneToOne: false
-            referencedRelation: "agencies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      locations: {
-        Row: {
-          address: string
-          city: string | null
-          created_at: string
-          id: number
-          latitude: number | null
-          longitude: number | null
-          name: string
-          type: string
-        }
-        Insert: {
-          address: string
-          city?: string | null
-          created_at?: string
-          id?: number
-          latitude?: number | null
-          longitude?: number | null
-          name: string
-          type?: string
-        }
-        Update: {
-          address?: string
-          city?: string | null
-          created_at?: string
-          id?: number
-          latitude?: number | null
-          longitude?: number | null
-          name?: string
-          type?: string
-        }
-        Relationships: []
-      }
-      agency_locations: {
-        Row: {
-          agency_id: number
-          location_id: number
-        }
-        Insert: {
-          agency_id: number
-          location_id: number
-        }
-        Update: {
-          agency_id?: number
-          location_id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "agency_locations_agency_id_fkey"
-            columns: ["agency_id"]
-            isOneToOne: false
-            referencedRelation: "agencies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "agency_locations_location_id_fkey"
-            columns: ["location_id"]
-            isOneToOne: false
-            referencedRelation: "locations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       service_documents: {
         Row: {
           agency_id: number | null
@@ -445,15 +393,128 @@ export type Database = {
           },
         ]
       }
+      services: {
+        Row: {
+          agency_id: number | null
+          estimated_time: number | null
+          id: number
+          info_procedure: string | null
+          name: string
+          output_doc_ids: number[]
+          output_documents: string[]
+          requirement_doc_ids: number[]
+          requirements: Json | null
+        }
+        Insert: {
+          agency_id?: number | null
+          estimated_time?: number | null
+          id?: number
+          info_procedure?: string | null
+          name: string
+          output_doc_ids?: number[]
+          output_documents?: string[]
+          requirement_doc_ids?: number[]
+          requirements?: Json | null
+        }
+        Update: {
+          agency_id?: number | null
+          estimated_time?: number | null
+          id?: number
+          info_procedure?: string | null
+          name?: string
+          output_doc_ids?: number[]
+          output_documents?: string[]
+          requirement_doc_ids?: number[]
+          requirements?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "services_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          agency_id: number | null
+          created_at: string | null
+          email: string
+          full_name: string
+          id: string
+          location_id: number | null
+          nik: string | null
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Insert: {
+          agency_id?: number | null
+          created_at?: string | null
+          email: string
+          full_name: string
+          id: string
+          location_id?: number | null
+          nik?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Update: {
+          agency_id?: number | null
+          created_at?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          location_id?: number | null
+          nik?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "users_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "users_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      get_agency_queue_analytics: {
+        Args: { p_agency_id: number; p_date?: string; p_location_id?: number }
+        Returns: Json
+      }
+      get_agency_satisfaction_analytics: {
+        Args: { p_agency_id: number; p_location_id?: number }
+        Returns: Json
+      }
+      match_documents: {
+        Args: {
+          match_count: number
+          match_threshold: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: number
+          metadata: Json
+          similarity: number
+        }[]
+      }
       nik_available: { Args: { p_nik: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      user_role: "user" | "instansi" | "super_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -580,6 +641,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      user_role: ["user", "instansi", "super_admin"],
+    },
   },
 } as const
