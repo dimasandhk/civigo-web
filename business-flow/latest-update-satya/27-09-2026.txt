@@ -1,0 +1,77 @@
+### 1. 🗄️ Database & Migrasi Supabase CLI (Remote Linked)
+
+  Semua migrasi telah di-push secara resmi ke database Supabase remote menggunakan Supabase CLI:
+
+  1. Relasi Anggota Keluarga pada Antrean: Menambahkan foreign key family_member_id ke tabel public.queues
+  (20260927204800_add_family_member_to_queues.sql).
+  2. Katalog Master Dokumen (service_documents): Membuat tabel public.service_documents dan menghubungkannya dengan
+  requirement_doc_ids & output_doc_ids di tabel services. Tabel public.documents milik AI Chatbot RAG tetap dijaga utuh dan tidak
+  terganggu.
+  3. Dynamic Slot Allocation: Kolom time_block pada queues diubah menjadi NULLABLE (opsional) agar booking Kiosk dan Mobile tidak
+  memaksa sesi jam kaku.
+  4. Kolom Postpone Antrean: Menambahkan kolom postponed (boolean) dan postponed_at (timestamptz) pada tabel queues.
+  5. Pembersihan Nama Loket: Membersihkan teks dalam kurung pada counter_name di tabel counters (contoh: "Loket 1").
+  6. Supabase Realtime Display: Mengaktifkan publikasi supabase_realtime dengan REPLICA IDENTITY FULL pada tabel queues agar layar
+  TV display monitor update secara live via WebSocket tanpa polling.
+  7. SQL RPC Analytics: Fungsi RPC get_agency_satisfaction_analytics dan get_agency_queue_analytics.
+  8. Sinkronisasi TypeScript: Meregenerasi otomatis tipe data TypeScript database ke database.types.ts.
+  ──────
+  ### 2. ⚡ Fitur Bisnis & Endpoint API Baru
+
+  1. Mundurkan Antrean ke Urutan Paling Akhir (Postpone):
+      • Endpoint: POST /api/queue/[id]/postpone
+      • Logika: Tiket ditandai postponed = true, status tetap present.
+      • Algoritma pemanggilan loket (callNextQueue) selalu mendahulukan antrean reguler, dan menempatkan tiket yang dimundurkan di
+      urutan paling belakang secara FIFO.
+  2. Modul Anggota Keluarga (Family Members):
+      • Endpoints: GET /api/family-members, POST /api/family-members (validasi NIK 16 digit), dan DELETE /api/family-members/[id].
+      • Terintegrasi di POST /api/queue/book: warga dapat memilih anggota keluarga (family_member_id), dan NIK otomatis terisi dari
+      profil anggota keluarga jika tidak diinput manual.
+  3. Master Data Instansi & Cabang MPP:
+      • Endpoints: GET /api/agencies (filter ?location_id= dan ?q=) dan GET /api/agencies/[id] (detail instansi beserta lokasi
+      cabang, katalog layanan, dan loket aktif).
+  4. Riwayat Antrean Warga (Citizen History):
+      • Endpoint: GET /api/queue/my
+      • Otomatis memisahkan data menjadi:
+          • active_tickets: Tiket hari ini atau masa depan (scheduled, present, served).
+          • history_tickets: Tiket masa lampau, selesai (completed), atau hangus (skipped).
+      • Tiket hangus pada hari ini otomatis menyertakan flag can_reschedule: true untuk memicu tombol Reschedule di aplikasi mobile.
+  5. Dukungan 3 Kondisi Kelengkapan Dokumen:
+      • Endpoints: POST /api/services/cross-agency dan POST /api/services/[id]/prerequisites
+      • Menerima 3 kondisi dokumen: sudah_tersedia, belum_memiliki, dan hilang_rusak.
+      • Kondisi hilang_rusak memicu flag requires_police_report: true, panduan pembuatan Surat Tanda Penerimaan Laporan Kehilangan
+      (SKTLK) di Polsek / verifikasi fisik dokumen rusak, serta menyisipkan langkah awal SKTLK ke dalam roadmap suggested_flow.
+  6. Pemulihan Kata Sandi (Auth):
+      • Endpoints: POST /api/auth/forgot-password (mengirim email link reset via Supabase Auth) dan POST /api/auth/reset-password
+      (update kata sandi baru dalam sesi pemulihan).
+  7. Analitik Operasional & Kepuasan Masyarakat:
+      • Endpoint: GET /api/analytics (ringkasan rating bintang 1–5, persentase kepuasan, breakdown status antrean, dan rasio
+      kehadiran).
+
+  ──────
+  ### 3. 📖 Dokumentasi API Interaktif (Scalar OpenAPI)
+
+  • Scalar Documentation Viewer: Dapat dibuka langsung di browser pada http://localhost:3000/docs (lengkap dengan fitur Try It Out
+  dan pencarian Ctrl+K).
+  • OpenAPI 3.1 Spec JSON: Tersedia di http://localhost:3000/api/openapi.json (siap di-import ke Postman/Insomnia).
+  • Catatan Handover Tim: Disusun rapi di supabase-backend-integration-notes.md.
+  ──────
+  ### 4. 🧪 Automated Test Suite (Vitest) — 100% Pass
+
+  • Menyiapkan test runner Vitest dengan konfigurasi vitest.config.mts.
+  • Zero-Cost & Quota Protection: Mengisolasi dan me-mock penuh panggilan eksternal OpenAI dan Supabase Auth Mailer, sehingga
+  running test 0 token terpakai dan 0 email terkirim.
+  • 10 File Test Suite / 39 Tes: Seluruhnya berstatus PASS dalam waktu ~2.7 detik.
+  • Perintah eksekusi: pnpm test atau pnpm test:watch.
+
+
+========
+
+ringkasan:
+1. semua yang kmaren di task supabase udah
+2. endpoint untuk CRUD anggota keluarga
+3. endpoint postpone antrean
+4. api docs di /docs
+5. api get all dokumen
+6. dokumen layanan aku simpennya di tabel service_documents
+7. test suite pake vitest (run pake "pnpm test")

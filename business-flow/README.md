@@ -193,7 +193,8 @@ milik Disdukcapil; tombol "Panggil Antrean" dan "Selesaikan Layanan" berhasil
   Sebelumnya di sini ada angka 15 yang hardcoded tanpa syarat.
 - **Halaman ulasan masih memakai data karangan.** Satu-satunya fallback dummy
   yang tersisa, karena tabel `reviews` memang belum ada.
-- **Realtime belum aktif.** Publication `supabase_realtime` ada tapi tidak ada
-  tabel yang didaftarkan, jadi display antrean belum bisa live update.
+- ~~**Realtime belum aktif.**~~ Beres 27/09/2026: display antrean live lewat
+  Realtime Broadcast dari trigger `queues_broadcast_to_display`. Lihat
+  `business-flow-notes.md` poin 5.6.
 - **Riwayat migrasi lokal tidak lengkap.** Tiga migrasi 06/09/2026 ada di
   remote tapi filenya tidak ada di `supabase/migrations/`.

@@ -108,3 +108,9 @@ Skema database menggunakan tipe enum `public.user_role`:
    - Master dokumen persyaratan dan output dipisahkan ke tabel **`service_documents`** untuk melindungi tabel `documents` milik AI Chatbot RAG.
    - Dokumentasi API interaktif Scalar dapat diakses di `/docs`, dan raw spec di `/api/openapi.json`.
    - Selengkapnya baca: [`business-flow/supabase-backend-integration-notes.md`](./supabase-backend-integration-notes.md).
+6. **Display TV live lewat Broadcast, bukan postgres_changes (27/09/2026)**:
+   - Temuan: publikasi `supabase_realtime` pada `queues` tidak pernah sampai ke display. Display tidak login (anon), dan postgres_changes mengikuti RLS — policy `queues` cuma `auth.uid() = user_id`, jadi anon menerima 0 event. Display sebenarnya hanya update dari polling 10 detik.
+   - Solusi: migrasi `20260927162830_broadcast_queue_changes_to_display` menambah trigger `queues_broadcast_to_display` (insert/update/delete, hanya antrean hari ini) yang memanggil `realtime.send()` ke topic publik `display:agency:<agency_id>` dengan event `queue_changed`.
+   - Payload sengaja tanpa data tiket (hanya `agency_id`), jadi topic publik aman dan `queues` tetap tertutup untuk anon — NIK tidak ikut terbuka.
+   - `QueueDisplayLive` subscribe ke topic tersebut lalu `router.refresh()`; data tetap dibaca server lewat service_role. Polling diturunkan jadi 60 detik sebagai jaring pengaman.
+   - Publikasi `queues` tetap dipertahankan untuk klien yang login (mis. mobile warga), karena RLS mengizinkan mereka melihat tiket sendiri.
