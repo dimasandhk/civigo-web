@@ -10,7 +10,8 @@
     "lint": "eslint",
     "db:types": "npx supabase gen types typescript --linked > lib/supabase/database.types.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed": "tsx scripts/seed_dummy_data.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.6",
