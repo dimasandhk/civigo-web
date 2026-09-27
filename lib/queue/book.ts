@@ -53,10 +53,11 @@ export type BookingTicket = {
   id: string;
   queue_number: string;
   schedule_date: string;
-  time_block: string;
+  time_block: string | null;
   status: string;
-  estimated_finish: string;
+  estimated_finish: string | null;
   nik: string | null;
+  family_member_id?: number | null;
   service: { id: number; name: string; estimated_time: number };
   agency: { id: number; name: string };
   linked_account: boolean;
@@ -77,8 +78,9 @@ function fail(
 type BookQueueInput = {
   service_id: number;
   location_id?: number | null;
+  family_member_id?: number | null;
   schedule_date: string;
-  time_block: string;
+  time_block: string | null;
   nik: string | null;
 };
 
@@ -106,8 +108,17 @@ function parseInput(raw: unknown): BookQueueInput | null {
     return null;
   }
 
-  const timeBlock = body.time_block;
-  if (typeof timeBlock !== "string" || timeBlock.length === 0) return null;
+  const timeBlock =
+    typeof body.time_block === "string" && body.time_block.trim().length > 0
+      ? body.time_block.trim()
+      : null;
+
+  const familyMemberId =
+    typeof body.family_member_id === "number" &&
+    Number.isInteger(body.family_member_id) &&
+    body.family_member_id > 0
+      ? body.family_member_id
+      : null;
 
   const nik = body.nik;
   if (nik !== undefined && nik !== null && typeof nik !== "string") return null;
@@ -121,6 +132,7 @@ function parseInput(raw: unknown): BookQueueInput | null {
   return {
     service_id: serviceId,
     location_id: validLocationId,
+    family_member_id: familyMemberId,
     schedule_date: scheduleDate,
     time_block: timeBlock,
     nik: typeof nik === "string" ? nik.trim() : null,
@@ -250,9 +262,9 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
     );
   }
 
-  const block = parseTimeBlock(input.time_block);
+  const block = input.time_block ? parseTimeBlock(input.time_block) : null;
 
-  if (!block) {
+  if (input.time_block && !block) {
     return fail(
       400,
       "INVALID_TIME_BLOCK",
@@ -261,13 +273,13 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
   }
 
   const estimatedTime = service.estimated_time ?? DEFAULT_ESTIMATED_MINUTES;
-  const finishMinutes = block.startMinutes + estimatedTime;
+  const finishMinutes = block ? block.startMinutes + estimatedTime : null;
 
   // Izinkan pengujian di luar jam kerja (misal malam hari, akhir pekan, atau testing) saat development atau testing
   const isDevTesting =
     process.env.NODE_ENV !== "production" ||
     process.env.ALLOW_OFFHOURS_TESTING === "true" ||
-    block.startMinutes >= 1080 ||
+    (block && block.startMinutes >= 1080) ||
     (dayOffset === 0 && !agency.operating_days.includes(isoDayOfWeek(input.schedule_date)));
 
   if (!isDevTesting) {
@@ -275,34 +287,49 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
       return fail(422, "AGENCY_CLOSED", `${agency.name} tutup pada tanggal ${input.schedule_date}.`);
     }
 
-    const openMinutes = timeToMinutes(agency.open_time);
-    const closeMinutes = timeToMinutes(agency.close_time);
+    if (block) {
+      const openMinutes = timeToMinutes(agency.open_time);
+      const closeMinutes = timeToMinutes(agency.close_time);
 
-    if (block.startMinutes < openMinutes || block.startMinutes >= closeMinutes) {
-      return fail(
-        422,
-        "OUTSIDE_OPERATING_HOURS",
-        `Sesi ${minutesToTime(block.startMinutes)} di luar jam operasional ${agency.name} ` +
-          `(${minutesToTime(openMinutes)} - ${minutesToTime(closeMinutes)}).`,
-      );
+      if (block.startMinutes < openMinutes || block.startMinutes >= closeMinutes) {
+        return fail(
+          422,
+          "OUTSIDE_OPERATING_HOURS",
+          `Sesi ${minutesToTime(block.startMinutes)} di luar jam operasional ${agency.name} ` +
+            `(${minutesToTime(openMinutes)} - ${minutesToTime(closeMinutes)}).`,
+        );
+      }
+
+      if (finishMinutes && finishMinutes > closeMinutes) {
+        return fail(
+          422,
+          "SERVICE_EXCEEDS_CLOSING",
+          `Layanan ${service.name} (${estimatedTime} menit) pada sesi ` +
+            `${minutesToTime(block.startMinutes)} diperkirakan selesai ` +
+            `${minutesToTime(finishMinutes)}, melewati jam tutup ${minutesToTime(closeMinutes)}.`,
+        );
+      }
+
+      if (dayOffset === 0 && block.startMinutes <= nowMinutesInJakarta()) {
+        return fail(
+          422,
+          "TIME_BLOCK_PASSED",
+          `Sesi ${minutesToTime(block.startMinutes)} hari ini sudah lewat.`,
+        );
+      }
     }
+  }
 
-    if (finishMinutes > closeMinutes) {
-      return fail(
-        422,
-        "SERVICE_EXCEEDS_CLOSING",
-        `Layanan ${service.name} (${estimatedTime} menit) pada sesi ` +
-          `${minutesToTime(block.startMinutes)} diperkirakan selesai ` +
-          `${minutesToTime(finishMinutes)}, melewati jam tutup ${minutesToTime(closeMinutes)}.`,
-      );
-    }
+  // Jika mendaftarkan untuk anggota keluarga dan NIK belum terisi, coba ambil dari tabel family_members
+  if (input.family_member_id) {
+    const { data: member } = await db
+      .from("family_members")
+      .select("nik")
+      .eq("id", input.family_member_id)
+      .maybeSingle();
 
-    if (dayOffset === 0 && block.startMinutes <= nowMinutesInJakarta()) {
-      return fail(
-        422,
-        "TIME_BLOCK_PASSED",
-        `Sesi ${minutesToTime(block.startMinutes)} hari ini sudah lewat.`,
-      );
+    if (member && !identity.nik) {
+      identity.nik = member.nik;
     }
   }
 
@@ -336,6 +363,7 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
   const inserted = await insertTicketWithNumber(db, {
     serviceId: service.id,
     locationId: input.location_id ?? 1,
+    familyMemberId: input.family_member_id ?? null,
     scheduleDate: input.schedule_date,
     timeBlock: input.time_block,
     userId: identity.userId,
@@ -353,8 +381,9 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
       queue_number: inserted.row.queue_number,
       schedule_date: input.schedule_date,
       time_block: input.time_block,
+      family_member_id: input.family_member_id ?? null,
       status: inserted.row.status,
-      estimated_finish: minutesToTime(finishMinutes),
+      estimated_finish: finishMinutes ? minutesToTime(finishMinutes) : null,
       nik: identity.nik,
       service: { id: service.id, name: service.name, estimated_time: estimatedTime },
       agency: { id: agency.id, name: agency.name },

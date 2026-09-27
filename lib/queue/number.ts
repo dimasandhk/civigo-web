@@ -31,8 +31,9 @@ function sequenceOf(queueNumber: string): number {
 export type NewTicket = {
   serviceId: number;
   locationId?: number | null;
+  familyMemberId?: number | null;
   scheduleDate: string;
-  timeBlock: string;
+  timeBlock?: string | null;
   userId: string | null;
   nik: string | null;
   /** Set when this ticket replaces a skipped one. */
@@ -75,9 +76,10 @@ export async function insertTicketWithNumber(
         nik: ticket.nik,
         service_id: ticket.serviceId,
         location_id: ticket.locationId ?? 1,
+        family_member_id: ticket.familyMemberId ?? null,
         queue_number: queueNumber,
         schedule_date: ticket.scheduleDate,
-        time_block: ticket.timeBlock,
+        time_block: ticket.timeBlock ?? null,
         status: "scheduled",
         rescheduled_from: ticket.rescheduledFrom ?? null,
       })

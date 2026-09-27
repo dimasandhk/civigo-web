@@ -206,6 +206,7 @@ export type Database = {
         Row: {
           counter_id: number | null
           created_at: string | null
+          family_member_id: number | null
           id: string
           location_id: number | null
           nik: string | null
@@ -222,6 +223,7 @@ export type Database = {
         Insert: {
           counter_id?: number | null
           created_at?: string | null
+          family_member_id?: number | null
           id?: string
           location_id?: number | null
           nik?: string | null
@@ -238,6 +240,7 @@ export type Database = {
         Update: {
           counter_id?: number | null
           created_at?: string | null
+          family_member_id?: number | null
           id?: string
           location_id?: number | null
           nik?: string | null
@@ -257,6 +260,13 @@ export type Database = {
             columns: ["counter_id"]
             isOneToOne: false
             referencedRelation: "counters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "queues_family_member_id_fkey"
+            columns: ["family_member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
             referencedColumns: ["id"]
           },
           {

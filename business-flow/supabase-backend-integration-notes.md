@@ -31,6 +31,7 @@ Semua migrasi berikut telah berhasil di-push ke database Supabase remote:
 | 5 | `20260927201700_make_time_block_nullable.sql` | Mengubah kolom `time_block` pada `public.queues` menjadi `NULLABLE` (opsional) untuk mendukung dynamic pooling, serta menambah kolom `postponed boolean` dan `postponed_at timestamptz`. |
 | 6 | `20260927201800_create_service_documents.sql` | Pembuatan tabel katalog master dokumen `public.service_documents` dan relasi array ID (`requirement_doc_ids` & `output_doc_ids`) pada `public.services`. |
 | 7 | `20260927201900_analytics_functions.sql` | Fungsi SQL RPC: `get_agency_satisfaction_analytics` dan `get_agency_queue_analytics`. |
+| 8 | `20260927204800_add_family_member_to_queues.sql` | Penambahan kolom `family_member_id integer REFERENCES public.family_members(id) ON DELETE SET NULL` pada tabel `public.queues` untuk relasi antrean perwakilan anggota keluarga. |
 
 ---
 
@@ -47,17 +48,34 @@ Semua migrasi berikut telah berhasil di-push ke database Supabase remote:
 
 ## 4. Perubahan Fungsional untuk Tim Frontend (Mobile & Kiosk)
 
-### A. Blok Waktu (`time_block`) Kini Bersifat Opsional
+### A. Blok Waktu (`time_block`) Bersifat Opsional (Dynamic Pooling)
 - Ketika warga membuat antrean via Kiosk atau Mobile (`POST /api/queue/book`), kolom `time_block` **tidak wajib diisi** (boleh bernilai `null` atau string kosong).
 - Sistem CiviGo menerapkan *Dynamic Pooling*: antrean dipanggil berdasarkan kehadiran warga (`present`), jam kedatangan, dan ketersediaan loket tanpa membatasi sesi jam kaku.
 
-### B. Display Antrean Real-Time (`/display/[agencyId]/antrean`)
-- Layar TV Display menggunakan komponen `QueueDisplayLive.tsx` yang berlangganan langsung ke WebSocket Supabase (`postgres_changes` pada tabel `queues`).
-- Begitu petugas di loket menekan tombol *Panggil Berikutnya* atau *Selesaikan*, layar display publik langsung memperbarui antrean secara instan tanpa perlu polling manual.
+### B. Fitur "Mundurkan Antrean" (Postpone Queue) untuk Petugas Loket
+- Petugas loket dapat memundurkan nomor antrean warga yang belum siap berkas atau sedang izin sebentar via `POST /api/queue/{id}/postpone`.
+- **Mekanisme**: Tiket diberi tanda `postponed = true`, `postponed_at = now()`, dan status tetap `present`.
+- **Pengurutan Prioritas**: Fungsi `callNextQueue` mendahulukan seluruh antrean reguler terlebih dahulu. Antrean yang dimundurkan ditempatkan di paling akhir antrean menunggu dan dilayani secara FIFO berdasarkan jam dimundurkannya (`postponed_at`).
 
-### C. Kompatibilitas Data Dokumen Layanan
-- Endpoint `GET /api/services` dan `GET /api/services/[id]` mengembalikan data teks dokumen (`requirements: string[]` dan `output_documents: string[]`) sekaligus referensi ID (`requirement_doc_ids` & `output_doc_ids`).
-- Aplikasi mobile temanmu tidak akan mengalami error (*backward compatible 100%*).
+### C. Modul Anggota Keluarga (Family Members)
+- Warga dapat mendaftarkan anggota keluarga (ayah, ibu, anak, istri, suami) melalui `POST /api/family-members` (validasi format NIK 16 digit).
+- Saat melakukan booking tiket (`POST /api/queue/book`), kirimkan `family_member_id`. Sistem otomatis mengaitkan tiket ke anggota keluarga tersebut dan mengisi NIK-nya jika tidak disertakan secara manual.
+
+### D. Riwayat Antrean Warga (`/api/queue/my`)
+- Endpoint `GET /api/queue/my` mengembalikan tiket antrean warga yang dipisahkan secara otomatis:
+  - `active_tickets`: Tiket aktif hari ini atau masa depan (`scheduled`, `present`, `served`).
+  - `history_tickets`: Tiket selesai (`completed`), dibatalkan (`cancelled`), atau tiket hangus/dilewati (`skipped`).
+- Tiket yang hangus (`skipped`) pada hari ini memiliki flag `can_reschedule: true` yang siap dihubungkan langsung ke tombol *Reschedule* pada aplikasi mobile.
+
+### E. 3 Kondisi Kelengkapan Dokumen (Tersedia, Belum Memiliki, Hilang/Rusak)
+- Endpoint `POST /api/services/cross-agency` dan `POST /api/services/{id}/prerequisites` mendukung 3 kondisi dokumen pemohon:
+  1. `sudah_tersedia` / `tersedia`: Dokumen sudah di tangan pemohon (terpenuhi).
+  2. `belum_memiliki`: Dokumen belum dimiliki (direkomendasikan layanan CiviGo atau eksternal).
+  3. `hilang_rusak`: Dokumen pernah dimiliki namun hilang/rusak. Sistem menandai `requires_police_report: true` dan menyisipkan langkah awal pembuatan Surat Tanda Penerimaan Laporan Kehilangan (SKTLK) di Polsek atau membawa fisik bukti rusak ke dalam `suggested_flow`.
+
+### F. Display Antrean Real-Time (`/display/[agencyId]/antrean`)
+- Layar TV Display menggunakan komponen `QueueDisplayLive.tsx` yang berlangganan langsung ke WebSocket Supabase (`postgres_changes` pada tabel `queues`).
+- Begitu petugas di loket memanggil, memundurkan, atau menyelesaikan antrean, layar display publik langsung memperbarui antrean secara instan tanpa perlu polling manual.
 
 ---
 
@@ -75,28 +93,39 @@ Seluruh spesifikasi API CiviGo telah didokumentasikan lengkap menggunakan standa
 
 ---
 
-## 6. Daftar Endpoint REST API CiviGo
+## 6. Ringkasan Endpoint REST API CiviGo
 
 ### A. Autentikasi & Akun
-- `POST /api/auth/forgot-password`: Menerima `{ email, redirectTo? }` untuk mengirim link/token reset password ke email warga via Supabase Auth.
-- `POST /api/auth/reset-password`: Menerima `{ password }` untuk memperbarui kata sandi pengguna dalam sesi pemulihan.
+- `POST /api/auth/forgot-password`: Kirim link/token reset kata sandi ke email warga.
+- `POST /api/auth/reset-password`: Setel kata sandi baru dalam sesi pemulihan.
 
-### B. Master Dokumen & Katalog Layanan
+### B. Master Instansi & Lokasi Cabang
+- `GET /api/agencies`: Mengambil seluruh daftar instansi pemerintah, jam kerja, hari operasional, dan lokasi cabang MPP (filter: `?location_id=...`, `?q=...`).
+- `GET /api/agencies/{id}`: Detail lengkap satu instansi beserta daftar loket pelayanan aktif, lokasi cabang, dan katalog layanan.
+
+### C. Master Dokumen & Katalog Layanan
 - `GET /api/documents`: Mengambil daftar master dokumen (`service_documents`), mendukung query param `?agency_id=...`.
 - `GET /api/services`: Mengambil seluruh katalog layanan instansi beserta persyaratan dan jam kerja.
 - `GET /api/services/{id}`: Mengambil detail layanan spesifik berdasarkan ID.
-- `GET /api/services/{id}/prerequisites`: Evaluasi kelayakan booking layanan berdasarkan dokumen yang sudah dimiliki pemohon (`?owned_documents=...`).
-- `POST /api/services/cross-agency`: Menyusun rencana layanan multi-instansi cross-agency.
+- `GET /api/services/{id}/prerequisites`: Evaluasi kelayakan booking layanan berdasarkan dokumen pemohon.
+- `POST /api/services/cross-agency`: Menyusun rencana layanan multi-instansi cross-agency dengan dukungan 3 state dokumen (`sudah_tersedia`, `belum_memiliki`, `hilang_rusak`).
 
-### C. Antrean (Queues)
-- `POST /api/queue/book`: Mengambil nomor antrean baru (menerima `{ service_id, schedule_date, nik, time_block?, location_id? }`).
+### D. Anggota Keluarga (Family Members)
+- `GET /api/family-members`: Mengambil daftar anggota keluarga pengguna yang login (opsional `?user_id=...`).
+- `POST /api/family-members`: Menambahkan anggota keluarga baru (`full_name`, `nik` 16 digit, `relationship`).
+- `DELETE /api/family-members/{id}`: Menghapus data anggota keluarga.
+
+### E. Antrean (Queues)
+- `GET /api/queue/my`: Mengambil riwayat tiket antrean warga (dibagi menjadi `active_tickets` dan `history_tickets`, dengan flag `can_reschedule`).
+- `POST /api/queue/book`: Mengambil nomor antrean baru (menerima `{ service_id, schedule_date, nik, time_block?, location_id?, family_member_id? }`).
 - `GET /api/queue/{id}/status`: Memeriksa status tiket terkini.
 - `PATCH /api/queue/{id}/status`: Mengubah status tiket (`present`, `served`, `completed`, `skipped`).
+- `POST /api/queue/{id}/postpone`: Memundurkan nomor antrean ke urutan paling akhir dalam pool menunggu.
 - `POST /api/queue/{id}/reschedule`: Menjadwalkan ulang tiket yang hangus (`skipped`).
 - `POST /api/queue/check-in`: Check-in tiket saat warga tiba di lokasi fisik kios.
 - `POST /api/queue/call-next`: Panggilan tiket berikutnya oleh petugas loket (`{ counter_id }`).
 
-### D. Ulasan Warga (Reviews) & Analitik
+### F. Ulasan Warga (Reviews) & Analitik
 - `GET /api/reviews`: Mengambil daftar ulasan dan feedback warga per instansi.
 - `POST /api/reviews`: Mengirimkan rating bintang 1-5 dan testimoni warga.
 - `GET /api/analytics`: Mengambil analitik komprehensif (`?agency_id=...&location_id=...&date=...`):
@@ -104,5 +133,5 @@ Seluruh spesifikasi API CiviGo telah didokumentasikan lengkap menggunakan standa
   - Metrik antrean operasional (total tiket hari ini, menunggu, dipanggil, dilayani, selesai, dilewati/hangus, dimundurkan/postponed, rasio kehadiran, jumlah loket aktif).
   - Distribusi popularitas layanan publik.
 
-### E. AI Chatbot
+### G. AI Chatbot
 - `POST /api/chatbot`: Asisten virtual berbasis OpenAI embedding dan vector search `match_documents` pada Supabase untuk menjawab pertanyaan prosedur MPP dan persyaratan dokumen warga.

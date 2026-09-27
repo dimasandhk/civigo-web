@@ -34,6 +34,13 @@ export type ServiceSummary = {
 
 export type MissingDocumentType = "cross_agency" | "external" | "general_prerequisite";
 
+export type DocumentState = "tersedia" | "belum_memiliki" | "hilang_rusak";
+
+export type DocumentConditionInput = {
+  name: string;
+  status?: DocumentState | string;
+};
+
 export type RecommendedService = {
   id: number;
   name: string;
@@ -50,6 +57,8 @@ export type MissingDocumentDetail = {
   recommended_service: RecommendedService | null;
   external_issuer?: string;
   guidance: string;
+  condition?: DocumentState;
+  requires_police_report?: boolean;
 };
 
 export type FulfilledDocumentDetail = {
@@ -311,15 +320,48 @@ export async function getServiceById(serviceId: number): Promise<ServiceSummary 
   return all.find((s) => s.id === serviceId) ?? null;
 }
 
+function parseDocumentInput(input: string | DocumentConditionInput): { name: string; state: DocumentState } {
+  if (typeof input === "string") {
+    return { name: input.trim(), state: "tersedia" };
+  }
+  const name = String(input.name || "").trim();
+  const rawState = String(input.status || "tersedia").toLowerCase().trim();
+
+  let state: DocumentState = "tersedia";
+  if (
+    rawState.includes("rusak") ||
+    rawState.includes("hilang") ||
+    rawState.includes("lost") ||
+    rawState.includes("damaged")
+  ) {
+    state = "hilang_rusak";
+  } else if (
+    rawState.includes("belum") ||
+    rawState.includes("tidak") ||
+    rawState.includes("missing")
+  ) {
+    state = "belum_memiliki";
+  } else {
+    state = "tersedia";
+  }
+
+  return { name, state };
+}
+
 /**
  * Algoritma Inti Dev 2 Tugas 2: Evaluasi Prasyarat Dokumen Antar-Instansi (Cross-Agency Logic).
+ * Mendukung 3 kondisi kelengkapan dokumen:
+ * 1. sudah_tersedia / tersedia: dokumen sudah lengkap di tangan pemohon.
+ * 2. belum_memiliki: dokumen belum pernah dibuat/belum dimiliki.
+ * 3. hilang_rusak: dokumen pernah dimiliki tetapi hilang atau rusak fisik,
+ *    sehingga membutuhkan Surat Kehilangan Kepolisian (SKTLK) atau bukti fisik rusak.
  *
  * @param targetServiceId ID layanan yang ingin didatangi pengguna
- * @param ownedDocuments Daftar dokumen yang saat ini sudah dimiliki oleh pengguna
+ * @param ownedOrConditions Daftar dokumen (string[] atau array { name, status })
  */
 export async function evaluatePrerequisites(
   targetServiceId: number,
-  ownedDocuments: string[] = []
+  ownedOrConditions: Array<string | DocumentConditionInput> = []
 ): Promise<PrerequisiteEvaluation> {
   const allServices = await getAllServices();
   const targetService = allServices.find((s) => s.id === targetServiceId);
@@ -328,28 +370,32 @@ export async function evaluatePrerequisites(
     throw new Error(`Layanan dengan ID ${targetServiceId} tidak ditemukan.`);
   }
 
+  const normalizedInputs = (ownedOrConditions ?? []).map(parseDocumentInput);
+
   const fulfilled: FulfilledDocumentDetail[] = [];
   const missing: MissingDocumentDetail[] = [];
 
   // Evaluasi setiap item persyaratan dari targetService
   for (const req of targetService.requirements) {
-    // Cek apakah ada dokumen yang dimiliki yang cocok
-    const matchedOwned = ownedDocuments.find((owned) => doesDocumentMatch(req, owned));
+    // Cek apakah ada input dokumen yang cocok
+    const matchedInput = normalizedInputs.find((item) => doesDocumentMatch(req, item.name));
 
-    if (matchedOwned) {
+    if (matchedInput && matchedInput.state === "tersedia") {
       fulfilled.push({
         requirement: req,
-        matched_with: matchedOwned,
+        matched_with: matchedInput.name,
       });
       continue;
     }
 
-    // Dokumen belum dimiliki: cari apakah ada layanan di CiviGo yang menerbitkan dokumen ini
+    const docCondition: DocumentState = matchedInput?.state === "hilang_rusak" ? "hilang_rusak" : "belum_memiliki";
+    const isLostOrDamaged = docCondition === "hilang_rusak";
+
+    // Cari apakah ada layanan di CiviGo yang menerbitkan dokumen ini
     let sourceService: ServiceSummary | null = null;
     let matchedOutputDoc = "";
 
     for (const s of allServices) {
-      // Tidak mencocokkan ke layanan target itu sendiri
       if (s.id === targetService.id) continue;
 
       const matchedOut = s.output_documents.find((out) => doesDocumentMatch(req, out));
@@ -364,10 +410,21 @@ export async function evaluatePrerequisites(
       const isCrossAgency = sourceService.agency_id !== targetService.agency_id;
       const agencyName = sourceService.agency.name;
 
+      let guidanceText = "";
+      if (isLostOrDamaged) {
+        guidanceText = `Persyaratan "${req}" berstatus HILANG/RUSAK. Diterbitkan oleh ${agencyName} melalui layanan "${sourceService.name}". Siapkan Surat Kehilangan Polsek (SKTLK) atau fisik dokumen lama sebelum mengurus penggantian di ${agencyName}.`;
+      } else if (isCrossAgency) {
+        guidanceText = `Persyaratan "${req}" diterbitkan oleh ${agencyName} melalui layanan "${sourceService.name}". Anda disarankan mendatangi ${agencyName} terlebih dahulu.`;
+      } else {
+        guidanceText = `Persyaratan "${req}" dapat diurus melalui layanan "${sourceService.name}" di ${agencyName}.`;
+      }
+
       missing.push({
         requirement: req,
         type: "cross_agency",
         is_cross_agency: isCrossAgency,
+        condition: docCondition,
+        requires_police_report: isLostOrDamaged,
         recommended_service: {
           id: sourceService.id,
           name: sourceService.name,
@@ -376,21 +433,26 @@ export async function evaluatePrerequisites(
           estimated_time: sourceService.estimated_time,
           output_document: matchedOutputDoc,
         },
-        guidance: isCrossAgency
-          ? `Persyaratan "${req}" diterbitkan oleh ${agencyName} melalui layanan "${sourceService.name}". Anda disarankan mendatangi ${agencyName} terlebih dahulu.`
-          : `Persyaratan "${req}" dapat diurus melalui layanan "${sourceService.name}" di ${agencyName}.`,
+        guidance: guidanceText,
       });
     } else {
-      // Tidak disediakan oleh layanan CiviGo: periksa panduan instansi eksternal
+      // Tidak disediakan oleh layanan internal CiviGo: periksa panduan instansi eksternal
       const externalInfo = getExternalDocumentGuidance(req);
+
+      let guidanceText = externalInfo.guidance;
+      if (isLostOrDamaged) {
+        guidanceText = `Persyaratan "${req}" berstatus HILANG/RUSAK. Bawa Surat Kehilangan dari Kepolisian (SKTLK) atau dokumen pendukung lain ke instansi penerbit (${externalInfo.issuer ?? "pihak terkait"}).`;
+      }
 
       missing.push({
         requirement: req,
         type: externalInfo.isExternal ? "external" : "general_prerequisite",
         is_cross_agency: false,
+        condition: docCondition,
+        requires_police_report: isLostOrDamaged,
         recommended_service: null,
         external_issuer: externalInfo.issuer,
-        guidance: externalInfo.guidance,
+        guidance: guidanceText,
       });
     }
   }
@@ -401,7 +463,18 @@ export async function evaluatePrerequisites(
   const suggestedFlow: FlowStep[] = [];
   let stepCounter = 1;
 
-  // 1. Kelompokkan layanan rujukan CiviGo berdasarkan instansi
+  // 1. Jika ada dokumen hilang/rusak, tambahkan langkah surat kehilangan di awal
+  const lostDamagedCount = missing.filter((m) => m.condition === "hilang_rusak").length;
+  if (lostDamagedCount > 0) {
+    suggestedFlow.push({
+      step: stepCounter++,
+      type: "external",
+      title: "Lapor Kehilangan di Kepolisian (SKTLK) / Bukti Fisik Rusak",
+      description: "Untuk dokumen yang berstatus hilang, buat Surat Tanda Penerimaan Laporan Kehilangan (SKTLK) di Polsek terdekat. Untuk dokumen rusak, siapkan sisa fisik dokumen lama.",
+    });
+  }
+
+  // 2. Kelompokkan layanan rujukan CiviGo berdasarkan instansi
   const crossAgencySteps = new Map<number, { agencyName: string; services: { id: number; name: string; produces: string }[] }>();
 
   for (const m of missing) {
@@ -435,8 +508,8 @@ export async function evaluatePrerequisites(
     });
   }
 
-  // 2. Jika ada dokumen eksternal
-  const externalMissing = missing.filter((m) => m.type === "external");
+  // 3. Jika ada dokumen eksternal yang belum terpenuhi
+  const externalMissing = missing.filter((m) => m.type === "external" && m.condition !== "hilang_rusak");
   if (externalMissing.length > 0) {
     suggestedFlow.push({
       step: stepCounter++,
@@ -446,7 +519,7 @@ export async function evaluatePrerequisites(
     });
   }
 
-  // 3. Langkah akhir: Layanan Target
+  // 4. Langkah akhir: Layanan Target
   suggestedFlow.push({
     step: stepCounter++,
     type: "target",
@@ -475,7 +548,9 @@ export async function evaluatePrerequisites(
       .filter(Boolean);
     const uniqueAgencies = Array.from(new Set(crossList));
 
-    if (uniqueAgencies.length > 0) {
+    if (lostDamagedCount > 0) {
+      summary = `Terdapat ${lostDamagedCount} dokumen berstatus HILANG/RUSAK dan ${missing.length - lostDamagedCount} belum dimiliki. Harap urus SKTLK di Polsek atau penggantian di ${uniqueAgencies.length > 0 ? uniqueAgencies.join(", ") : "instansi terkait"} sebelum mendatangi ${targetService.agency.name}.`;
+    } else if (uniqueAgencies.length > 0) {
       summary = `Terdapat ${missing.length} prasyarat yang belum terpenuhi. Harap lengkapi dokumen di ${uniqueAgencies.join(", ")} terlebih dahulu sebelum mengajukan antrean ${targetService.name} di ${targetService.agency.name}.`;
     } else {
       summary = `Terdapat ${missing.length} prasyarat yang belum terpenuhi. Harap lengkapi dokumen persyaratan fisik sebelum datang ke loket.`;

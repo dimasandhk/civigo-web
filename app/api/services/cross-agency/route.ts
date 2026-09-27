@@ -38,15 +38,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rawOwned = body.owned_documents ?? body.owned ?? body.documents;
-    let owned: string[] = [];
-    if (Array.isArray(rawOwned)) {
-      owned = rawOwned.map(String).map((s) => s.trim()).filter(Boolean);
-    } else if (typeof rawOwned === "string") {
-      owned = rawOwned.split(",").map((s) => s.trim()).filter(Boolean);
+    const rawInputs = body.documents ?? body.owned_documents ?? body.owned;
+    const documentInputs: Array<string | { name: string; status?: string }> = [];
+
+    if (Array.isArray(rawInputs)) {
+      for (const item of rawInputs) {
+        if (typeof item === "string") {
+          const trimmed = item.trim();
+          if (trimmed) documentInputs.push(trimmed);
+        } else if (item && typeof item === "object") {
+          const obj = item as Record<string, unknown>;
+          const name = String(obj.name ?? obj.document_name ?? obj.title ?? "").trim();
+          const status = String(obj.status ?? obj.condition ?? "tersedia").trim();
+          if (name) {
+            documentInputs.push({ name, status });
+          }
+        }
+      }
+    } else if (typeof rawInputs === "string") {
+      documentInputs.push(...rawInputs.split(",").map((s) => s.trim()).filter(Boolean));
     }
 
-    const result = await evaluatePrerequisites(targetServiceId, owned);
+    const result = await evaluatePrerequisites(targetServiceId, documentInputs);
 
     return Response.json({ ok: true, evaluation: result }, { status: 200 });
   } catch (error: unknown) {

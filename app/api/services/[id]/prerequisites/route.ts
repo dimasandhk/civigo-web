@@ -31,13 +31,28 @@ function parseOwnedDocsFromQuery(searchParams: URLSearchParams): string[] {
   return list.filter(Boolean);
 }
 
-function parseOwnedDocsFromBody(body: unknown): string[] {
+function parseOwnedDocsFromBody(body: unknown): Array<string | { name: string; status?: string }> {
   if (!body || typeof body !== "object") return [];
   const b = body as Record<string, unknown>;
 
-  const raw = b.owned_documents ?? b.owned ?? b.documents;
+  const raw = b.documents ?? b.owned_documents ?? b.owned;
+  const result: Array<string | { name: string; status?: string }> = [];
+
   if (Array.isArray(raw)) {
-    return raw.map(String).map((s) => s.trim()).filter(Boolean);
+    for (const item of raw) {
+      if (typeof item === "string") {
+        const trimmed = item.trim();
+        if (trimmed) result.push(trimmed);
+      } else if (item && typeof item === "object") {
+        const obj = item as Record<string, unknown>;
+        const name = String(obj.name ?? obj.document_name ?? obj.title ?? "").trim();
+        const status = String(obj.status ?? obj.condition ?? "tersedia").trim();
+        if (name) {
+          result.push({ name, status });
+        }
+      }
+    }
+    return result;
   }
   if (typeof raw === "string") {
     return raw.split(",").map((s) => s.trim()).filter(Boolean);

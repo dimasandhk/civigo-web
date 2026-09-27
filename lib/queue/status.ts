@@ -217,6 +217,68 @@ export async function updateQueueStatus(
   };
 }
 
+export type PostponeQueueResult =
+  | { ok: true; ticket: TicketSummary; message: string }
+  | Failure;
+
+/**
+ * Memundurkan antrean ke urutan paling akhir dari antrean yang menunggu.
+ * Tiket diberi tanda `postponed = true`, `postponed_at = now()`,
+ * status diatur ke `present`, dan counter_id dikosongkan.
+ */
+export async function postponeQueue(ticketId: string): Promise<PostponeQueueResult> {
+  const caller = await resolveCaller();
+  const db = createServiceClient();
+
+  const ctx = await loadTicketContext(db, ticketId);
+  if ("ok" in ctx) return ctx;
+
+  const { ticket, service, agency } = ctx;
+
+  const access = requireAgencyAccess(caller, agency.id);
+  if (access) return access;
+
+  if (ticket.status === "completed" || ticket.status === "skipped") {
+    return fail(
+      422,
+      "CANNOT_POSTPONE_FINAL_STATUS",
+      `Tiket yang sudah ${ticket.status === "completed" ? "selesai" : "hangus"} tidak dapat dimundurkan.`,
+    );
+  }
+
+  const { data: updated, error: updateError } = await db
+    .from("queues")
+    .update({
+      status: "present",
+      counter_id: null,
+      postponed: true,
+      postponed_at: new Date().toISOString(),
+    })
+    .eq("id", ticket.id)
+    .select()
+    .single();
+
+  if (updateError || !updated) {
+    return fail(500, "POSTPONE_FAILED", updateError?.message ?? "Gagal memundurkan antrean.");
+  }
+
+  return {
+    ok: true,
+    message: `Antrean ${ticket.queue_number} berhasil dimundurkan ke urutan paling akhir.`,
+    ticket: {
+      id: updated.id,
+      queue_number: updated.queue_number,
+      status: updated.status as QueueStatus,
+      schedule_date: updated.schedule_date,
+      time_block: updated.time_block,
+      counter_id: null,
+      counter_name: null,
+      service: { id: service.id, name: service.name },
+      agency: { id: agency.id, name: agency.name },
+    },
+  };
+}
+
 export type CallNextResult =
   | { ok: true; ticket: TicketSummary; remaining: number }
   | Failure;
@@ -275,7 +337,7 @@ export async function callNextQueue(raw: unknown): Promise<CallNextResult> {
 
   let waitingQuery = db
     .from("queues")
-    .select("id, queue_number, status, time_block, service:services!inner(id, name, agency_id)")
+    .select("id, queue_number, status, time_block, postponed, postponed_at, service:services!inner(id, name, agency_id)")
     .eq("schedule_date", today)
     .eq("service.agency_id", agencyId)
     .in("status", WAITING_STATUSES);
@@ -291,14 +353,31 @@ export async function callNextQueue(raw: unknown): Promise<CallNextResult> {
   }
 
   const queue = (waiting ?? []).slice().sort((a, b) => {
+    // 1. Antrean normal (belum pernah dimundurkan) dipanggil duluan;
+    // Tiket yang dimundurkan (postponed = true) ditaruh di paling belakang pool
+    const isPostponedA = Boolean(a.postponed);
+    const isPostponedB = Boolean(b.postponed);
+    if (isPostponedA !== isPostponedB) {
+      return isPostponedA ? 1 : -1;
+    }
+
+    // 2. Kehadiran fisik: 'present' dipanggil sebelum 'scheduled'
     const priority = (status: string) => (status === "present" ? 0 : 1);
     if (priority(a.status) !== priority(b.status)) return priority(a.status) - priority(b.status);
 
+    // 3. Jika sesama postponed, urutkan FIFO berdasarkan waktu dimundurkan
+    if (isPostponedA && isPostponedB && a.postponed_at && b.postponed_at) {
+      const diff = new Date(a.postponed_at).getTime() - new Date(b.postponed_at).getTime();
+      if (diff !== 0) return diff;
+    }
+
+    // 4. Sesi jam jika ada
     const startOf = (block: string | null) => (block ? parseTimeBlock(block)?.startMinutes ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER);
     if (startOf(a.time_block) !== startOf(b.time_block)) {
       return startOf(a.time_block) - startOf(b.time_block);
     }
 
+    // 5. Urutan nomor antrean alfabetis
     return a.queue_number.localeCompare(b.queue_number);
   });
 

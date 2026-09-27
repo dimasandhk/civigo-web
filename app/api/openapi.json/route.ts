@@ -23,9 +23,11 @@ export async function GET() {
     ],
     tags: [
       { name: "Autentikasi", description: "Endpoint pengelolaan kata sandi dan autentikasi pengguna/petugas" },
+      { name: "Master Instansi", description: "Katalog instansi pemerintah, jam operasional, dan lokasi cabang MPP" },
       { name: "Master Dokumen", description: "Katalog master dokumen layanan (service_documents) untuk persyaratan dan output" },
+      { name: "Anggota Keluarga", description: "Manajemen data anggota keluarga untuk pendaftaran layanan perwakilan" },
       { name: "Layanan & Prasyarat", description: "Katalog layanan instansi dan evaluasi kelengkapan dokumen cross-agency" },
-      { name: "Antrean (Queues)", description: "Manajemen tiket antrean, booking, check-in kios, panggilan loket, dan reschedule" },
+      { name: "Antrean (Queues)", description: "Manajemen tiket antrean, booking, check-in kios, panggilan loket, postpone, dan reschedule" },
       { name: "Ulasan & Rating", description: "Pengumpulan dan pembacaan feedback/rating kepuasan masyarakat" },
       { name: "Analitik Operasional", description: "Metrik performa antrean harian dan kepuasan masyarakat per cabang" },
       { name: "AI Chatbot", description: "Asisten AI berbasis RAG untuk panduan prosedur dan persyaratan layanan" },
@@ -99,6 +101,104 @@ export async function GET() {
               },
             },
             "401": { description: "Sesi reset kata sandi tidak valid atau telah kedaluwarsa." },
+          },
+        },
+      },
+      "/api/agencies": {
+        get: {
+          tags: ["Master Instansi"],
+          summary: "Katalog seluruh instansi & cabang layanan",
+          description: "Mengambil daftar seluruh instansi/lembaga pengampu layanan di CiviGo, lengkap dengan hari dan jam operasional, lokasi cabang/MPP terafiliasi, serta ringkasan layanan yang diselenggarakan.",
+          parameters: [
+            {
+              name: "location_id",
+              in: "query",
+              required: false,
+              schema: { type: "integer" },
+              description: "Filter instansi yang beroperasi di lokasi fisik tertentu",
+            },
+            {
+              name: "q",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description: "Pencarian nama atau deskripsi instansi",
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Daftar instansi berhasil diambil.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    count: 1,
+                    agencies: [
+                      {
+                        id: 1,
+                        name: "Dinas Kependudukan dan Pencatatan Sipil",
+                        description: "Layanan administrasi kependudukan dan pencatatan sipil",
+                        open_time: "08:00:00",
+                        close_time: "15:00:00",
+                        operating_days: [1, 2, 3, 4, 5],
+                        locations: [
+                          {
+                            id: 1,
+                            name: "Mall Pelayanan Publik Siola",
+                            address: "Jl. Tunjungan No. 1-3",
+                            city: "Surabaya",
+                            type: "MPP",
+                          },
+                        ],
+                        services_count: 5,
+                        services: [
+                          { id: 1, name: "Pembuatan KTP Baru", estimated_time: 15 },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/agencies/{id}": {
+        get: {
+          tags: ["Master Instansi"],
+          summary: "Detail lengkap instansi",
+          description: "Mengambil informasi detail satu instansi beserta daftar lokasi cabang, katalog layanan lengkap, dan loket pelayanan aktif.",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "integer" },
+              description: "ID Instansi",
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Detail instansi ditemukan.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    agency: {
+                      id: 1,
+                      name: "Dinas Kependudukan dan Pencatatan Sipil",
+                      open_time: "08:00:00",
+                      close_time: "15:00:00",
+                      operating_days: [1, 2, 3, 4, 5],
+                      locations: [{ id: 1, name: "MPP Siola", address: "Jl. Tunjungan No. 1-3" }],
+                      services: [{ id: 1, name: "Pembuatan KTP Baru", estimated_time: 15 }],
+                      counters: [{ id: 1, counter_name: "Loket 1", status: "active" }],
+                    },
+                  },
+                },
+              },
+            },
+            "404": { description: "Instansi tidak ditemukan." },
           },
         },
       },
@@ -247,21 +347,38 @@ export async function GET() {
       "/api/services/cross-agency": {
         post: {
           tags: ["Layanan & Prasyarat"],
-          summary: "Cross-agency prerequisites discovery",
-          description: "Mengevaluasi alur lintas instansi untuk multi-appointment.",
+          summary: "Evaluasi prasyarat dokumen lintas-instansi (Cross-Agency)",
+          description: "Mengevaluasi alur lintas instansi untuk multi-appointment. Mendukung 3 status dokumen: 'sudah_tersedia', 'belum_memiliki', dan 'hilang_rusak' (yang memerlukan SKTLK Kepolisian atau bukti fisik).",
           requestBody: {
             required: true,
             content: {
               "application/json": {
                 schema: {
                   type: "object",
-                  required: ["service_id"],
+                  required: ["target_service_id"],
                   properties: {
-                    service_id: { type: "integer", example: 4 },
+                    target_service_id: { type: "integer", example: 4, description: "ID layanan tujuan akhir" },
+                    documents: {
+                      type: "array",
+                      description: "Daftar status 3-kondisi kelengkapan dokumen pemohon",
+                      items: {
+                        type: "object",
+                        required: ["name", "status"],
+                        properties: {
+                          name: { type: "string", example: "Kartu Keluarga" },
+                          status: {
+                            type: "string",
+                            enum: ["sudah_tersedia", "belum_memiliki", "hilang_rusak"],
+                            example: "hilang_rusak",
+                          },
+                        },
+                      },
+                    },
                     owned_documents: {
                       type: "array",
                       items: { type: "string" },
                       example: ["KTP Asli"],
+                      description: "Format alternatif untuk daftar dokumen yang sudah dimiliki (backward compatible)",
                     },
                   },
                 },
@@ -269,7 +386,230 @@ export async function GET() {
             },
           },
           responses: {
-            "200": { description: "Alur cross-agency berhasil disusun." },
+            "200": {
+              description: "Alur cross-agency dan evaluasi dokumen berhasil disusun.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    evaluation: {
+                      is_ready_to_book: false,
+                      summary: "Terdapat 1 dokumen berstatus HILANG/RUSAK. Harap urus SKTLK di Polsek atau penggantian di Disdukcapil.",
+                      total_requirements: 2,
+                      fulfilled_count: 1,
+                      missing_count: 1,
+                      fulfilled_documents: [{ requirement: "KTP", matched_with: "KTP Asli" }],
+                      missing_documents: [
+                        {
+                          requirement: "Kartu Keluarga",
+                          type: "cross_agency",
+                          is_cross_agency: true,
+                          condition: "hilang_rusak",
+                          requires_police_report: true,
+                          guidance: "Persyaratan Kartu Keluarga berstatus HILANG/RUSAK. Siapkan SKTLK Polsek sebelum mengurus penggantian di Disdukcapil.",
+                          recommended_service: {
+                            id: 2,
+                            name: "Cetak Kartu Keluarga",
+                            agency_id: 1,
+                            agency_name: "Dinas Kependudukan dan Pencatatan Sipil",
+                            estimated_time: 15,
+                            output_document: "Kartu Keluarga (KK)",
+                          },
+                        },
+                      ],
+                      suggested_flow: [
+                        {
+                          step: 1,
+                          type: "external",
+                          title: "Lapor Kehilangan di Kepolisian (SKTLK) / Bukti Fisik Rusak",
+                          description: "Buat SKTLK di Polsek terdekat untuk dokumen yang hilang.",
+                        },
+                        {
+                          step: 2,
+                          type: "agency",
+                          agency_id: 1,
+                          title: "Kunjungi Dinas Kependudukan dan Pencatatan Sipil",
+                          description: "Lengkapi dokumen prasyarat sebelum menuju ke Kantor Imigrasi.",
+                        },
+                        {
+                          step: 3,
+                          type: "target",
+                          title: "Kunjungi Kantor Imigrasi (Layanan Tujuan)",
+                          description: "Setelah melengkapi prasyarat di langkah sebelumnya, Anda siap mengajukan antrean Pembuatan Paspor Baru.",
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+            "400": { description: "ID layanan tujuan tidak valid." },
+            "404": { description: "Layanan tidak ditemukan." },
+          },
+        },
+      },
+      "/api/family-members": {
+        get: {
+          tags: ["Anggota Keluarga"],
+          summary: "Daftar anggota keluarga pengguna",
+          description: "Mengambil seluruh data anggota keluarga yang didaftarkan oleh akun pengguna yang login.",
+          parameters: [
+            {
+              name: "user_id",
+              in: "query",
+              required: false,
+              schema: { type: "string", format: "uuid" },
+              description: "Target user ID (opsional untuk admin/service role)",
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Daftar anggota keluarga berhasil dimuat.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    count: 1,
+                    family_members: [
+                      {
+                        id: 1,
+                        user_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                        full_name: "Siti Rahmawati",
+                        nik: "3578012345670002",
+                        relationship: "Istri",
+                        created_at: "2026-09-27T10:00:00Z",
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+            "401": { description: "Belum terautentikasi." },
+          },
+        },
+        post: {
+          tags: ["Anggota Keluarga"],
+          summary: "Tambah anggota keluarga baru",
+          description: "Mendaftarkan anggota keluarga baru untuk keperluan booking layanan perwakilan (menguruskan antrean orang tua, anak, dsb).",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["full_name", "nik", "relationship"],
+                  properties: {
+                    full_name: { type: "string", example: "Budi Santoso" },
+                    nik: { type: "string", minLength: 16, maxLength: 16, example: "3578012345670003" },
+                    relationship: { type: "string", example: "Anak Kandung" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "201": {
+              description: "Anggota keluarga berhasil ditambahkan.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    message: "Anggota keluarga berhasil ditambahkan.",
+                    family_member: {
+                      id: 2,
+                      full_name: "Budi Santoso",
+                      nik: "3578012345670003",
+                      relationship: "Anak Kandung",
+                    },
+                  },
+                },
+              },
+            },
+            "400": { description: "NIK tidak 16 digit atau data tidak lengkap." },
+          },
+        },
+      },
+      "/api/family-members/{id}": {
+        delete: {
+          tags: ["Anggota Keluarga"],
+          summary: "Hapus anggota keluarga",
+          description: "Menghapus relasi anggota keluarga milik pengguna.",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "integer" },
+              description: "ID anggota keluarga",
+            },
+          ],
+          responses: {
+            "200": { description: "Anggota keluarga berhasil dihapus." },
+            "404": { description: "Anggota keluarga tidak ditemukan." },
+          },
+        },
+      },
+      "/api/queue/my": {
+        get: {
+          tags: ["Antrean (Queues)"],
+          summary: "Riwayat tiket antrean warga (aktif & lampau)",
+          description: "Mengambil daftar seluruh tiket antrean warga, otomatis dipisahkan menjadi `active_tickets` (hari ini/mendatang) dan `history_tickets` (selesai atau hangus). Tiket yang dilewati/hangus memiliki flag `can_reschedule: true` untuk tombol reschedule.",
+          parameters: [
+            {
+              name: "user_id",
+              in: "query",
+              required: false,
+              schema: { type: "string", format: "uuid" },
+              description: "User ID akun warga",
+            },
+            {
+              name: "nik",
+              in: "query",
+              required: false,
+              schema: { type: "string", minLength: 16, maxLength: 16 },
+              description: "NIK warga (berguna untuk tiket walk-in atau kiosk)",
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Riwayat tiket antrean berhasil diambil.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    today: "2026-09-28",
+                    total_tickets: 2,
+                    active_count: 1,
+                    history_count: 1,
+                    active_tickets: [
+                      {
+                        id: "b2d2f1f0-4592-4f70-985e-998811223344",
+                        queue_number: "A-008",
+                        status: "present",
+                        schedule_date: "2026-09-28",
+                        time_block: null,
+                        postponed: false,
+                        can_reschedule: false,
+                        is_for_family: true,
+                        family_member: { id: 1, full_name: "Siti Rahmawati", relationship: "Istri" },
+                        service: { id: 1, name: "Pembuatan KTP Baru" },
+                      },
+                    ],
+                    history_tickets: [
+                      {
+                        id: "a1a1f1f0-4592-4f70-985e-112233445566",
+                        queue_number: "A-003",
+                        status: "skipped",
+                        schedule_date: "2026-09-28",
+                        can_reschedule: true,
+                        is_for_family: false,
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+            "401": { description: "Belum login dan NIK tidak diberikan." },
           },
         },
       },
@@ -288,9 +628,10 @@ export async function GET() {
                   properties: {
                     service_id: { type: "integer", example: 1 },
                     schedule_date: { type: "string", format: "date", example: "2026-09-28" },
-                    time_block: { type: "string", nullable: true, example: "08:00 - 09:00", description: "Opsional" },
+                    time_block: { type: "string", nullable: true, example: "08:00 - 09:00", description: "Opsional (dynamic pooling)" },
                     location_id: { type: "integer", nullable: true, example: 1, description: "ID Cabang fisik" },
                     nik: { type: "string", minLength: 16, maxLength: 16, example: "3578012345670001" },
+                    family_member_id: { type: "integer", nullable: true, example: 2, description: "ID anggota keluarga jika menguruskan antrean orang lain" },
                   },
                 },
               },
@@ -360,6 +701,45 @@ export async function GET() {
           },
           responses: {
             "200": { description: "Status tiket berhasil diubah." },
+          },
+        },
+      },
+      "/api/queue/{id}/postpone": {
+        post: {
+          tags: ["Antrean (Queues)"],
+          summary: "Mundurkan antrean ke urutan paling akhir",
+          description: "Opsi petugas loket untuk memundurkan nomor antrean pemohon yang belum siap atau izin sebentar. Tiket ditandai 'postponed = true' dan diletakkan di paling akhir antrean menunggu, tanpa menghanguskannya.",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string", format: "uuid" },
+              description: "UUID tiket antrean",
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Antrean berhasil dimundurkan ke urutan paling akhir.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    message: "Tiket A-003 berhasil dimundurkan ke paling akhir antrean menunggu.",
+                    ticket: {
+                      id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      queue_number: "A-003",
+                      status: "present",
+                      postponed: true,
+                      postponed_at: "2026-09-28T09:15:00Z",
+                    },
+                  },
+                },
+              },
+            },
+            "400": { description: "ID tiket tidak valid." },
+            "404": { description: "Tiket tidak ditemukan." },
+            "409": { description: "Tiket tidak dalam status antrean aktif untuk dimundurkan." },
           },
         },
       },
