@@ -100,3 +100,11 @@ Skema database menggunakan tipe enum `public.user_role`:
      - Akun MPP: `agency_id = 1`, `location_id = 1`
      - Akun Kantor Induk: `agency_id = 1`, `location_id = 2`
    - **Isolasi Dashboard Admin**: Saat petugas login, `resolveAgencyContext()` otomatis membaca `agency_id` dan `location_id`. Antrean di `/admin/antrean`, daftar loket, dan antrean berikutnya yang dipanggil (`callNextQueue`) otomatis terfilter khusus untuk lokasi cabang tersebut.
+5. **Integrasi Supabase & Scalar API Docs (Terbaru)**:
+   - Migrasi resmi via Supabase CLI telah berhasil diterapkan ke remote DB `pcaadxclrsrdeutcwtsp`.
+   - Nama loket di tabel `counters` dibersihkan tanpa tanda kurung (`Loket 1`, `Loket 2`, dst.).
+   - Layar display antrean kini berstatus real-time WebSocket (`supabase_realtime` publikasi pada tabel `queues`).
+   - Kolom `time_block` pada `queues` telah dijadikan opsional (nullable) untuk dynamic pooling.
+   - Master dokumen persyaratan dan output dipisahkan ke tabel **`service_documents`** untuk melindungi tabel `documents` milik AI Chatbot RAG.
+   - Dokumentasi API interaktif Scalar dapat diakses di `/docs`, dan raw spec di `/api/openapi.json`.
+   - Selengkapnya baca: [`business-flow/supabase-backend-integration-notes.md`](./supabase-backend-integration-notes.md).
