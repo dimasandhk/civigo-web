@@ -2,18 +2,21 @@ Status dicek 27/09/2026 (kode di main 2ccb974 + DB remote via Supabase MCP)
 Legenda: [x] selesai, [~] sebagian, [ ] belum
 
 Web:
-    1. [~] Integrasi tambah loket, edit loket, hapus loket (location_id cabang).
-        - Sudah: tambah, ubah nama, hapus, toggle status tersimpan ke DB; location_id diambil dari profil petugas.
+    1. [x] Integrasi tambah loket, edit loket, hapus loket (location_id cabang).
+        - Tambah, ubah nama, hapus, toggle status tersimpan ke DB; location_id diambil dari profil petugas.
         - Loket memang tidak punya jam operasional; jam operasional diatur per agency (agencies.open_time/close_time).
-        - Belum: location_id jatuh ke 1 kalau profil petugas tidak punya location_id (DB tidak mewajibkan location_id untuk akun instansi).
-        - Belum: aksi loket tidak mengecek loket milik agency petugas (petugas bisa ubah/hapus loket instansi lain lewat id).
+          Kolom "Jadwal Buka" (isinya hardcoded "Senin - Jumat / 08:00 - 16:00") dihapus dari tabel loket. (28/09/2026)
+        - Akun tanpa location_id tidak lagi jatuh ke lokasi 1: tambah loket ditolak dengan pesan jelas. (28/09/2026)
+        - Toggle/ubah/hapus loket dicek dulu milik instansi + cabang petugas; id loket instansi lain ditolak. (28/09/2026)
+        - Catatan: kolom "Dibuat Pada" selalu "-" karena tabel counters tidak punya kolom created_at.
     2. [ ] Integrasi CRUD layanan.
         - Tombol Tambah/Lihat/Ubah/Hapus di /admin/layanan belum punya handler; API services baru GET.
     3. [~] Integrasi page review.
         - Sudah: membaca data asli dari tabel reviews.
         - Belum: filter layanan/loket/rating masih opsi hardcoded dan belum menyaring.
         - Belum: "Bulan Ini" masih rata-rata keseluruhan, bukan bulan ini.
-        - Belum: agency tanpa ulasan menampilkan data karangan (500 ulasan, 4.6/5) — fallback di getAdminReviews.    4. [x] Integrasi login instansi.
+        - Belum: agency tanpa ulasan menampilkan data karangan (500 ulasan, 4.6/5) — fallback di getAdminReviews.
+    4. [x] Integrasi login instansi.
         - Catatan: login pakai username diubah jadi <prefix>@civigo.com, jadi akun per cabang tidak bisa dibedakan lewat username.
     5. [ ] Tambah tombol "Mundurkan Antrean" (ke urutan paling akhir) di dasbor antrean loket. ⭐ (Baru)
         - API sudah ada (POST /api/queue/[id]/postpone), tinggal dipanggil dari AntreanManager.
@@ -41,6 +44,7 @@ Web:
         - queues masuk publication supabase_realtime, REPLICA IDENTITY FULL (tetap dipakai untuk warga yang login, mis. mobile).
         - Display TV (anon) tidak bisa pakai postgres_changes karena RLS queues. Diganti broadcast dari database (27/09/2026):
           trigger queues_broadcast_to_display -> topic display:agency:<id>, event queue_changed, payload tanpa data tiket.
-          Diverifikasi end-to-end: listener anon menerima broadcast, postgres_changes tetap 0 event.    5. [x] Buat tabel master documents (pastikan API tetap me-return nama teks dokumen).
+          Diverifikasi end-to-end: listener anon menerima broadcast, postgres_changes tetap 0 event.
+    5. [x] Buat tabel master documents (pastikan API tetap me-return nama teks dokumen).
         - Tabel service_documents (20 baris); requirement_doc_ids/output_doc_ids cocok dengan nama teks di services.
     6. [x] Ubah time_block menjadi nullable/opsional di queues (JANGAN di-DROP kolomnya). ⭐ (Koreksi)

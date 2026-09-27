@@ -114,3 +114,9 @@ Skema database menggunakan tipe enum `public.user_role`:
    - Payload sengaja tanpa data tiket (hanya `agency_id`), jadi topic publik aman dan `queues` tetap tertutup untuk anon — NIK tidak ikut terbuka.
    - `QueueDisplayLive` subscribe ke topic tersebut lalu `router.refresh()`; data tetap dibaca server lewat service_role. Polling diturunkan jadi 60 detik sebagai jaring pengaman.
    - Publikasi `queues` tetap dipertahankan untuk klien yang login (mis. mobile warga), karena RLS mengizinkan mereka melihat tiket sendiri.
+7. **Manajemen loket dibatasi instansi + cabang petugas (28/09/2026)**:
+   - Temuan: server action loket (`lib/data/counter-actions.ts`) menerima `counterId` dari client tanpa cek kepemilikan. Petugas Samsat bisa mengubah nama, menonaktifkan, atau menghapus loket Disdukcapil cukup dengan mengirim id-nya — server action adalah endpoint POST yang bisa dipanggil tanpa lewat UI.
+   - Sekarang setiap toggle/ubah nama/hapus mencari loketnya dulu di cakupan yang sama dengan halaman `/admin/loket`: `agency_id` petugas, plus `location_id` kalau akunnya terikat cabang. Loket di luar cakupan ditolak dengan "Loket tidak ditemukan di instansi atau cabang Anda." tanpa menulis apa pun.
+   - Tambah loket tidak lagi diam-diam menaruh loket di lokasi 1 kalau akun petugas tidak punya `location_id`; aksinya ditolak dengan pesan agar admin mengisi lokasi cabang akun.
+   - Loket tidak punya jam operasional — jam operasional diatur per instansi (`agencies.open_time/close_time/operating_days`). Kolom "Jadwal Buka" yang isinya hardcoded "Senin - Jumat / 08:00 - 16:00" dihapus dari tabel loket.
+   - Sesi yang habis saat menekan tombol loket kini benar-benar di-redirect ke halaman login (`unstable_rethrow`), bukan muncul sebagai pesan error "NEXT_REDIRECT".
