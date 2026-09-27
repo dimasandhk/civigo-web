@@ -167,3 +167,55 @@ pnpm test:watch
 8. `tests/api/auth.test.ts` (Endpoint forgot password & reset password).
 9. `tests/api/analytics.test.ts` (Endpoint analitik kepuasan dan antrean operasional).
 10. `tests/api/chatbot-safety.test.ts` (Endpoint chatbot AI).
+
+---
+
+## 8. Data Dummy Siap Pakai & Script Seeder
+
+Database Supabase remote telah diisi dengan data dummy realistis agar tim Web, Mobile, dan Kiosk dapat langsung melakukan pengujian fitur.
+
+### A. Perintah Re-seed Data:
+Jika data terhapus atau ingin di-reset kembali, cukup jalankan:
+```bash
+pnpm run seed
+```
+
+### B. Akun Pengujian yang Tersedia:
+- **Akun Warga**: `warga1@civigo.com` (User ID: `842f8f38-e83a-48c9-b4f8-96d0789f5832`, NIK: `0000999999999999`)
+- **Akun Petugas Disdukcapil**: `disdukcapil@civigo.com` (Agency ID: 1, Location ID: 1 MPP)
+- **Akun Petugas Samsat**: `samsatdimas@gmail.com` (Agency ID: 2, Location ID: 1 MPP)
+
+### C. Data Anggota Keluarga (`family_members`) Milik `warga1@civigo.com`:
+1. **Siti Aminah** (Istri) — NIK: `3578015504850001` (ID: 1)
+2. **Budi Santoso** (Anak Kandung) — NIK: `3578011208080002` (ID: 2)
+3. **Haji Ahmad Dahlan** (Orang Tua) — NIK: `3578010101500003` (ID: 3)
+
+### D. Data Antrean Testing Hari Ini (`queues`):
+1. **`A-001` (Status: `scheduled`)** — ID: `f1a10001-0000-4000-8000-000000000001`
+   - *Tujuan Test*: Uji fitur check-in di mesin kios (`/display/input-code`) atau scan QR di lokasi fisik.
+2. **`A-002` (Status: `present`)** — ID: `f1a10002-0000-4000-8000-000000000002`
+   - *Tujuan Test*: Tiket perwakilan untuk anak (*Budi Santoso*). Cek di `GET /api/queue/my` muncul badge keluarga.
+3. **`A-003` (Status: `present`, `postponed: true`)** — ID: `f1a10003-0000-4000-8000-000000000003`
+   - *Tujuan Test*: Menguji antrean yang dimundurkan. Tiket ini berada di antrean paling belakang dan dilayani FIFO setelah tiket reguler habis.
+4. **`A-004` (Status: `skipped`)** — ID: `f1a10004-0000-4000-8000-000000000004`
+   - *Tujuan Test*: **Tes Tombol Reschedule di Mobile!** Tiket ini menghasilkan `can_reschedule: true` pada `GET /api/queue/my`. Klik tombol *Jadwalkan Ulang* di mobile akan menembak `POST /api/queue/[id]/reschedule`.
+5. **`B-001` (Status: `completed`)** — ID: `f1a10005-0000-4000-8000-000000000005`
+   - *Tujuan Test*: Menguji tab riwayat antrean lampau dan integrasi pengisian rating ulasan di `/admin/ulasan`.
+6. **`C-001` (Status: `present`, Walk-in)** — ID: `f1a10006-0000-4000-8000-000000000006`
+   - *Tujuan Test*: Tiket walk-in pemohon paspor tanpa akun untuk dipanggil di loket Imigrasi.
+
+---
+
+## 9. Panduan Khusus Checklist Integrasi Rekan Tim
+
+### 📱 Untuk Tim Mobile Dev:
+- [x] **Pilih Anggota Keluarga**: Panggil `GET /api/family-members` untuk render dropdown/radio anggota keluarga, lalu sertakan `family_member_id` saat `POST /api/queue/book`.
+- [x] **3 Tombol Kelengkapan Dokumen**: Tampilkan 3 opsi ("Sudah Tersedia", "Belum Memiliki", "Hilang / Rusak") saat evaluasi prasyarat (`POST /api/services/cross-agency`).
+- [x] **Tiket Aktif vs Riwayat**: Panggil `GET /api/queue/my` yang langsung memisahkan `active_tickets` dan `history_tickets`.
+- [x] **Tombol Reschedule**: Jika tiket berstatus `skipped` dan memiliki `can_reschedule: true`, tampilkan tombol *"Jadwalkan Ulang"* yang memanggil `POST /api/queue/{id}/reschedule`.
+
+### 💻 Untuk Tim Web & Kiosk Dev:
+- [x] **Tombol Mundurkan Antrean (Admin)**: Petugas loket dapat menekan tombol *"Mundurkan"* yang memanggil `POST /api/queue/{id}/postpone`.
+- [x] **Display TV Realtime**: Monitor publik di `/display/[agencyId]/antrean` otomatis tersambung ke WebSocket Supabase realtime tanpa polling manual.
+- [x] **Check-in Kios**: Gunakan tiket `A-001` untuk uji coba input kode di `/display/input-code`.
+
