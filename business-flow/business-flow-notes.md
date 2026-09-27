@@ -63,7 +63,7 @@ Skema database menggunakan tipe enum `public.user_role`:
 
 ### D. Alur Ulasan & Feedback (`/admin/ulasan`)
 1. Setelah layanan diselesaikan, warga dapat memberikan rating (1-5 bintang) dan komentar.
-2. Dashboard admin menyajikan rekap total ulasan, rata-rata skor, tingkat kepuasan, dan filter per loket/layanan.
+2. Dashboard admin menyajikan rekap total ulasan, rata-rata skor, tingkat kepuasan, rata-rata bulan berjalan (WIB), dan filter per layanan/loket/rating (lihat poin 5.7).
 
 ---
 
@@ -114,3 +114,13 @@ Skema database menggunakan tipe enum `public.user_role`:
    - Payload sengaja tanpa data tiket (hanya `agency_id`), jadi topic publik aman dan `queues` tetap tertutup untuk anon — NIK tidak ikut terbuka.
    - `QueueDisplayLive` subscribe ke topic tersebut lalu `router.refresh()`; data tetap dibaca server lewat service_role. Polling diturunkan jadi 60 detik sebagai jaring pengaman.
    - Publikasi `queues` tetap dipertahankan untuk klien yang login (mis. mobile warga), karena RLS mengizinkan mereka melihat tiket sendiri.
+7. **CRUD layanan & filter ulasan di dashboard instansi (28/09/2026)**:
+   - **`/admin/layanan` kini bisa tambah, lihat detail, ubah, hapus, dan cari.** Aksinya di `lib/data/service-actions.ts` (server action, service_role) dan setiap tulisan dibatasi `agency_id` petugas — petugas tidak bisa mengubah layanan instansi lain lewat id.
+   - **Dokumen dipilih dari master `service_documents`**, bukan diketik bebas. Kalau belum ada, petugas bisa menambah dokumen baru dari pemilih (nama unik global; nama yang sudah ada langsung dipilih, tidak diduplikasi). Katalognya global karena dokumen dipakai lintas instansi (mis. "KTP Asli" milik Disdukcapil jadi syarat Samsat & Imigrasi).
+   - **Id dan nama dokumen selalu ditulis berpasangan.** Server menerima id saja (`requirement_doc_ids` / `output_doc_ids`), lalu mengambil nama dari `service_documents` dan menulis `requirements` / `output_documents` dengan urutan yang sama. API mobile tetap membaca nama teks, jadi `/api/services` tidak berubah.
+   - **Hapus layanan ditolak kalau sudah dipakai.** `services` tidak punya kolom status, jadi layanan tidak bisa "dinonaktifkan" seperti loket (keputusan 28/09/2026: tanpa migrasi). `queues.service_id` tanpa ON DELETE (hapus akan gagal FK) dan `reviews.service_id` ON DELETE SET NULL (ulasan kehilangan layanannya diam-diam), jadi aksi hapus mengecek keduanya dan menolak dengan jumlah antrean/ulasan. Layanan yang belum pernah dipakai dihapus permanen.
+   - Badge status "Aktif" di tabel layanan dihapus — nilainya selama ini hardcoded, tidak ada kolomnya di database.
+   - **`/admin/ulasan` memakai filter asli.** Opsi layanan & loket diambil dari data instansi; pilihan disimpan di URL (`?layanan=&loket=&rating=`) dan menyaring statistik, rincian rating, dan daftar sekaligus. Nilai URL yang bukan milik instansi dianggap "Semua". Tidak ada filter per lokasi (tidak diperlukan).
+   - **"Bulan Ini" = rata-rata ulasan bulan berjalan WIB** (`startOfMonthInJakarta()` di `lib/queue/time.ts`), bukan lagi rata-rata keseluruhan. Waktu ulasan juga ditampilkan dalam WIB.
+   - **Fallback data karangan ulasan dihapus** (500 ulasan, 4.6/5, komentar contoh). Query gagal dilempar seperti loader admin lain; instansi tanpa ulasan melihat angka nol dan empty state.
+   - Temuan data: ulasan Samsat id 8 menunjuk `counter_id = 4` (Loket 3 milik Disdukcapil). Filter loket Samsat karenanya tidak menemukan ulasan itu. `POST /api/reviews` sebaiknya memvalidasi loket milik instansi yang sama.
