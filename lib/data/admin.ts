@@ -198,8 +198,6 @@ export async function getAdminCounters(
     id: c.id,
     name: c.counter_name,
     status: (c.status === "active" ? "aktif" : "nonaktif") as "aktif" | "nonaktif",
-    days: "Senin - Jumat",
-    hours: "08:00 - 16:00",
     createdDate: "-",
     createdTime: "-",
   }));

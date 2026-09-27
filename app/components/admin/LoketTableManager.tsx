@@ -28,8 +28,6 @@ export type LoketItem = {
   id: number;
   name: string;
   status: Status;
-  days: string;
-  hours: string;
   createdDate: string;
   createdTime: string;
 };
@@ -71,10 +69,7 @@ export default function LoketTableManager({
     if (!searchQuery.trim()) return counters;
     const q = searchQuery.toLowerCase();
     return counters.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.status.toLowerCase().includes(q) ||
-        c.days.toLowerCase().includes(q),
+      (c) => c.name.toLowerCase().includes(q) || c.status.toLowerCase().includes(q),
     );
   }, [counters, searchQuery]);
 
@@ -145,10 +140,10 @@ export default function LoketTableManager({
   };
 
   const columns: DataTableColumn<LoketItem>[] = [
-    { header: "Nama Loket", width: "22%", cell: (loket) => loket.name },
+    { header: "Nama Loket", width: "30%", cell: (loket) => loket.name },
     {
       header: "Status",
-      width: "20%",
+      width: "24%",
       cell: (loket) => (
         <button
           type="button"
@@ -162,19 +157,8 @@ export default function LoketTableManager({
       ),
     },
     {
-      header: "Jadwal Buka",
-      width: "24%",
-      cell: (loket) => (
-        <>
-          {loket.days}
-          <br />
-          <span className={SUBTEXT}>{loket.hours}</span>
-        </>
-      ),
-    },
-    {
       header: "Dibuat Pada",
-      width: "18%",
+      width: "24%",
       cell: (loket) => (
         <>
           {loket.createdDate}
@@ -185,7 +169,7 @@ export default function LoketTableManager({
     },
     {
       header: "Aksi",
-      width: "16%",
+      width: "22%",
       cell: (loket) => (
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Toggle status icon */}
@@ -316,7 +300,7 @@ export default function LoketTableManager({
                   type="text"
                   value={newCounterName}
                   onChange={(e) => setNewCounterName(e.target.value)}
-                  placeholder="Contoh: Loket 9 (Layanan Prioritas)"
+                  placeholder="Contoh: Loket 9"
                   required
                   autoFocus
                   className="w-full rounded-[12px] border border-line bg-board/40 px-3.5 py-2.5 font-display text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-brand"
