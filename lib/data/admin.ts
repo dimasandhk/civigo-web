@@ -4,7 +4,6 @@ import { createServiceClient } from "@/lib/supabase/service";
 import type { RatingLevel } from "@/app/components/admin/ratings";
 import type { ServiceDonutItem } from "@/app/components/admin/ServiceDonutChart";
 import type { WeeklyDataPoint } from "@/app/components/admin/WeeklyQueueChart";
-import { DEFAULT_OUTPUT_DOCUMENTS } from "@/lib/queue/cross-agency";
 
 /**
  * Data untuk dashboard admin.
@@ -208,49 +207,81 @@ export async function getAdminCounters(
 export type AdminServiceItem = {
   id: number;
   name: string;
-  category: string;
-  status: "aktif" | "nonaktif";
+  estimated_time: number | null;
   estimate: string;
+  info_procedure: string | null;
   requirements: string[];
+  requirement_doc_ids: number[];
   output_documents: string[];
+  output_doc_ids: number[];
 };
 
+/** Nama dokumen di `requirements` (jsonb). Baris lama bisa berisi string tunggal. */
+function toNameList(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map(String);
+  if (typeof raw === "string") return [raw];
+  return [];
+}
+
+/**
+ * Katalog layanan milik instansi, apa adanya dari database.
+ *
+ * Sengaja tanpa fallback `DEFAULT_OUTPUT_DOCUMENTS`: halaman ini tempat petugas
+ * mengubah dokumen output, jadi yang tampil harus persis yang tersimpan.
+ * `services` tidak punya kolom status, jadi tidak ada lagi badge "Aktif"
+ * yang di-hardcode untuk setiap layanan.
+ */
 export async function getAdminServices(agencyId: number): Promise<AdminServiceItem[]> {
   const supabase = createServiceClient();
   const { data: services, error } = await supabase
     .from("services")
-    .select("*")
+    .select(
+      "id, name, estimated_time, info_procedure, requirements, requirement_doc_ids, output_documents, output_doc_ids",
+    )
     .eq("agency_id", agencyId)
     .order("id", { ascending: true });
 
   if (error) throw new Error(`Gagal memuat layanan: ${error.message}`);
 
-  return (services ?? []).map((s) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rawReq = (s as any).requirements;
-    const requirements: string[] = Array.isArray(rawReq)
-      ? rawReq.map(String)
-      : typeof rawReq === "string"
-      ? [rawReq]
-      : [];
+  return (services ?? []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    estimated_time: s.estimated_time,
+    estimate: s.estimated_time ? `${s.estimated_time} menit` : "-",
+    info_procedure: s.info_procedure,
+    requirements: toNameList(s.requirements),
+    requirement_doc_ids: s.requirement_doc_ids ?? [],
+    output_documents: (s.output_documents ?? []).map(String),
+    output_doc_ids: s.output_doc_ids ?? [],
+  }));
+}
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rawOut = (s as any).output_documents;
-    const output_documents: string[] =
-      Array.isArray(rawOut) && rawOut.length > 0
-        ? rawOut.map(String)
-        : (DEFAULT_OUTPUT_DOCUMENTS[s.id] ?? []);
+export type ServiceDocumentItem = {
+  id: number;
+  name: string;
+  description: string | null;
+  agency_id: number | null;
+};
 
-    return {
-      id: s.id,
-      name: s.name,
-      category: "Kependudukan",
-      status: "aktif" as const,
-      estimate: s.estimated_time ? `${s.estimated_time} menit` : "-",
-      requirements,
-      output_documents,
-    };
-  });
+/**
+ * Master dokumen (`service_documents`) untuk pemilih dokumen di form layanan.
+ *
+ * Seluruh katalog dikembalikan, bukan hanya milik instansi ini: dokumen seperti
+ * "KTP Asli" (milik Disdukcapil) memang dipakai sebagai syarat layanan Samsat
+ * dan Imigrasi. Dokumen milik instansi sendiri diurutkan lebih dulu.
+ */
+export async function getServiceDocuments(agencyId: number): Promise<ServiceDocumentItem[]> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("service_documents")
+    .select("id, name, description, agency_id")
+    .order("name", { ascending: true });
+
+  if (error) throw new Error(`Gagal memuat katalog dokumen: ${error.message}`);
+
+  return (data ?? []).sort(
+    (a, b) => Number(b.agency_id === agencyId) - Number(a.agency_id === agencyId),
+  );
 }
 
 export type QueueItem = {
