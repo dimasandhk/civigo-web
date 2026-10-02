@@ -181,9 +181,9 @@ pnpm run seed
 ```
 
 ### B. Akun Pengujian yang Tersedia:
-- **Akun Warga**: `warga1@civigo.com` (User ID: `842f8f38-e83a-48c9-b4f8-96d0789f5832`, NIK: `0000999999999999`)
-- **Akun Petugas Disdukcapil**: `disdukcapil@civigo.com` (Agency ID: 1, Location ID: 1 MPP)
-- **Akun Petugas Samsat**: `samsatdimas@gmail.com` (Agency ID: 2, Location ID: 1 MPP)
+- **Akun Warga**: `warga1@civigo.com` | Password: `Password123!` (User ID: `842f8f38-e83a-48c9-b4f8-96d0789f5832`, NIK: `0000999999999999`)
+- **Akun Petugas Disdukcapil**: `disdukcapil@civigo.com` (atau login via username `disdukcapil`) | Password: `Password123!` (Agency ID: 1, Location ID: 1 MPP)
+- **Akun Petugas Samsat**: `samsatdimas@gmail.com` | Password: *(Menggunakan kata sandi pribadi pemilik akun)* (Agency ID: 2, Location ID: 1 MPP)
 
 ### C. Data Anggota Keluarga (`family_members`) Milik `warga1@civigo.com`:
 1. **Siti Aminah** (Istri) — NIK: `3578015504850001` (ID: 1)
