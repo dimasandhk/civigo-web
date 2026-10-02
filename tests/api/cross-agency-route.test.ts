@@ -1,15 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-const { mockEvaluatePrerequisites } = vi.hoisted(() => ({
+const { mockEvaluatePrerequisites, mockGetServiceRequirements } = vi.hoisted(() => ({
   mockEvaluatePrerequisites: vi.fn(),
+  mockGetServiceRequirements: vi.fn(),
 }));
 
 vi.mock("@/lib/queue/cross-agency", () => ({
   evaluatePrerequisites: mockEvaluatePrerequisites,
+  getServiceRequirements: mockGetServiceRequirements,
 }));
 
 import { POST as crossAgencyHandler } from "@/app/api/services/cross-agency/route";
+import { GET as prerequisitesHandler } from "@/app/api/services/[id]/prerequisites/route";
 
 describe("Cross-Agency Route (POST /api/services/cross-agency)", () => {
   beforeEach(() => {
@@ -76,4 +79,65 @@ describe("Cross-Agency Route (POST /api/services/cross-agency)", () => {
       { name: "Kartu Keluarga", status: "hilang_rusak" },
     ]);
   });
+
+  describe("GET /api/services/[id]/prerequisites (Concise Mobile Requirements Output)", () => {
+    it("returns concise requirements list with name, agency_id, and type ('dokumen' | 'kondisi')", async () => {
+      mockGetServiceRequirements.mockResolvedValueOnce({
+        service_id: 1,
+        service_name: "Pembuatan KTP Baru",
+        agency_id: 1,
+        requirements: [
+          { name: "Fotokopi KK", agency_id: 1, type: "dokumen" },
+          { name: "Surat Pengantar RT/RW", agency_id: 1, type: "dokumen" },
+          { name: "Berusia 17 Tahun", agency_id: 1, type: "kondisi" },
+        ],
+      });
+
+      mockEvaluatePrerequisites.mockResolvedValueOnce({
+        is_ready_to_book: false,
+        total_requirements: 3,
+        fulfilled_count: 0,
+        missing_count: 3,
+        fulfilled_documents: [],
+        missing_documents: [],
+        suggested_flow: [],
+      });
+
+      const req = new NextRequest("http://localhost:3000/api/services/1/prerequisites");
+      const res = await prerequisitesHandler(req, { params: Promise.resolve({ id: "1" }) });
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.ok).toBe(true);
+      expect(json.service_id).toBe(1);
+      expect(json.is_ready_to_book).toBe(false);
+
+      // Pastikan format ringkas untuk Mobile App tersedia tepat sesuai kebutuhan
+      expect(json.requirements).toHaveLength(3);
+      expect(json.requirements[0]).toEqual({
+        name: "Fotokopi KK",
+        agency_id: 1,
+        type: "dokumen",
+      });
+      expect(json.requirements[2]).toEqual({
+        name: "Berusia 17 Tahun",
+        agency_id: 1,
+        type: "kondisi",
+      });
+    });
+
+    it("returns 404 if service does not exist", async () => {
+      mockGetServiceRequirements.mockResolvedValueOnce(null);
+      mockEvaluatePrerequisites.mockResolvedValueOnce({ is_ready_to_book: false });
+
+      const req = new NextRequest("http://localhost:3000/api/services/999/prerequisites");
+      const res = await prerequisitesHandler(req, { params: Promise.resolve({ id: "999" }) });
+      const json = await res.json();
+
+      expect(res.status).toBe(404);
+      expect(json.ok).toBe(false);
+      expect(json.error.code).toBe("SERVICE_NOT_FOUND");
+    });
+  });
 });
+

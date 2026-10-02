@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -378,6 +378,7 @@ export type Database = {
           description: string | null
           id: number
           name: string
+          type: string
         }
         Insert: {
           agency_id?: number | null
@@ -385,6 +386,7 @@ export type Database = {
           description?: string | null
           id?: number
           name: string
+          type?: string
         }
         Update: {
           agency_id?: number | null
@@ -392,6 +394,7 @@ export type Database = {
           description?: string | null
           id?: number
           name?: string
+          type?: string
         }
         Relationships: [
           {

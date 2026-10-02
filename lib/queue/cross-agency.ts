@@ -569,3 +569,94 @@ export async function evaluatePrerequisites(
     suggested_flow: suggestedFlow,
   };
 }
+
+export type ConciseRequirement = {
+  name: string;
+  agency_id: number | null;
+  type: "dokumen" | "kondisi";
+};
+
+export type ServiceRequirementsSummary = {
+  service_id: number;
+  service_name: string;
+  agency_id: number | null;
+  requirements: ConciseRequirement[];
+};
+
+/**
+ * Mengambil daftar prasyarat layanan dalam bentuk ringkas:
+ * - name: nama dokumen / kondisi
+ * - agency_id: ID instansi penerbit/penyelenggara
+ * - type: 'dokumen' (berkas fisik/digital) atau 'kondisi' (kriteria non-dokumen)
+ */
+export async function getServiceRequirements(
+  serviceId: number
+): Promise<ServiceRequirementsSummary | null> {
+  const supabase = createServiceClient();
+  const { data: service } = await supabase
+    .from("services")
+    .select("id, name, agency_id, requirements, requirement_doc_ids")
+    .eq("id", serviceId)
+    .maybeSingle();
+
+  if (!service) return null;
+
+  const docIds = service.requirement_doc_ids ?? [];
+  const reqStrings: string[] = Array.isArray(service.requirements)
+    ? (service.requirements as string[])
+    : [];
+
+  let docs: Array<{ id: number; name: string; agency_id: number | null; type: string }> = [];
+
+  if (docIds.length > 0) {
+    const { data: matched } = await supabase
+      .from("service_documents")
+      .select("id, name, agency_id, type")
+      .in("id", docIds);
+    docs = (matched ?? []) as Array<{ id: number; name: string; agency_id: number | null; type: string }>;
+  }
+
+  if (docs.length === 0 && reqStrings.length > 0) {
+    const { data: matchedByName } = await supabase
+      .from("service_documents")
+      .select("id, name, agency_id, type")
+      .in("name", reqStrings);
+    docs = (matchedByName ?? []) as Array<{ id: number; name: string; agency_id: number | null; type: string }>;
+  }
+
+  const docMapById = new Map(docs.map((d) => [d.id, d]));
+  const docMapByName = new Map(docs.map((d) => [d.name.toLowerCase().trim(), d]));
+
+  let formatted: ConciseRequirement[] = [];
+
+  if (docIds.length > 0) {
+    formatted = docIds.map((id) => {
+      const d = docMapById.get(id);
+      return {
+        name: d?.name ?? `Dokumen #${id}`,
+        agency_id: d?.agency_id ?? service.agency_id,
+        type: (d?.type === "kondisi" ? "kondisi" : "dokumen") as "dokumen" | "kondisi",
+      };
+    });
+  } else {
+    formatted = reqStrings.map((req) => {
+      const found = docMapByName.get(req.toLowerCase().trim());
+      const isCondition =
+        found?.type === "kondisi" ||
+        /usia|umur|tahun|smartphone|koneksi|internet|email|sehat|wajib/i.test(req);
+
+      return {
+        name: found?.name ?? req,
+        agency_id: found?.agency_id ?? service.agency_id,
+        type: (isCondition ? "kondisi" : "dokumen") as "dokumen" | "kondisi",
+      };
+    });
+  }
+
+  return {
+    service_id: service.id,
+    service_name: service.name,
+    agency_id: service.agency_id,
+    requirements: formatted,
+  };
+}

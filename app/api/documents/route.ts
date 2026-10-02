@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const supabase = createServiceClient();
     let query = supabase
       .from("service_documents")
-      .select("id, name, description, agency_id, created_at")
+      .select("id, name, description, agency_id, type, created_at")
       .order("id", { ascending: true });
 
     if (agencyIdParam) {

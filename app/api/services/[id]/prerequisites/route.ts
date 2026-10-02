@@ -1,5 +1,8 @@
 import type { NextRequest } from "next/server";
-import { evaluatePrerequisites } from "@/lib/queue/cross-agency";
+import {
+  evaluatePrerequisites,
+  getServiceRequirements,
+} from "@/lib/queue/cross-agency";
 import {
   internalErrorResponse,
   invalidJsonResponse,
@@ -8,7 +11,6 @@ import {
 
 function parseOwnedDocsFromQuery(searchParams: URLSearchParams): string[] {
   const list: string[] = [];
-  // Mendukung ?owned=KTP,KK atau ?owned=KTP&owned=KK
   const ownedAll = searchParams.getAll("owned");
   for (const item of ownedAll) {
     if (item.includes(",")) {
@@ -18,7 +20,6 @@ function parseOwnedDocsFromQuery(searchParams: URLSearchParams): string[] {
     }
   }
 
-  // Dukung juga ?owned_documents=...
   const altOwned = searchParams.getAll("owned_documents");
   for (const item of altOwned) {
     if (item.includes(",")) {
@@ -31,7 +32,9 @@ function parseOwnedDocsFromQuery(searchParams: URLSearchParams): string[] {
   return list.filter(Boolean);
 }
 
-function parseOwnedDocsFromBody(body: unknown): Array<string | { name: string; status?: string }> {
+function parseOwnedDocsFromBody(
+  body: unknown
+): Array<string | { name: string; status?: string }> {
   if (!body || typeof body !== "object") return [];
   const b = body as Record<string, unknown>;
 
@@ -63,6 +66,12 @@ function parseOwnedDocsFromBody(body: unknown): Array<string | { name: string; s
 /**
  * GET /api/services/[id]/prerequisites
  *
+ * Mengambil evaluasi kelayakan booking layanan.
+ * Output diringkas untuk Mobile App:
+ * - requirements: daftar item berisi `name`, `agency_id`, dan `type` ("dokumen" | "kondisi")
+ * - is_ready_to_book: boolean status apakah berkas sudah mencukupi
+ * - evaluation: detail evaluasi komprehensif (backward-compatible)
+ *
  * Query params (opsional):
  *   ?owned=KTP,KK  -> daftar dokumen yang saat ini sudah dimiliki warga
  */
@@ -90,9 +99,36 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const owned = parseOwnedDocsFromQuery(searchParams);
 
-    const result = await evaluatePrerequisites(serviceId, owned);
+    const [reqSummary, evalResult] = await Promise.all([
+      getServiceRequirements(serviceId),
+      evaluatePrerequisites(serviceId, owned),
+    ]);
 
-    return Response.json({ ok: true, evaluation: result }, { status: 200 });
+    if (!reqSummary) {
+      return Response.json(
+        {
+          ok: false,
+          error: {
+            code: "SERVICE_NOT_FOUND",
+            message: `Layanan dengan ID ${serviceId} tidak ditemukan.`,
+          },
+        },
+        { status: 404 }
+      );
+    }
+
+    return Response.json(
+      {
+        ok: true,
+        service_id: reqSummary.service_id,
+        service_name: reqSummary.service_name,
+        agency_id: reqSummary.agency_id,
+        is_ready_to_book: evalResult.is_ready_to_book,
+        requirements: reqSummary.requirements,
+        evaluation: evalResult,
+      },
+      { status: 200 }
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes("tidak ditemukan")) {
@@ -139,9 +175,37 @@ export async function POST(
     if (!parsed) return invalidJsonResponse();
 
     const owned = parseOwnedDocsFromBody(parsed.body);
-    const result = await evaluatePrerequisites(serviceId, owned);
 
-    return Response.json({ ok: true, evaluation: result }, { status: 200 });
+    const [reqSummary, evalResult] = await Promise.all([
+      getServiceRequirements(serviceId),
+      evaluatePrerequisites(serviceId, owned),
+    ]);
+
+    if (!reqSummary) {
+      return Response.json(
+        {
+          ok: false,
+          error: {
+            code: "SERVICE_NOT_FOUND",
+            message: `Layanan dengan ID ${serviceId} tidak ditemukan.`,
+          },
+        },
+        { status: 404 }
+      );
+    }
+
+    return Response.json(
+      {
+        ok: true,
+        service_id: reqSummary.service_id,
+        service_name: reqSummary.service_name,
+        agency_id: reqSummary.agency_id,
+        is_ready_to_book: evalResult.is_ready_to_book,
+        requirements: reqSummary.requirements,
+        evaluation: evalResult,
+      },
+      { status: 200 }
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes("tidak ditemukan")) {

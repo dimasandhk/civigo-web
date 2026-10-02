@@ -110,7 +110,7 @@ Seluruh spesifikasi API CiviGo telah didokumentasikan lengkap menggunakan standa
 - `GET /api/documents`: Mengambil daftar master dokumen (`service_documents`), mendukung query param `?agency_id=...`.
 - `GET /api/services`: Mengambil seluruh katalog layanan instansi beserta persyaratan dan jam kerja.
 - `GET /api/services/{id}`: Mengambil detail layanan spesifik berdasarkan ID.
-- `GET /api/services/{id}/prerequisites`: Evaluasi kelayakan booking layanan berdasarkan dokumen pemohon.
+- `GET /api/services/{id}/prerequisites`: Evaluasi kelayakan booking layanan & daftar ringkas prasyarat untuk Mobile App (menghasilkan array `requirements` berisi `name`, `agency_id`, dan `type`: `'dokumen' | 'kondisi'`).
 - `POST /api/services/cross-agency`: Menyusun rencana layanan multi-instansi cross-agency dengan dukungan 3 state dokumen (`sudah_tersedia`, `belum_memiliki`, `hilang_rusak`).
 
 ### D. Anggota Keluarga (Family Members)

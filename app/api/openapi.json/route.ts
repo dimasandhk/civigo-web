@@ -459,19 +459,20 @@ export async function GET() {
                 "application/json": {
                   example: {
                     ok: true,
+                    service_id: 1,
+                    service_name: "Pembuatan KTP Baru",
+                    agency_id: 1,
+                    is_ready_to_book: false,
+                    requirements: [
+                      { name: "Fotokopi KK", agency_id: 1, type: "dokumen" },
+                      { name: "Surat Pengantar RT/RW", agency_id: 1, type: "dokumen" },
+                      { name: "Berusia 17 Tahun", agency_id: 1, type: "kondisi" },
+                    ],
                     evaluation: {
                       is_ready_to_book: false,
                       total_requirements: 3,
                       fulfilled_count: 1,
                       missing_count: 2,
-                      missing_documents: [
-                        {
-                          requirement: "Surat Pengantar RT/RW",
-                          type: "external",
-                          is_cross_agency: false,
-                          guidance: "Bawa Surat Pengantar RT/RW setempat.",
-                        },
-                      ],
                     },
                   },
                 },
