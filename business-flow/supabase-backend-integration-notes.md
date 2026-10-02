@@ -95,9 +95,12 @@ Seluruh spesifikasi API CiviGo telah didokumentasikan lengkap menggunakan standa
 
 ## 6. Ringkasan Endpoint REST API CiviGo
 
-### A. Autentikasi & Akun
+### A. Autentikasi & Akun (Mobile & Web)
+- `POST /api/auth/register`: Mendaftarkan warga baru dengan email, password, NIK 16 digit, dan nama lengkap. Mengembalikan session token dan profil warga.
+- `POST /api/auth/login`: Login universal untuk warga (via email atau NIK 16 digit) dan petugas (via username). Mengembalikan JWT token (`access_token`, `refresh_token`) dan profil akun.
+- `GET /api/auth/me`: Mengambil profil akun user yang sedang login menggunakan header `Authorization: Bearer <token>` atau Cookie session.
 - `POST /api/auth/forgot-password`: Kirim link/token reset kata sandi ke email warga.
-- `POST /api/auth/reset-password`: Setel kata sandi baru dalam sesi pemulihan.
+- `POST /api/auth/reset-password`: Setel kata sandi baru dalam sesi pemulihan (mendukung Bearer token dari mobile).
 
 ### B. Master Instansi & Lokasi Cabang
 - `GET /api/agencies`: Mengambil seluruh daftar instansi pemerintah, jam kerja, hari operasional, dan lokasi cabang MPP (filter: `?location_id=...`, `?q=...`).
@@ -209,6 +212,9 @@ pnpm run seed
 ## 9. Panduan Khusus Checklist Integrasi Rekan Tim
 
 ### 📱 Untuk Tim Mobile Dev:
+- [x] **Registrasi Akun Warga Baru**: Panggil `POST /api/auth/register` dengan JSON `{ email, password, nik (16 digit), full_name }`. Menerima token session dan profil user.
+- [x] **Login Universal**: Panggil `POST /api/auth/login` dengan JSON `{ email, password }` (bisa juga mengirim NIK 16 digit sebagai pengenal). Simpan `session.access_token` ke secure storage mobile.
+- [x] **Header Bearer Token**: Setiap request API user (`/api/family-members`, `/api/queue/my`, `/api/auth/me`), sertakan header: `Authorization: Bearer <access_token>`.
 - [x] **Pilih Anggota Keluarga**: Panggil `GET /api/family-members` untuk render dropdown/radio anggota keluarga, lalu sertakan `family_member_id` saat `POST /api/queue/book`.
 - [x] **3 Tombol Kelengkapan Dokumen**: Tampilkan 3 opsi ("Sudah Tersedia", "Belum Memiliki", "Hilang / Rusak") saat evaluasi prasyarat (`POST /api/services/cross-agency`).
 - [x] **Tiket Aktif vs Riwayat**: Panggil `GET /api/queue/my` yang langsung memisahkan `active_tickets` dan `history_tickets`.

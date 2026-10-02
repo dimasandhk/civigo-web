@@ -43,13 +43,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.substring(7).trim()
+      : undefined;
+
     const supabase = await createClient();
 
-    // Verifikasi sesi user aktif dari token recovery
+    // Verifikasi sesi user aktif dari token recovery (Bearer token dari Mobile atau Cookie dari Web)
     const {
       data: { user },
       error: userError,
-    } = await supabase.auth.getUser();
+    } = token
+      ? await supabase.auth.getUser(token)
+      : await supabase.auth.getUser();
 
     if (userError || !user) {
       return NextResponse.json(

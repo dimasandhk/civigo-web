@@ -33,6 +33,142 @@ export async function GET() {
       { name: "AI Chatbot", description: "Asisten AI berbasis RAG untuk panduan prosedur dan persyaratan layanan" },
     ],
     paths: {
+      "/api/auth/register": {
+        post: {
+          tags: ["Autentikasi"],
+          summary: "Registrasi akun warga baru (Mobile & Web)",
+          description: "Mendaftarkan warga baru dengan email, kata sandi, NIK 16 digit, dan nama lengkap.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["email", "password", "nik", "full_name"],
+                  properties: {
+                    email: { type: "string", format: "email", example: "warga.baru@civigo.com" },
+                    password: { type: "string", minLength: 8, example: "Password123!" },
+                    nik: { type: "string", pattern: "^[0-9]{16}$", example: "3578012345678901" },
+                    full_name: { type: "string", example: "Budi Santoso" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "201": {
+              description: "Pendaftaran akun berhasil.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    message: "Pendaftaran akun berhasil. Selamat datang di CiviGo!",
+                    user: {
+                      id: "842f8f38-e83a-48c9-b4f8-96d0789f5832",
+                      email: "warga.baru@civigo.com",
+                      nik: "3578012345678901",
+                      full_name: "Budi Santoso",
+                      role: "user",
+                    },
+                    session: {
+                      access_token: "eyJhbGciOi...",
+                      refresh_token: "v-87as...",
+                      token_type: "bearer",
+                    },
+                  },
+                },
+              },
+            },
+            "400": { description: "Format input tidak valid (misal NIK bukan 16 digit atau kata sandi kurang dari 8 karakter)." },
+            "409": { description: "NIK atau email sudah terdaftar sebelumnya." },
+          },
+        },
+      },
+      "/api/auth/login": {
+        post: {
+          tags: ["Autentikasi"],
+          summary: "Login universal (Mobile & Web)",
+          description: "Autentikasi menggunakan email, NIK 16 digit (warga), atau username instansi (petugas). Mengembalikan user profile dan token Bearer session.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["password"],
+                  properties: {
+                    email: { type: "string", example: "warga1@civigo.com", description: "Bisa diisi email, NIK 16 digit, atau username instansi" },
+                    password: { type: "string", example: "Password123!" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Login berhasil, token dan profil dikembalikan.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    message: "Login berhasil.",
+                    user: {
+                      id: "842f8f38-e83a-48c9-b4f8-96d0789f5832",
+                      email: "warga1@civigo.com",
+                      nik: "0000999999999999",
+                      full_name: "Warga 1",
+                      role: "user",
+                    },
+                    session: {
+                      access_token: "eyJhbGciOi...",
+                      refresh_token: "v-87as...",
+                      expires_in: 3600,
+                      token_type: "bearer",
+                    },
+                  },
+                },
+              },
+            },
+            "401": { description: "Email/NIK atau kata sandi tidak sesuai." },
+          },
+        },
+      },
+      "/api/auth/me": {
+        get: {
+          tags: ["Autentikasi"],
+          summary: "Ambil profil akun login saat ini",
+          description: "Mendeteksi token Bearer pada header Authorization atau Cookie session untuk mengambil profil user aktif.",
+          parameters: [
+            {
+              name: "Authorization",
+              in: "header",
+              required: false,
+              schema: { type: "string", example: "Bearer eyJhbGci..." },
+              description: "Token akses Supabase Auth JWT",
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Profil user aktif.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    user: {
+                      id: "842f8f38-e83a-48c9-b4f8-96d0789f5832",
+                      email: "warga1@civigo.com",
+                      nik: "0000999999999999",
+                      full_name: "Warga 1",
+                      role: "user",
+                    },
+                  },
+                },
+              },
+            },
+            "401": { description: "Sesi tidak valid atau telah kedaluwarsa." },
+          },
+        },
+      },
       "/api/auth/forgot-password": {
         post: {
           tags: ["Autentikasi"],

@@ -32,3 +32,12 @@
 ## 8. Verifikasi & Local Commit
 - [x] Jalankan `pnpm run lint` & `pnpm run build`
 - [x] Simpan commit lokal (JANGAN PUSH KE REMOTE)
+
+## 9. REST Auth Endpoints untuk Mobile App (`/api/auth`)
+- [x] Buat endpoint `POST /api/auth/register` (validasi NIK 16 digit, nama, email, password, cek duplikasi)
+- [x] Buat endpoint `POST /api/auth/login` (login fleksibel via Email, NIK 16 digit, atau username instansi; return JWT tokens)
+- [x] Buat endpoint `GET /api/auth/me` (inspeksi token Bearer/cookie dan ambil profil)
+- [x] Tambahkan dukungan `Authorization: Bearer <token>` pada `/api/family-members`, `/api/queue/my`, dan `/api/auth/reset-password`
+- [x] Tambahkan unit test Vitest lengkap di `tests/api/auth.test.ts` (100% mock, 0 kuota email/API terpakai)
+- [x] Perbarui OpenAPI 3.1 Spec di `/api/openapi.json` & dokumentasi tim di `supabase-backend-integration-notes.md`
+

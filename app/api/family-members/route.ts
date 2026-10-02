@@ -12,10 +12,17 @@ const NIK_PATTERN = /^[0-9]{16}$/;
  */
 export async function GET(request: NextRequest) {
   try {
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.substring(7).trim()
+      : undefined;
+
     const supabase = await createClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = token
+      ? await supabase.auth.getUser(token)
+      : await supabase.auth.getUser();
 
     const { searchParams } = new URL(request.url);
     const queryUserId = searchParams.get("user_id");
@@ -85,10 +92,17 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.substring(7).trim()
+      : undefined;
+
     const supabase = await createClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = token
+      ? await supabase.auth.getUser(token)
+      : await supabase.auth.getUser();
 
     let body: {
       full_name?: string;

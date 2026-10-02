@@ -1,7 +1,9 @@
+// @ts-expect-error @next/env has no bundled d.ts in this project config
 import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
 
 import { createServiceClient } from "../lib/supabase/service";
+import type { Database } from "../lib/supabase/database.types";
 import { todayInJakarta } from "../lib/queue/time";
 
 async function seed() {
@@ -89,7 +91,7 @@ async function seed() {
   // 3. Seed Realistic Queues
   console.log("\n🎫 2. Seeding Test Queues...");
 
-  const dummyQueues = [
+  const dummyQueues: Database["public"]["Tables"]["queues"]["Insert"][] = [
     // A. Tiket Aktif / Scheduled (Untuk tes Check-in di Kios atau Scan QR)
     {
       id: "f1a10001-0000-4000-8000-000000000001",
@@ -202,7 +204,7 @@ async function seed() {
 
   // 4. Seed Reviews (Untuk tes halaman Ulasan warga & Analytics rating)
   console.log("\n⭐ 3. Seeding Test Reviews...");
-  const dummyReviews = [
+  const dummyReviews: Database["public"]["Tables"]["reviews"]["Insert"][] = [
     {
       user_id: userId,
       agency_id: 1, // Disdukcapil
