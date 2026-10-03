@@ -254,12 +254,26 @@ export async function getAdminServices(agencyId: number): Promise<AdminServiceIt
   }));
 }
 
+/**
+ * `dokumen` = berkas yang dibawa warga, `kondisi` = syarat non-berkas
+ * (mis. "Berusia 17 Tahun"). Dibaca mobile lewat `/api/services/[id]/prerequisites`.
+ */
+export type ServiceDocumentType = "dokumen" | "kondisi";
+
 export type ServiceDocumentItem = {
   id: number;
   name: string;
   description: string | null;
   agency_id: number | null;
+  type: ServiceDocumentType;
 };
+
+/** Kolom `type` bertipe text di DB (dibatasi CHECK), jadi dipersempit di sini. */
+export function toServiceDocumentItem(
+  doc: Omit<ServiceDocumentItem, "type"> & { type: string },
+): ServiceDocumentItem {
+  return { ...doc, type: doc.type === "kondisi" ? "kondisi" : "dokumen" };
+}
 
 /**
  * Master dokumen (`service_documents`) untuk pemilih dokumen di form layanan.
@@ -272,12 +286,12 @@ export async function getServiceDocuments(agencyId: number): Promise<ServiceDocu
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("service_documents")
-    .select("id, name, description, agency_id")
+    .select("id, name, description, agency_id, type")
     .order("name", { ascending: true });
 
   if (error) throw new Error(`Gagal memuat katalog dokumen: ${error.message}`);
 
-  return (data ?? []).sort(
+  return (data ?? []).map(toServiceDocumentItem).sort(
     (a, b) => Number(b.agency_id === agencyId) - Number(a.agency_id === agencyId),
   );
 }

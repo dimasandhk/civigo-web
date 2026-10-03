@@ -1,7 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { resolveAgencyId, type ServiceDocumentItem } from "@/lib/data/admin";
+import {
+  resolveAgencyId,
+  toServiceDocumentItem,
+  type ServiceDocumentItem,
+  type ServiceDocumentType,
+} from "@/lib/data/admin";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -35,6 +40,10 @@ const INFO_MAX = 2000;
 const ESTIMATE_MAX = 480;
 const DOC_NAME_MAX = 150;
 const DOC_DESCRIPTION_MAX = 500;
+const DOC_TYPE_LABEL: Record<ServiceDocumentType, string> = {
+  dokumen: "Dokumen",
+  kondisi: "Kondisi",
+};
 
 type ServiceRow = {
   name: string;
@@ -88,19 +97,31 @@ async function toServiceRow(
 
   const allIds = [...new Set([...requirementIds, ...outputIds])];
   const names = new Map<number, string>();
+  const conditions = new Set<number>();
 
   if (allIds.length > 0) {
     const supabase = createServiceClient();
     const { data, error } = await supabase
       .from("service_documents")
-      .select("id, name")
+      .select("id, name, type")
       .in("id", allIds);
 
     if (error) return { error: `Gagal memeriksa katalog dokumen: ${error.message}` };
-    for (const doc of data ?? []) names.set(doc.id, doc.name);
+    for (const doc of data ?? []) {
+      names.set(doc.id, doc.name);
+      if (doc.type === "kondisi") conditions.add(doc.id);
+    }
 
     if (names.size !== allIds.length) {
       return { error: "Sebagian dokumen yang dipilih tidak ada di katalog. Muat ulang halaman." };
+    }
+
+    // Kondisi (mis. "Berusia 17 Tahun") hanya masuk akal sebagai prasyarat.
+    const conditionOutput = outputIds.find((id) => conditions.has(id));
+    if (conditionOutput !== undefined) {
+      return {
+        error: `"${names.get(conditionOutput)}" adalah kondisi, bukan dokumen, jadi tidak bisa menjadi dokumen output.`,
+      };
     }
   }
 
@@ -276,11 +297,12 @@ export type CreateDocumentResponse = ActionResponse & { document?: ServiceDocume
  *
  * Nama dokumen unik secara global (constraint `service_documents_name_key`).
  * Kalau nama yang sama (tanpa beda huruf besar/kecil) sudah ada, dokumen itu
- * yang dikembalikan untuk dipilih, bukan dibuat duplikatnya.
+ * yang dikembalikan untuk dipilih, bukan dibuat duplikatnya, apa pun `type`-nya.
  */
 export async function createServiceDocumentAction(
   name: string,
   description: string,
+  type: ServiceDocumentType,
 ): Promise<CreateDocumentResponse> {
   const agencyId = await resolveAgencyId();
   try {
@@ -294,21 +316,25 @@ export async function createServiceDocumentAction(
     if (trimmedDescription.length > DOC_DESCRIPTION_MAX) {
       return { ok: false, error: `Deskripsi dokumen maksimal ${DOC_DESCRIPTION_MAX} karakter.` };
     }
+    if (type !== "dokumen" && type !== "kondisi") {
+      return { ok: false, error: "Jenis dokumen tidak valid." };
+    }
 
     const supabase = createServiceClient();
     const { data: existing, error: findError } = await supabase
       .from("service_documents")
-      .select("id, name, description, agency_id")
+      .select("id, name, description, agency_id, type")
       .ilike("name", trimmedName.replace(/[\\%_]/g, "\\$&"))
       .limit(1)
       .maybeSingle();
 
     if (findError) return { ok: false, error: `Gagal memeriksa katalog dokumen: ${findError.message}` };
     if (existing) {
+      const document = toServiceDocumentItem(existing);
       return {
         ok: true,
-        document: existing,
-        message: `Dokumen "${existing.name}" sudah ada di katalog dan langsung dipilih.`,
+        document,
+        message: `${DOC_TYPE_LABEL[document.type]} "${document.name}" sudah ada di katalog.`,
       };
     }
 
@@ -318,17 +344,19 @@ export async function createServiceDocumentAction(
         name: trimmedName,
         description: trimmedDescription || null,
         agency_id: agencyId,
+        type,
       })
-      .select("id, name, description, agency_id")
+      .select("id, name, description, agency_id, type")
       .single();
 
     if (error) return { ok: false, error: `Gagal menambahkan dokumen: ${error.message}` };
 
+    const document = toServiceDocumentItem(created);
     revalidatePath("/admin/layanan");
     return {
       ok: true,
-      document: created,
-      message: `Dokumen "${created.name}" ditambahkan ke katalog.`,
+      document,
+      message: `${DOC_TYPE_LABEL[document.type]} "${document.name}" ditambahkan ke katalog.`,
     };
   } catch (err) {
     return { ok: false, error: (err as Error).message || "Terjadi kesalahan internal." };

@@ -14,6 +14,12 @@ Web:
         - Dokumen dipilih dari master service_documents (bisa tambah dokumen baru); id dan nama selalu ditulis berpasangan.
         - Hapus ditolak kalau layanan sudah punya antrean/ulasan (services tidak punya kolom status, jadi tidak bisa dinonaktifkan).
         - Catatan: /api/services tidak diubah (masih GET-only, bentuk respons sama).
+        - [x] Follow-up (03/10/2026): service_documents punya kolom type ('dokumen' | 'kondisi') sejak commit 3d06c2d
+              (Satya), dibaca mobile lewat requirements[] di /api/services/[id]/prerequisites. Pemilih dokumen belum tahu:
+              kondisi tampil seperti dokumen biasa, dan dokumen baru dari pemilih selalu jadi 'dokumen'.
+              Tampilkan type di pemilih, beri pilihan type saat tambah dokumen, dan jangan izinkan kondisi jadi dokumen output.
+              - Selesai 03/10/2026: label "KONDISI" di pemilih/tabel/detail, tombol "Tambah sebagai kondisi" di pemilih
+                prasyarat, pemilih output menyembunyikan kondisi dan server menolaknya. Detail: business-flow-notes.md poin 5.9.
     3. [x] Integrasi page review. (28/09/2026)
         - Filter layanan/loket/rating memakai data asli instansi dan menyaring statistik, rincian rating, dan daftar (lewat URL ?layanan=&loket=&rating=).
         - "Bulan Ini" = rata-rata ulasan bulan berjalan (WIB).

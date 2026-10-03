@@ -16,8 +16,12 @@ import Button from "../Button";
 import DataTable, { type DataTableColumn } from "../DataTable";
 import IconButton from "../IconButton";
 import SearchBar from "../SearchBar";
-import ServiceDocumentPicker from "./ServiceDocumentPicker";
-import type { AdminServiceItem, ServiceDocumentItem } from "@/lib/data/admin";
+import ServiceDocumentPicker, { CONDITION_CHIP, ConditionTag } from "./ServiceDocumentPicker";
+import type {
+  AdminServiceItem,
+  ServiceDocumentItem,
+  ServiceDocumentType,
+} from "@/lib/data/admin";
 import {
   createServiceAction,
   createServiceDocumentAction,
@@ -81,10 +85,13 @@ function DocChips({
   names,
   tone,
   empty,
+  conditionNames,
 }: {
   names: string[];
   tone: "output" | "requirement";
   empty: string;
+  /** Nama kondisi di katalog (huruf kecil), untuk ditandai berbeda dari dokumen. */
+  conditionNames?: Set<string>;
 }) {
   if (names.length === 0) return <span className="text-sm text-muted">{empty}</span>;
 
@@ -95,14 +102,20 @@ function DocChips({
 
   return (
     <div className="flex flex-wrap gap-1">
-      {names.map((name, idx) => (
-        <span
-          key={idx}
-          className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${className}`}
-        >
-          {name}
-        </span>
-      ))}
+      {names.map((name, idx) => {
+        const isCondition = conditionNames?.has(name.toLowerCase()) ?? false;
+        return (
+          <span
+            key={idx}
+            className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${
+              isCondition ? CONDITION_CHIP : className
+            }`}
+          >
+            {isCondition && <ConditionTag />}
+            {name}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -125,6 +138,13 @@ export default function LayananManager({
     const known = new Set(documents.map((doc) => doc.id));
     return [...documents, ...createdDocuments.filter((doc) => !known.has(doc.id))];
   }, [documents, createdDocuments]);
+  const conditionNames = useMemo(
+    () =>
+      new Set(
+        catalog.filter((doc) => doc.type === "kondisi").map((doc) => doc.name.toLowerCase()),
+      ),
+    [catalog],
+  );
 
   // `null` = tertutup, "new" = tambah, selain itu layanan yang diubah.
   const [formTarget, setFormTarget] = useState<AdminServiceItem | "new" | null>(null);
@@ -160,8 +180,8 @@ export default function LayananManager({
     setFormTarget(target);
   };
 
-  const handleCreateDocument = async (name: string) => {
-    const res = await createServiceDocumentAction(name, "");
+  const handleCreateDocument = async (name: string, type: ServiceDocumentType) => {
+    const res = await createServiceDocumentAction(name, "", type);
     if (!res.ok || !res.document) {
       showNotification("error", res.error ?? "Gagal menambahkan dokumen.");
       return null;
@@ -221,7 +241,12 @@ export default function LayananManager({
       header: "Prasyarat Dokumen",
       width: "26%",
       cell: (layanan) => (
-        <DocChips names={layanan.requirements} tone="requirement" empty="Tanpa syarat" />
+        <DocChips
+          names={layanan.requirements}
+          tone="requirement"
+          empty="Tanpa syarat"
+          conditionNames={conditionNames}
+        />
       ),
     },
     {
@@ -330,6 +355,7 @@ export default function LayananManager({
       {viewing && (
         <ServiceDetailModal
           service={viewing}
+          conditionNames={conditionNames}
           onClose={() => setViewing(null)}
           onEdit={() => {
             openForm(viewing);
@@ -397,7 +423,10 @@ function ServiceFormModal({
   notice: React.ReactNode;
   onClose: () => void;
   onSubmit: (input: ServiceInput) => void;
-  onCreateDocument: (name: string) => Promise<ServiceDocumentItem | null>;
+  onCreateDocument: (
+    name: string,
+    type: ServiceDocumentType,
+  ) => Promise<ServiceDocumentItem | null>;
 }) {
   const nameId = useId();
   const estimateId = useId();
@@ -486,7 +515,7 @@ function ServiceFormModal({
 
           <ServiceDocumentPicker
             label="Prasyarat Dokumen"
-            hint="Dokumen yang harus dibawa warga."
+            hint="Dokumen yang harus dibawa warga, atau kondisi yang harus dipenuhi (mis. berusia 17 tahun)."
             tone="requirement"
             catalog={catalog}
             selectedIds={requirementIds}
@@ -536,10 +565,12 @@ function ServiceFormModal({
 
 function ServiceDetailModal({
   service,
+  conditionNames,
   onClose,
   onEdit,
 }: {
   service: AdminServiceItem;
+  conditionNames: Set<string>;
   onClose: () => void;
   onEdit: () => void;
 }) {
@@ -572,7 +603,12 @@ function ServiceDetailModal({
           <div className="flex flex-col gap-1.5">
             <dt className={FIELD_LABEL}>Prasyarat Dokumen</dt>
             <dd>
-              <DocChips names={service.requirements} tone="requirement" empty="Tanpa syarat" />
+              <DocChips
+                names={service.requirements}
+                tone="requirement"
+                empty="Tanpa syarat"
+                conditionNames={conditionNames}
+              />
             </dd>
           </div>
           <div className="flex flex-col gap-1.5">
