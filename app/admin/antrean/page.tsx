@@ -27,7 +27,12 @@ export default async function AntreanPage() {
       />
 
       <AntreanManager
-        counters={counters.map((c) => ({ id: c.id, name: c.name }))}
+        agencyId={context.agencyId}
+        // Loket nonaktif tidak bisa dipakai memanggil (call-next menolak dengan
+        // COUNTER_INACTIVE), jadi tidak ditawarkan sebagai tab.
+        counters={counters
+          .filter((c) => c.status === "aktif")
+          .map((c) => ({ id: c.id, name: c.name }))}
         initialQueues={queues}
       />
     </div>

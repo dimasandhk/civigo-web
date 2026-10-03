@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sortWaiting, type WaitingTicket } from "@/lib/queue/ordering";
+import { latestCompleted, sortWaiting, type WaitingTicket } from "@/lib/queue/ordering";
 
 function ticket(queue_number: string, extra: Partial<WaitingTicket> = {}): WaitingTicket {
   return { queue_number, status: "present", time_block: null, postponed: false, postponed_at: null, ...extra };
@@ -49,5 +49,29 @@ describe("sortWaiting (urutan panggil bersama)", () => {
     const input = [ticket("B-002"), ticket("B-001")];
     sortWaiting(input);
     expect(numbers(input)).toEqual(["B-002", "B-001"]);
+  });
+});
+
+describe("latestCompleted (kartu Sebelumnya)", () => {
+  const done = (queue_number: string, completed_at: string | null) => ({ queue_number, completed_at });
+
+  it("picks the ticket completed last, not the highest number", () => {
+    // B-001 dimundurkan, lalu selesai paling akhir.
+    const latest = latestCompleted([
+      done("B-001", "2026-10-03T02:30:00Z"),
+      done("B-002", "2026-10-03T02:05:00Z"),
+      done("B-003", "2026-10-03T02:10:00Z"),
+      done("B-004", "2026-10-03T02:20:00Z"),
+    ]);
+    expect(latest?.queue_number).toBe("B-001");
+  });
+
+  it("treats tickets without completed_at as the oldest", () => {
+    const latest = latestCompleted([done("B-009", null), done("B-002", "2026-10-03T02:05:00Z")]);
+    expect(latest?.queue_number).toBe("B-002");
+  });
+
+  it("returns undefined when nothing is completed", () => {
+    expect(latestCompleted([])).toBeUndefined();
   });
 });

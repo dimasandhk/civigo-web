@@ -9,6 +9,9 @@ Web:
         - Akun tanpa location_id tidak lagi jatuh ke lokasi 1: tambah loket ditolak dengan pesan jelas. (28/09/2026)
         - Toggle/ubah/hapus loket dicek dulu milik instansi + cabang petugas; id loket instansi lain ditolak. (28/09/2026)
         - Catatan: kolom "Dibuat Pada" selalu "-" karena tabel counters tidak punya kolom created_at.
+        - Loket nonaktif tidak lagi muncul sebagai tab di /admin/antrean; cabang tanpa loket aktif melihat
+          "Belum Ada Loket Aktif" (dulu dasbor diam-diam memakai loket id 1 milik Disdukcapil). (03/10/2026)
+        - Diketahui: hapus loket belum mengecek ulasan; nama loket tidak dicek unik. Lihat dokumentasi-web-tasks.md.
     2. [x] Integrasi CRUD layanan. (28/09/2026)
         - Tambah, lihat detail, ubah, hapus, dan cari layanan di /admin/layanan; semua tulisan dibatasi agency_id petugas.
         - Dokumen dipilih dari master service_documents (bisa tambah dokumen baru); id dan nama selalu ditulis berpasangan.
@@ -26,6 +29,7 @@ Web:
         - Fallback data karangan dihapus; query gagal dilempar, nol ulasan tampil sebagai empty state.
     4. [x] Integrasi login instansi.
         - Catatan: login pakai username diubah jadi <prefix>@civigo.com, jadi akun per cabang tidak bisa dibedakan lewat username.
+        - Contoh di kolom username diganti dari "disdukcapil.surabaya" jadi "disdukcapil atau email lengkap akun Anda". (03/10/2026)
     5. [x] Tambah tombol "Mundurkan Antrean" (ke urutan paling akhir) di dasbor antrean loket. ⭐ (03/10/2026)
         - Tombol kuning "Mundurkan Antrean" saat ada tiket dilayani; memanggil POST /api/queue/[id]/postpone.
         - Opsi A: tiket yang dimundurkan di belakang semua orang, termasuk yang belum check-in.
@@ -34,6 +38,11 @@ Web:
         - API postpone hanya menerima tiket served (422 POSTPONE_REQUIRES_SERVED), jadi tiket yang belum datang
           tidak bisa ditandai hadir.
         - Simulasi, keputusan, dan screenshot: business-flow/web5-mundurkan-antrean.md.
+        - Perbaikan setelah audit (03/10/2026):
+          - Kartu "Sebelumnya" memakai kolom baru queues.completed_at (diisi trigger), bukan nomor tiket terbesar.
+          - Dasbor realtime lewat broadcast display:agency:<id> (dulu postgres_changes yang terblokir RLS, jadi cuma polling 12 detik).
+          - Tiket tanpa sesi jam menampilkan "Tanpa sesi", bukan "Sesi:" kosong.
+        - Dokumentasi lengkap Web #1-#6: business-flow/dokumentasi-web-tasks.md.
     6. [ ] Halaman /reset-password (tujuan link email forgot password; sekarang 404). (Baru)
 
     Mobile:

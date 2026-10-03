@@ -156,8 +156,8 @@ export async function getAdminDashboardStats(
     // tidak punya arti.
     attendanceRate:
       totalToday > 0 ? Math.round(((totalToday - skippedCount) / totalToday) * 100) : null,
-    // `queues` belum punya called_at/served_at/completed_at, jadi durasi nyata
-    // memang belum bisa dihitung. Sebelumnya di sini ada angka 15 yang
+    // `queues` belum punya called_at/served_at (completed_at saja tidak cukup),
+    // jadi durasi nyata memang belum bisa dihitung. Sebelumnya di sini ada angka 15 yang
     // hardcoded tanpa syarat apa pun.
     avgTimeMinutes: null,
     activeCounters: activeCountersCount ?? 0,
@@ -300,7 +300,8 @@ export type QueueItem = {
   id: string;
   queue_number: string;
   status: string;
-  time_block: string;
+  /** Null untuk tiket tanpa sesi jam (walk-in, dynamic pooling). */
+  time_block: string | null;
   schedule_date: string;
   counter_id: number | null;
   location_id?: number | null;
@@ -311,6 +312,8 @@ export type QueueItem = {
   /** Pernah dimundurkan petugas; urutan panggilnya lihat `sortWaiting()`. */
   postponed: boolean;
   postponed_at: string | null;
+  /** Waktu selesai; diisi trigger DB. Null untuk tiket yang belum/selesai sebelum 03/10/2026. */
+  completed_at: string | null;
 };
 
 /** `3175012345678901` -> `3175••••••••••01`. Tidak menutupi apa pun kalau kosong. */
@@ -323,13 +326,14 @@ type RawQueueRow = {
   id: string;
   queue_number: string;
   status: string;
-  time_block: string;
+  time_block: string | null;
   schedule_date: string;
   counter_id: number | null;
   location_id?: number | null;
   nik: string | null;
   postponed?: boolean | null;
   postponed_at?: string | null;
+  completed_at?: string | null;
   counter?: { id: number; counter_name: string } | null;
   service?: { id: number; name: string; agency_id: number } | null;
   user?: { id: string; full_name: string; nik: string | null } | null;
@@ -355,6 +359,7 @@ export async function getTodayQueues(
       nik,
       postponed,
       postponed_at,
+      completed_at,
       counter:counters(id, counter_name),
       service:services!inner(id, name, agency_id),
       user:users(id, full_name, nik)
@@ -419,6 +424,7 @@ export async function getTodayQueues(
       user_nik: maskNik(q.nik ?? user?.nik ?? null),
       postponed: Boolean(q.postponed),
       postponed_at: q.postponed_at ?? null,
+      completed_at: q.completed_at ?? null,
     };
   });
 }

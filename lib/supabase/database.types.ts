@@ -204,6 +204,7 @@ export type Database = {
       }
       queues: {
         Row: {
+          completed_at: string | null
           counter_id: number | null
           created_at: string | null
           family_member_id: number | null
@@ -221,6 +222,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          completed_at?: string | null
           counter_id?: number | null
           created_at?: string | null
           family_member_id?: number | null
@@ -238,6 +240,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          completed_at?: string | null
           counter_id?: number | null
           created_at?: string | null
           family_member_id?: number | null

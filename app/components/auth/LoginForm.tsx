@@ -33,7 +33,7 @@ export default function LoginForm() {
           type="text"
           required
           autoComplete="username"
-          placeholder="disdukcapil.surabaya atau disdukcapil@civigo.com"
+          placeholder="disdukcapil atau email lengkap akun Anda"
           defaultValue=""
           disabled={isPending}
         />

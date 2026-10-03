@@ -7,11 +7,14 @@ import AdjacentQueueCard from "./AdjacentQueueCard";
 import DetailField from "./DetailField";
 import LoketTab from "./LoketTab";
 import type { QueueItem } from "@/lib/data/admin";
-import { sortWaiting } from "@/lib/queue/ordering";
+import { latestCompleted, sortWaiting } from "@/lib/queue/ordering";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, Megaphone } from "lucide-react";
 
 export type AntreanManagerProps = {
+  /** Instansi petugas; dipakai untuk channel realtime `display:agency:<id>`. */
+  agencyId: number;
+  /** Hanya loket aktif — loket nonaktif tidak bisa dipakai memanggil antrean. */
   counters: { id: number; name: string }[];
   initialQueues: QueueItem[];
 };
@@ -54,12 +57,15 @@ async function callQueueApi<T>(
 }
 
 export default function AntreanManager({
+  agencyId,
   counters,
   initialQueues,
 }: AntreanManagerProps) {
   const router = useRouter();
-  const [selectedCounterId, setSelectedCounterId] = useState<number>(
-    counters[0]?.id ?? 1,
+  // `null` kalau cabang ini belum punya loket aktif. Dulu jatuh ke id 1, yaitu
+  // loket Disdukcapil, sehingga petugas instansi lain memanggil ke loket orang.
+  const [selectedCounterId, setSelectedCounterId] = useState<number | null>(
+    counters[0]?.id ?? null,
   );
   const [isPending, startTransition] = useTransition();
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -76,6 +82,7 @@ export default function AntreanManager({
         counter_name?: string | null;
         postponed?: boolean;
         postponed_at?: string | null;
+        completed_at?: string | null;
       },
     ) =>
       state.map((q) =>
@@ -87,49 +94,46 @@ export default function AntreanManager({
               counter_name: update.counter_name !== undefined ? update.counter_name : q.counter_name,
               postponed: update.postponed ?? q.postponed,
               postponed_at: update.postponed_at !== undefined ? update.postponed_at : q.postponed_at,
+              completed_at: update.completed_at !== undefined ? update.completed_at : q.completed_at,
             }
           : q,
       ),
   );
 
-  // Realtime subscription: sync with Kiosk registrations and other counters
+  // Realtime: sinyal yang sama dengan layar TV. Trigger `queues_broadcast_to_display`
+  // mengirim `queue_changed` ke `display:agency:<id>` setiap antrean hari ini berubah
+  // (kios, loket lain, mobile). postgres_changes tidak bisa dipakai: RLS `queues`
+  // hanya `auth.uid() = user_id`, jadi petugas tidak pernah menerima tiket warga.
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel("public:queues-admin-sync")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "queues",
-        },
-        () => {
-          router.refresh();
-        },
-      )
+      .channel(`display:agency:${agencyId}`)
+      .on("broadcast", { event: "queue_changed" }, () => {
+        router.refresh();
+      })
       .subscribe();
 
-    // Fallback periodic sync every 12 seconds
+    // Jaring pengaman kalau socket putus dan sinyal terlewat.
     const interval = setInterval(() => {
       router.refresh();
-    }, 12000);
+    }, 30000);
 
     return () => {
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [router]);
+  }, [agencyId, router]);
 
   // Active queue currently being served at the selected counter
   const activeQueue = queues.find(
     (q) => q.counter_id === selectedCounterId && q.status === "served",
   );
 
-  // Previously completed queue at this counter
-  const previousQueue = queues
-    .filter((q) => q.counter_id === selectedCounterId && q.status === "completed")
-    .slice(-1)[0];
+  // Tiket yang paling akhir diselesaikan di loket ini (menurut `completed_at`,
+  // bukan nomor terbesar — tiket yang dimundurkan selesai belakangan).
+  const previousQueue = latestCompleted(
+    queues.filter((q) => q.counter_id === selectedCounterId && q.status === "completed"),
+  );
 
   // Next queues in line, in the same order "Panggil Antrean Berikutnya" uses,
   // so the "Selanjutnya" card names the ticket that will actually be called.
@@ -142,7 +146,11 @@ export default function AntreanManager({
   const handleComplete = () => {
     if (!activeQueue) return;
     startTransition(async () => {
-      setOptimisticQueues({ id: activeQueue.id, status: "completed" });
+      setOptimisticQueues({
+        id: activeQueue.id,
+        status: "completed",
+        completed_at: new Date().toISOString(),
+      });
       const res = await callQueueApi(`/api/queue/${activeQueue.id}/status`, "PATCH", {
         status: "completed",
       });
@@ -202,11 +210,13 @@ export default function AntreanManager({
   };
 
   const handleCallNext = () => {
+    const counterId = selectedCounterId;
+    if (counterId === null) return;
     startTransition(async () => {
       const res = await callQueueApi<{
         ticket: { id: string; queue_number: string };
         remaining: number;
-      }>("/api/queue/call-next", "POST", { counter_id: selectedCounterId });
+      }>("/api/queue/call-next", "POST", { counter_id: counterId });
 
       if (!res.ok) {
         setActionMessage(res.error.message);
@@ -214,12 +224,12 @@ export default function AntreanManager({
       }
 
       const called = res.data.ticket;
-      const counterName = counters.find((c) => c.id === selectedCounterId)?.name || "Loket";
+      const counterName = counters.find((c) => c.id === counterId)?.name || "Loket";
 
       setOptimisticQueues({
         id: called.id,
         status: "served",
-        counter_id: selectedCounterId,
+        counter_id: counterId,
         counter_name: counterName,
       });
 
@@ -279,19 +289,31 @@ export default function AntreanManager({
           <h2 className="font-display text-[18px] font-semibold text-ink sm:text-[20px]">
             Nomor Antrean Saat Ini —{" "}
             <span className="text-brand">
-              {counters.find((c) => c.id === selectedCounterId)?.name ||
-                `Loket ${selectedCounterId}`}
+              {counters.find((c) => c.id === selectedCounterId)?.name ?? "Belum ada loket aktif"}
             </span>
           </h2>
 
-          {activeQueue ? (
+          {counters.length === 0 ? (
+            <div className="flex min-h-[140px] flex-col items-center justify-center gap-4 py-8 text-center sm:h-[182px]">
+              <span className="font-display text-[32px] font-semibold text-queue-idle/60 sm:text-[40px]">
+                Belum Ada Loket Aktif
+              </span>
+              <p className="max-w-md text-sm text-muted">
+                Cabang ini belum punya loket aktif untuk memanggil antrean. Aktifkan atau tambah
+                loket di halaman Loket.
+              </p>
+            </div>
+          ) : activeQueue ? (
             <div className="flex min-h-[140px] flex-col items-center justify-between py-2 sm:h-[182px]">
               <span className="font-display text-[72px] leading-none font-semibold text-brand sm:text-[100px] lg:text-[120px]">
                 {activeQueue.queue_number}
               </span>
-              <span className="font-display text-[16px] font-medium text-queue-idle sm:text-[20px]">
-                Sesi: {activeQueue.time_block}
-              </span>
+              {/* Tiket walk-in / dynamic pooling tidak punya sesi jam. */}
+              {activeQueue.time_block && (
+                <span className="font-display text-[16px] font-medium text-queue-idle sm:text-[20px]">
+                  Sesi: {activeQueue.time_block}
+                </span>
+              )}
             </div>
           ) : (
             <div className="flex min-h-[140px] flex-col items-center justify-center gap-4 py-8 text-center sm:h-[182px]">
@@ -316,7 +338,7 @@ export default function AntreanManager({
                 tampil selama ini satu nomor karangan yang sama untuk semua. */}
             <DetailField
               label="Sesi"
-              value={activeQueue.time_block}
+              value={activeQueue.time_block ?? "Tanpa sesi"}
               valueClassName="leading-6 tracking-[0.05em]"
             />
             <DetailField
@@ -372,7 +394,7 @@ export default function AntreanManager({
                 )}
               </Button>
             </>
-          ) : (
+          ) : counters.length > 0 ? (
             <Button
               variant="gradient"
               className="w-full cursor-pointer"
@@ -387,7 +409,7 @@ export default function AntreanManager({
                 "Semua Antrean Telah Dilayani"
               )}
             </Button>
-          )}
+          ) : null}
         </div>
       </section>
 

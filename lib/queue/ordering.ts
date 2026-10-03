@@ -53,3 +53,20 @@ export function compareWaiting(a: WaitingTicket, b: WaitingTicket): number {
 export function sortWaiting<T extends WaitingTicket>(tickets: readonly T[]): T[] {
   return [...tickets].sort(compareWaiting);
 }
+
+/**
+ * Tiket yang paling akhir diselesaikan, untuk kartu "Sebelumnya" di dasbor loket.
+ *
+ * Memakai `completed_at` (diisi trigger DB), bukan nomor tiket: tiket yang
+ * dimundurkan selesai belakangan meski nomornya kecil. Tiket lama tanpa
+ * `completed_at` dianggap paling awal.
+ */
+export function latestCompleted<T extends { completed_at: string | null }>(
+  tickets: readonly T[],
+): T | undefined {
+  let latest: T | undefined;
+  for (const ticket of tickets) {
+    if (!latest || (ticket.completed_at ?? "") >= (latest.completed_at ?? "")) latest = ticket;
+  }
+  return latest;
+}
