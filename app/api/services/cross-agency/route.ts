@@ -38,25 +38,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rawInputs = body.documents ?? body.owned_documents ?? body.owned;
-    const documentInputs: Array<string | { name: string; status?: string }> = [];
+    const candidateArrays = [
+      body.documents,
+      body.owned_documents,
+      body.owned,
+      body.conditions,
+      body.requirements,
+    ];
+    const documentInputs: Array<string | { name: string; status?: string; type?: string }> = [];
 
-    if (Array.isArray(rawInputs)) {
-      for (const item of rawInputs) {
-        if (typeof item === "string") {
-          const trimmed = item.trim();
-          if (trimmed) documentInputs.push(trimmed);
-        } else if (item && typeof item === "object") {
-          const obj = item as Record<string, unknown>;
-          const name = String(obj.name ?? obj.document_name ?? obj.title ?? "").trim();
-          const status = String(obj.status ?? obj.condition ?? "tersedia").trim();
-          if (name) {
-            documentInputs.push({ name, status });
+    for (const rawInputs of candidateArrays) {
+      if (!rawInputs) continue;
+
+      if (Array.isArray(rawInputs)) {
+        for (const item of rawInputs) {
+          if (typeof item === "string") {
+            const trimmed = item.trim();
+            if (trimmed) documentInputs.push(trimmed);
+          } else if (item && typeof item === "object") {
+            const obj = item as Record<string, unknown>;
+            const name = String(obj.name ?? obj.document_name ?? obj.title ?? "").trim();
+            const rawStatus = obj.status ?? obj.condition;
+            const status = rawStatus != null ? String(rawStatus).trim() : "tersedia";
+            const explicitType = obj.type ? String(obj.type).trim() : undefined;
+            if (name) {
+              documentInputs.push({ name, status, type: explicitType });
+            }
           }
         }
+      } else if (typeof rawInputs === "string") {
+        documentInputs.push(...rawInputs.split(",").map((s) => s.trim()).filter(Boolean));
       }
-    } else if (typeof rawInputs === "string") {
-      documentInputs.push(...rawInputs.split(",").map((s) => s.trim()).filter(Boolean));
     }
 
     const result = await evaluatePrerequisites(targetServiceId, documentInputs);

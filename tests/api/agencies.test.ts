@@ -119,6 +119,86 @@ describe("Agencies Endpoints (API Tests)", () => {
       expect(json.count).toBe(1);
       expect(json.agencies[0].name).toBe("Disdukcapil");
     });
+
+    it("filters agencies by city parameter", async () => {
+      const mockAgencies = [
+        { id: 1, name: "Disdukcapil Surabaya", open_time: "08:00", close_time: "15:00", operating_days: [1, 2] },
+        { id: 2, name: "Disdukcapil Bandung", open_time: "08:00", close_time: "15:00", operating_days: [1, 2] },
+      ];
+
+      const mockAgencyLocations = [
+        { agency_id: 1, location_id: 1, locations: { id: 1, name: "MPP Siola", address: "Jl. Tunjungan", city: "Surabaya", latitude: -7.25, longitude: 112.73, type: "MPP" } },
+        { agency_id: 2, location_id: 2, locations: { id: 2, name: "MPP Grha Sawala", address: "Jl. Cianjur", city: "Bandung", latitude: -6.91, longitude: 107.61, type: "MPP" } },
+      ];
+
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "agencies") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            order: vi.fn().mockResolvedValueOnce({ data: mockAgencies, error: null }),
+          };
+        }
+        if (table === "agency_locations") {
+          return {
+            select: vi.fn().mockResolvedValueOnce({ data: mockAgencyLocations, error: null }),
+          };
+        }
+        return { select: vi.fn().mockReturnThis(), order: vi.fn().mockResolvedValueOnce({ data: [], error: null }) };
+      });
+
+      const req = new NextRequest("http://localhost:3000/api/agencies?city=Surabaya");
+      const res = await getAgencies(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.count).toBe(1);
+      expect(json.agencies[0].name).toBe("Disdukcapil Surabaya");
+      expect(json.agencies[0].locations[0].city).toBe("Surabaya");
+    });
+
+    it("calculates distance and sorts agencies by nearest when lat and lng are provided", async () => {
+      const mockAgencies = [
+        { id: 1, name: "Instansi Jauh (Bandung)", open_time: "08:00", close_time: "15:00", operating_days: [1] },
+        { id: 2, name: "Instansi Dekat (Surabaya)", open_time: "08:00", close_time: "15:00", operating_days: [1] },
+      ];
+
+      const mockAgencyLocations = [
+        { agency_id: 1, location_id: 1, locations: { id: 1, name: "Bandung Hub", address: "A", city: "Bandung", latitude: -6.9175, longitude: 107.6191, type: "MPP" } },
+        { agency_id: 2, location_id: 2, locations: { id: 2, name: "Surabaya Hub", address: "B", city: "Surabaya", latitude: -7.2575, longitude: 112.7521, type: "MPP" } },
+      ];
+
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "agencies") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            order: vi.fn().mockResolvedValueOnce({ data: mockAgencies, error: null }),
+          };
+        }
+        if (table === "agency_locations") {
+          return {
+            select: vi.fn().mockResolvedValueOnce({ data: mockAgencyLocations, error: null }),
+          };
+        }
+        return { select: vi.fn().mockReturnThis(), order: vi.fn().mockResolvedValueOnce({ data: [], error: null }) };
+      });
+
+      // Koordinat pengguna di Surabaya (-7.25, 112.75)
+      const req = new NextRequest("http://localhost:3000/api/agencies?lat=-7.25&lng=112.75");
+      const res = await getAgencies(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.count).toBe(2);
+      // Yang terdekat (Surabaya) harus muncul pertama
+      expect(json.agencies[0].name).toBe("Instansi Dekat (Surabaya)");
+      expect(json.agencies[0].nearest_distance_km).toBeLessThan(5);
+      expect(json.agencies[0].formatted_distance).toContain("km dari Anda");
+      expect(json.agencies[0].locations[0].distance_km).toBeDefined();
+
+      // Yang jauh (Bandung) muncul kedua (> 500 km)
+      expect(json.agencies[1].name).toBe("Instansi Jauh (Bandung)");
+      expect(json.agencies[1].nearest_distance_km).toBeGreaterThan(500);
+    });
   });
 
   describe("GET /api/agencies/[id]", () => {

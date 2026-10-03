@@ -134,5 +134,29 @@ describe("Cross-Agency Document Engine (Unit Tests)", () => {
       expect(result.is_ready_to_book).toBe(true);
       expect(result.fulfilled_count).toBe(3);
     });
+
+    it("evaluates conditions with status 'ya' and 'tidak' without triggering police reports", async () => {
+      // Mock requirement with a condition (service 1 has requirements)
+      const result = await evaluatePrerequisites(1, [
+        { name: "Fotokopi Kartu Keluarga", status: "tersedia" },
+        { name: "Surat Pengantar RT/RW", status: "tersedia" },
+        { name: "Akta Kelahiran", type: "kondisi", status: "tidak" },
+      ]);
+
+      expect(result.is_ready_to_book).toBe(false);
+      expect(result.fulfilled_count).toBe(2);
+      expect(result.missing_count).toBe(1);
+
+      const conditionItem = result.missing_documents.find((d) => d.requirement === "Akta Kelahiran");
+      expect(conditionItem).toBeDefined();
+      expect(conditionItem?.requirement_type).toBe("kondisi");
+      expect(conditionItem?.status).toBe("tidak");
+      expect(conditionItem?.requires_police_report).toBe(false);
+      expect(conditionItem?.guidance).toContain("tidak");
+
+      // Pastikan TIDAK memunculkan flow step SKTLK Kepolisian karena bukan dokumen hilang
+      const policeFlow = result.suggested_flow.find((s) => s.title.includes("Kepolisian (SKTLK)"));
+      expect(policeFlow).toBeUndefined();
+    });
   });
 });

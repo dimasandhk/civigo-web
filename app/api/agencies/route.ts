@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { calculateHaversineDistance, formatDistance } from "@/lib/locations/distance";
 
 /**
  * GET /api/agencies
@@ -16,7 +17,18 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const locationIdParam = searchParams.get("location_id");
+    const cityParam = searchParams.get("city")?.toLowerCase().trim();
+    const latParam = searchParams.get("lat") ?? searchParams.get("latitude");
+    const lngParam = searchParams.get("lng") ?? searchParams.get("longitude");
     const queryParam = searchParams.get("q")?.toLowerCase().trim();
+
+    const userLat = latParam != null && latParam !== "" ? Number(latParam) : null;
+    const userLng = lngParam != null && lngParam !== "" ? Number(lngParam) : null;
+    const hasCoordinates =
+      userLat != null &&
+      userLng != null &&
+      !Number.isNaN(userLat) &&
+      !Number.isNaN(userLng);
 
     const supabase = createServiceClient();
 
@@ -126,17 +138,55 @@ export async function GET(request: NextRequest) {
       const locs = locationMap.get(agency.id) ?? [];
       const servs = serviceMap.get(agency.id) ?? [];
 
-      return {
+      let minAgencyDist = Infinity;
+
+      const processedLocs = locs.map((loc) => {
+        if (hasCoordinates && userLat != null && userLng != null && loc.latitude != null && loc.longitude != null) {
+          const distKm = calculateHaversineDistance(userLat, userLng, loc.latitude, loc.longitude);
+          const roundedDist = Number(distKm.toFixed(1));
+          if (roundedDist < minAgencyDist) {
+            minAgencyDist = roundedDist;
+          }
+          return {
+            ...loc,
+            distance_km: roundedDist,
+            formatted_distance: formatDistance(roundedDist),
+          };
+        }
+        return loc;
+      });
+
+      const agencyData: {
+        id: number;
+        name: string;
+        description: string | null;
+        open_time: string;
+        close_time: string;
+        operating_days: number[];
+        locations: typeof processedLocs;
+        services_count: number;
+        services: typeof servs;
+        nearest_distance_km?: number | null;
+        formatted_distance?: string | null;
+      } = {
         id: agency.id,
         name: agency.name,
         description: agency.description,
         open_time: agency.open_time,
         close_time: agency.close_time,
         operating_days: agency.operating_days,
-        locations: locs,
+        locations: processedLocs,
         services_count: servs.length,
         services: servs,
       };
+
+      if (hasCoordinates) {
+        const hasDist = minAgencyDist !== Infinity;
+        agencyData.nearest_distance_km = hasDist ? minAgencyDist : null;
+        agencyData.formatted_distance = hasDist ? `${minAgencyDist} km dari Anda` : null;
+      }
+
+      return agencyData;
     });
 
     // Filter berdasarkan location_id jika diminta
@@ -147,6 +197,22 @@ export async function GET(request: NextRequest) {
           a.locations.some((l) => l.id === locId)
         );
       }
+    }
+
+    // Filter berdasarkan nama kota jika diminta
+    if (cityParam) {
+      agenciesResult = agenciesResult.filter((a) =>
+        a.locations.some((l) => l.city && l.city.toLowerCase().includes(cityParam))
+      );
+    }
+
+    // Jika koordinat disertakan, urutkan instansi dari jarak terdekat
+    if (hasCoordinates) {
+      agenciesResult.sort((a, b) => {
+        const distA = a.nearest_distance_km ?? Infinity;
+        const distB = b.nearest_distance_km ?? Infinity;
+        return distA - distB;
+      });
     }
 
     return NextResponse.json(

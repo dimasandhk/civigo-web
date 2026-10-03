@@ -74,6 +74,33 @@ export type Database = {
           },
         ]
       }
+      cities: {
+        Row: {
+          created_at: string
+          id: number
+          latitude: number | null
+          longitude: number | null
+          name: string
+          province: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          province: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          province?: string
+        }
+        Relationships: []
+      }
       counters: {
         Row: {
           agency_id: number | null

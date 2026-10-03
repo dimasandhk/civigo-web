@@ -36,9 +36,13 @@ export type MissingDocumentType = "cross_agency" | "external" | "general_prerequ
 
 export type DocumentState = "tersedia" | "belum_memiliki" | "hilang_rusak";
 
+export type RequirementCategory = "dokumen" | "kondisi";
+
 export type DocumentConditionInput = {
   name: string;
-  status?: DocumentState | string;
+  status?: DocumentState | "ya" | "tidak" | string | boolean;
+  type?: RequirementCategory | string;
+  condition?: string;
 };
 
 export type RecommendedService = {
@@ -53,17 +57,22 @@ export type RecommendedService = {
 export type MissingDocumentDetail = {
   requirement: string;
   type: MissingDocumentType;
+  requirement_type?: RequirementCategory;
   is_cross_agency: boolean;
   recommended_service: RecommendedService | null;
   external_issuer?: string;
   guidance: string;
-  condition?: DocumentState;
+  condition?: DocumentState | "tidak" | string;
+  status?: DocumentState | "tidak" | string;
   requires_police_report?: boolean;
 };
 
 export type FulfilledDocumentDetail = {
   requirement: string;
   matched_with: string;
+  type?: RequirementCategory;
+  requirement_type?: RequirementCategory;
+  status?: "tersedia" | "ya" | string;
 };
 
 export type FlowStep = {
@@ -320,44 +329,55 @@ export async function getServiceById(serviceId: number): Promise<ServiceSummary 
   return all.find((s) => s.id === serviceId) ?? null;
 }
 
-function parseDocumentInput(input: string | DocumentConditionInput): { name: string; state: DocumentState } {
+function parseDocumentInput(input: string | DocumentConditionInput): {
+  name: string;
+  state: DocumentState;
+  type?: RequirementCategory;
+  rawStatus: string;
+} {
   if (typeof input === "string") {
-    return { name: input.trim(), state: "tersedia" };
+    return { name: input.trim(), state: "tersedia", type: "dokumen", rawStatus: "tersedia" };
   }
   const name = String(input.name || "").trim();
-  const rawState = String(input.status || "tersedia").toLowerCase().trim();
+  const rawStatus = String(input.status ?? input.condition ?? "tersedia").toLowerCase().trim();
+  const explicitType = (input.type === "kondisi" || input.type === "dokumen") ? (input.type as RequirementCategory) : undefined;
+
+  // Dukungan kondisi ya / tidak
+  if (rawStatus === "ya" || rawStatus === "true" || rawStatus === "yes") {
+    return { name, state: "tersedia", type: explicitType ?? "kondisi", rawStatus: "ya" };
+  }
+  if (rawStatus === "tidak" || rawStatus === "false" || rawStatus === "no") {
+    return { name, state: "belum_memiliki", type: explicitType ?? "kondisi", rawStatus: "tidak" };
+  }
 
   let state: DocumentState = "tersedia";
   if (
-    rawState.includes("rusak") ||
-    rawState.includes("hilang") ||
-    rawState.includes("lost") ||
-    rawState.includes("damaged")
+    rawStatus.includes("rusak") ||
+    rawStatus.includes("hilang") ||
+    rawStatus.includes("lost") ||
+    rawStatus.includes("damaged")
   ) {
     state = "hilang_rusak";
   } else if (
-    rawState.includes("belum") ||
-    rawState.includes("tidak") ||
-    rawState.includes("missing")
+    rawStatus.includes("belum") ||
+    rawStatus.includes("missing")
   ) {
     state = "belum_memiliki";
   } else {
     state = "tersedia";
   }
 
-  return { name, state };
+  return { name, state, type: explicitType ?? "dokumen", rawStatus };
 }
 
 /**
  * Algoritma Inti Dev 2 Tugas 2: Evaluasi Prasyarat Dokumen Antar-Instansi (Cross-Agency Logic).
- * Mendukung 3 kondisi kelengkapan dokumen:
- * 1. sudah_tersedia / tersedia: dokumen sudah lengkap di tangan pemohon.
- * 2. belum_memiliki: dokumen belum pernah dibuat/belum dimiliki.
- * 3. hilang_rusak: dokumen pernah dimiliki tetapi hilang atau rusak fisik,
- *    sehingga membutuhkan Surat Kehilangan Kepolisian (SKTLK) atau bukti fisik rusak.
+ * Mendukung status kelengkapan dokumen dan kondisi:
+ * 1. Dokumen: 'tersedia', 'belum_memiliki', 'hilang_rusak'
+ * 2. Kondisi: 'ya', 'tidak'
  *
  * @param targetServiceId ID layanan yang ingin didatangi pengguna
- * @param ownedOrConditions Daftar dokumen (string[] atau array { name, status })
+ * @param ownedOrConditions Daftar dokumen / kondisi (string[] atau array { name, status, type? })
  */
 export async function evaluatePrerequisites(
   targetServiceId: number,
@@ -370,6 +390,18 @@ export async function evaluatePrerequisites(
     throw new Error(`Layanan dengan ID ${targetServiceId} tidak ditemukan.`);
   }
 
+  let conditionReqNames = new Set<string>();
+  try {
+    const reqDetails = await getServiceRequirements(targetServiceId);
+    if (reqDetails) {
+      conditionReqNames = new Set(
+        reqDetails.requirements.filter((r) => r.type === "kondisi").map((r) => r.name.toLowerCase().trim())
+      );
+    }
+  } catch {
+    // Fallback aman untuk unit test atau lingkungan mock
+  }
+
   const normalizedInputs = (ownedOrConditions ?? []).map(parseDocumentInput);
 
   const fulfilled: FulfilledDocumentDetail[] = [];
@@ -377,13 +409,41 @@ export async function evaluatePrerequisites(
 
   // Evaluasi setiap item persyaratan dari targetService
   for (const req of targetService.requirements) {
-    // Cek apakah ada input dokumen yang cocok
+    // Cek apakah ada input dokumen / kondisi yang cocok
     const matchedInput = normalizedInputs.find((item) => doesDocumentMatch(req, item.name));
+
+    const isConditionReq =
+      conditionReqNames.has(req.toLowerCase().trim()) ||
+      matchedInput?.type === "kondisi" ||
+      matchedInput?.rawStatus === "ya" ||
+      matchedInput?.rawStatus === "tidak" ||
+      /usia|umur|tahun|smartphone|koneksi|internet|email|sehat|wajib|domisili/i.test(req);
+
+    const reqCategory: RequirementCategory = isConditionReq ? "kondisi" : "dokumen";
 
     if (matchedInput && matchedInput.state === "tersedia") {
       fulfilled.push({
         requirement: req,
-        matched_with: matchedInput.name,
+        matched_with: matchedInput.rawStatus === "ya" ? (matchedInput.name || "Kondisi terpenuhi") : matchedInput.name,
+        type: reqCategory,
+        requirement_type: reqCategory,
+        status: isConditionReq ? "ya" : "tersedia",
+      });
+      continue;
+    }
+
+    // Jika prasyarat adalah sebuah kondisi yang belum terpenuhi (status: 'tidak')
+    if (isConditionReq) {
+      missing.push({
+        requirement: req,
+        type: "general_prerequisite",
+        requirement_type: "kondisi",
+        is_cross_agency: false,
+        condition: "tidak",
+        status: "tidak",
+        requires_police_report: false,
+        recommended_service: null,
+        guidance: `Ketentuan "${req}" belum terpenuhi (status: tidak). Pastikan Anda telah memenuhi kriteria ini sebelum berkunjung.`,
       });
       continue;
     }
@@ -422,8 +482,10 @@ export async function evaluatePrerequisites(
       missing.push({
         requirement: req,
         type: "cross_agency",
+        requirement_type: "dokumen",
         is_cross_agency: isCrossAgency,
         condition: docCondition,
+        status: docCondition,
         requires_police_report: isLostOrDamaged,
         recommended_service: {
           id: sourceService.id,
@@ -447,8 +509,10 @@ export async function evaluatePrerequisites(
       missing.push({
         requirement: req,
         type: externalInfo.isExternal ? "external" : "general_prerequisite",
+        requirement_type: "dokumen",
         is_cross_agency: false,
         condition: docCondition,
+        status: docCondition,
         requires_police_report: isLostOrDamaged,
         recommended_service: null,
         external_issuer: externalInfo.issuer,

@@ -80,6 +80,44 @@ describe("Cross-Agency Route (POST /api/services/cross-agency)", () => {
     ]);
   });
 
+  it("handles simultaneous documents, owned_documents, and conditions correctly", async () => {
+    mockEvaluatePrerequisites.mockResolvedValueOnce({
+      is_ready_to_book: true,
+      summary: "Semua syarat terpenuhi",
+      total_requirements: 3,
+      fulfilled_count: 3,
+      missing_count: 0,
+      fulfilled_documents: [],
+      missing_documents: [],
+      suggested_flow: [],
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/services/cross-agency", {
+      method: "POST",
+      body: JSON.stringify({
+        target_service_id: 1,
+        documents: [
+          { name: "Kartu Keluarga", status: "hilang_rusak" },
+        ],
+        owned_documents: ["KTP Asli"],
+        conditions: [
+          { name: "Berusia 17 Tahun", status: "ya" },
+        ],
+      }),
+    });
+
+    const res = await crossAgencyHandler(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(mockEvaluatePrerequisites).toHaveBeenCalledWith(1, [
+      { name: "Kartu Keluarga", status: "hilang_rusak" },
+      "KTP Asli",
+      { name: "Berusia 17 Tahun", status: "ya" },
+    ]);
+  });
+
   describe("GET /api/services/[id]/prerequisites (Concise Mobile Requirements Output)", () => {
     it("returns concise requirements list with name, agency_id, and type ('dokumen' | 'kondisi')", async () => {
       mockGetServiceRequirements.mockResolvedValueOnce({

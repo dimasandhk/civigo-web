@@ -24,6 +24,7 @@ export async function GET() {
     tags: [
       { name: "Autentikasi", description: "Endpoint pengelolaan kata sandi dan autentikasi pengguna/petugas" },
       { name: "Master Instansi", description: "Katalog instansi pemerintah, jam operasional, dan lokasi cabang MPP" },
+      { name: "Master Lokasi & Wilayah", description: "Daftar kota dan utilitas konversi koordinat GPS / reverse geocoding" },
       { name: "Master Dokumen", description: "Katalog master dokumen layanan (service_documents) untuk persyaratan dan output" },
       { name: "Anggota Keluarga", description: "Manajemen data anggota keluarga untuk pendaftaran layanan perwakilan" },
       { name: "Layanan & Prasyarat", description: "Katalog layanan instansi dan evaluasi kelengkapan dokumen cross-agency" },
@@ -240,6 +241,44 @@ export async function GET() {
           },
         },
       },
+      "/api/auth/change-password": {
+        post: {
+          tags: ["Autentikasi"],
+          summary: "Ubah kata sandi pengguna (hanya saat sudah login)",
+          description: "Mengubah kata sandi pengguna yang sedang memiliki sesi aktif (Mobile via Bearer token atau Web via Cookie). Memerlukan verifikasi current_password terlebih dahulu.",
+          security: [{ BearerAuth: [] }, { CookieAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["current_password", "new_password"],
+                  properties: {
+                    current_password: { type: "string", example: "KataSandiLama#123" },
+                    new_password: { type: "string", minLength: 8, example: "KataSandiBaru#456" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Kata sandi berhasil diperbarui.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    message: "Kata sandi Anda berhasil diperbarui.",
+                  },
+                },
+              },
+            },
+            "400": { description: "Kata sandi saat ini salah atau kata sandi baru kurang dari 8 karakter." },
+            "401": { description: "Sesi tidak valid atau telah kedaluwarsa." },
+          },
+        },
+      },
       "/api/agencies": {
         get: {
           tags: ["Master Instansi"],
@@ -252,6 +291,27 @@ export async function GET() {
               required: false,
               schema: { type: "integer" },
               description: "Filter instansi yang beroperasi di lokasi fisik tertentu",
+            },
+            {
+              name: "city",
+              in: "query",
+              required: false,
+              schema: { type: "string" },
+              description: "Filter instansi yang beroperasi di kota tertentu (contoh: Surabaya, Bandung)",
+            },
+            {
+              name: "lat",
+              in: "query",
+              required: false,
+              schema: { type: "number", format: "float" },
+              description: "Latitude GPS pengguna untuk menghitung jarak dan mengurutkan instansi dari yang terdekat",
+            },
+            {
+              name: "lng",
+              in: "query",
+              required: false,
+              schema: { type: "number", format: "float" },
+              description: "Longitude GPS pengguna untuk menghitung jarak dan mengurutkan instansi dari yang terdekat",
             },
             {
               name: "q",
@@ -335,6 +395,74 @@ export async function GET() {
               },
             },
             "404": { description: "Instansi tidak ditemukan." },
+          },
+        },
+      },
+      "/api/cities": {
+        get: {
+          tags: ["Master Lokasi & Wilayah"],
+          summary: "Daftar kota untuk pemilih lokasi (Mobile App)",
+          description: "Mengambil daftar master kota di Indonesia yang didukung oleh CiviGo untuk pilihan lokasi/wilayah di mobile app.",
+          responses: {
+            "200": {
+              description: "Daftar kota berhasil diambil.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    count: 4,
+                    cities: [
+                      { id: 1, name: "Surabaya", province: "Jawa Timur", latitude: -7.2575, longitude: 112.7521 },
+                      { id: 2, name: "Bandung", province: "Jawa Barat", latitude: -6.9175, longitude: 107.6191 },
+                      { id: 3, name: "Serang", province: "Banten", latitude: -6.1104, longitude: 106.164 },
+                      { id: 4, name: "Jakarta Pusat", province: "DKI Jakarta", latitude: -6.1818, longitude: 106.8223 },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/locations/reverse-geocode": {
+        get: {
+          tags: ["Master Lokasi & Wilayah"],
+          summary: "Reverse geocoding koordinat GPS ke nama kota",
+          description: "Menerima parameter koordinat lat dan lng dari GPS perangkat dan mengembalikan nama kota yang terdeteksi.",
+          parameters: [
+            {
+              name: "lat",
+              in: "query",
+              required: true,
+              schema: { type: "number", format: "float" },
+              description: "Latitude perangkat GPS (contoh: -6.9175)",
+            },
+            {
+              name: "lng",
+              in: "query",
+              required: true,
+              schema: { type: "number", format: "float" },
+              description: "Longitude perangkat GPS (contoh: 107.6191)",
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Nama kota berhasil dideteksi.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    city: "Bandung",
+                    display_name: "Batununggal, Kota Bandung, Jawa Barat",
+                    coordinates: {
+                      latitude: -6.9175,
+                      longitude: 107.6191,
+                    },
+                  },
+                },
+              },
+            },
+            "400": { description: "Parameter koordinat lat atau lng tidak valid atau tidak disertakan." },
           },
         },
       },
@@ -517,6 +645,22 @@ export async function GET() {
                       example: ["KTP Asli"],
                       description: "Format alternatif untuk daftar dokumen yang sudah dimiliki (backward compatible)",
                     },
+                    conditions: {
+                      type: "array",
+                      description: "Daftar status prasyarat berkategori kondisi (seperti usia, kepemilikan smartphone, domisili)",
+                      items: {
+                        type: "object",
+                        required: ["name", "status"],
+                        properties: {
+                          name: { type: "string", example: "Berusia minimal 17 tahun" },
+                          status: {
+                            type: "string",
+                            enum: ["ya", "tidak"],
+                            example: "ya",
+                          },
+                        },
+                      },
+                    },
                   },
                 },
               },
@@ -531,17 +675,26 @@ export async function GET() {
                     ok: true,
                     evaluation: {
                       is_ready_to_book: false,
-                      summary: "Terdapat 1 dokumen berstatus HILANG/RUSAK. Harap urus SKTLK di Polsek atau penggantian di Disdukcapil.",
-                      total_requirements: 2,
+                      summary: "Terdapat 1 dokumen berstatus HILANG/RUSAK dan 1 kondisi belum terpenuhi.",
+                      total_requirements: 3,
                       fulfilled_count: 1,
-                      missing_count: 1,
-                      fulfilled_documents: [{ requirement: "KTP", matched_with: "KTP Asli" }],
+                      missing_count: 2,
+                      fulfilled_documents: [
+                        {
+                          requirement: "KTP",
+                          matched_with: "KTP Asli",
+                          type: "dokumen",
+                          status: "tersedia",
+                        },
+                      ],
                       missing_documents: [
                         {
                           requirement: "Kartu Keluarga",
                           type: "cross_agency",
+                          requirement_type: "dokumen",
                           is_cross_agency: true,
                           condition: "hilang_rusak",
+                          status: "hilang_rusak",
                           requires_police_report: true,
                           guidance: "Persyaratan Kartu Keluarga berstatus HILANG/RUSAK. Siapkan SKTLK Polsek sebelum mengurus penggantian di Disdukcapil.",
                           recommended_service: {
@@ -552,6 +705,17 @@ export async function GET() {
                             estimated_time: 15,
                             output_document: "Kartu Keluarga (KK)",
                           },
+                        },
+                        {
+                          requirement: "Memiliki smartphone",
+                          type: "general_prerequisite",
+                          requirement_type: "kondisi",
+                          is_cross_agency: false,
+                          condition: "tidak",
+                          status: "tidak",
+                          requires_police_report: false,
+                          guidance: "Ketentuan 'Memiliki smartphone' belum terpenuhi (status: tidak). Pastikan Anda telah memenuhi kriteria ini sebelum berkunjung.",
+                          recommended_service: null,
                         },
                       ],
                       suggested_flow: [
