@@ -60,12 +60,66 @@ describe("Queue Postpone Engine (Unit Tests)", () => {
     }
   });
 
-  it("successfully updates ticket with postponed = true and status = present", async () => {
+  it.each(["scheduled", "present"])(
+    "rejects a %s ticket: only the ticket being served can be postponed",
+    async (status) => {
+      mockLoadTicketContext.mockResolvedValueOnce({
+        ticket: {
+          id: "11111111-2222-3333-4444-555555555555",
+          queue_number: "A-004",
+          status,
+        },
+        service: { id: 1, name: "KTP" },
+        agency: { id: 1, name: "Disdukcapil" },
+      });
+
+      const result = await postponeQueue("11111111-2222-3333-4444-555555555555");
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.status).toBe(422);
+        expect(result.code).toBe("POSTPONE_REQUIRES_SERVED");
+      }
+      // Ditolak sebelum menulis apa pun, jadi `scheduled` tidak berubah jadi `present`.
+      expect(mockFrom).not.toHaveBeenCalled();
+    },
+  );
+
+  it("returns 409 when another officer changed the ticket before the write", async () => {
     mockLoadTicketContext.mockResolvedValueOnce({
       ticket: {
         id: "11111111-2222-3333-4444-555555555555",
         queue_number: "A-003",
-        status: "present",
+        status: "served",
+      },
+      service: { id: 1, name: "KTP" },
+      agency: { id: 1, name: "Disdukcapil" },
+    });
+
+    const eq = vi.fn().mockReturnThis();
+    mockFrom.mockReturnValueOnce({
+      update: vi.fn().mockReturnThis(),
+      eq,
+      select: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValueOnce({ data: null, error: null }),
+    });
+
+    const result = await postponeQueue("11111111-2222-3333-4444-555555555555");
+
+    expect(eq).toHaveBeenCalledWith("status", "served");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("CONCURRENT_UPDATE");
+    }
+  });
+
+  it("successfully updates a served ticket with postponed = true and status = present", async () => {
+    mockLoadTicketContext.mockResolvedValueOnce({
+      ticket: {
+        id: "11111111-2222-3333-4444-555555555555",
+        queue_number: "A-003",
+        status: "served",
       },
       service: { id: 1, name: "KTP" },
       agency: { id: 1, name: "Disdukcapil" },
@@ -86,7 +140,7 @@ describe("Queue Postpone Engine (Unit Tests)", () => {
       update: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValueOnce({ data: updatedRow, error: null }),
+      maybeSingle: vi.fn().mockResolvedValueOnce({ data: updatedRow, error: null }),
     });
 
     const result = await postponeQueue("11111111-2222-3333-4444-555555555555");

@@ -308,6 +308,9 @@ export type QueueItem = {
   counter_name: string | null;
   user_name: string;
   user_nik: string;
+  /** Pernah dimundurkan petugas; urutan panggilnya lihat `sortWaiting()`. */
+  postponed: boolean;
+  postponed_at: string | null;
 };
 
 /** `3175012345678901` -> `3175••••••••••01`. Tidak menutupi apa pun kalau kosong. */
@@ -325,6 +328,8 @@ type RawQueueRow = {
   counter_id: number | null;
   location_id?: number | null;
   nik: string | null;
+  postponed?: boolean | null;
+  postponed_at?: string | null;
   counter?: { id: number; counter_name: string } | null;
   service?: { id: number; name: string; agency_id: number } | null;
   user?: { id: string; full_name: string; nik: string | null } | null;
@@ -348,6 +353,8 @@ export async function getTodayQueues(
       counter_id,
       location_id,
       nik,
+      postponed,
+      postponed_at,
       counter:counters(id, counter_name),
       service:services!inner(id, name, agency_id),
       user:users(id, full_name, nik)
@@ -410,6 +417,8 @@ export async function getTodayQueues(
       // benar-benar diketik saat booking, dan untuk tiket walk-in cuma itu
       // satu-satunya yang ada.
       user_nik: maskNik(q.nik ?? user?.nik ?? null),
+      postponed: Boolean(q.postponed),
+      postponed_at: q.postponed_at ?? null,
     };
   });
 }

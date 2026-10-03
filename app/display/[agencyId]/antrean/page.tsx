@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { sortWaiting } from "@/lib/queue/ordering";
 import { todayInJakarta } from "@/lib/queue/time";
 import { createServiceClient } from "@/lib/supabase/service";
 import QueueDisplayLive, {
@@ -73,7 +74,9 @@ export default async function QueueDisplayPage({ params, searchParams }: Props) 
 
   let queuesQuery = supabase
     .from("queues")
-    .select("queue_number, counter_id, status, service:services!inner(agency_id, estimated_time)")
+    .select(
+      "queue_number, counter_id, status, time_block, postponed, postponed_at, service:services!inner(agency_id, estimated_time)",
+    )
     .eq("schedule_date", today)
     .eq("service.agency_id", agencyId);
 
@@ -99,10 +102,11 @@ export default async function QueueDisplayPage({ params, searchParams }: Props) 
     };
   });
 
-  const upcoming = list
-    .filter((q) => ["present", "scheduled"].includes(q.status))
-    .map((q) => q.queue_number)
-    .sort((a, b) => a.localeCompare(b));
+  // Urutan yang sama dengan tombol "Panggil Antrean Berikutnya", supaya tiket
+  // yang dimundurkan tidak tampil paling depan di layar.
+  const upcoming = sortWaiting(
+    list.filter((q) => ["present", "scheduled"].includes(q.status)),
+  ).map((q) => q.queue_number);
 
   return (
     <QueueDisplayLive

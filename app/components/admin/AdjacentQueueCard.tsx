@@ -5,6 +5,8 @@ export type AdjacentQueueCardProps = {
   service: string;
   /** Dims the card for an already-served entry. */
   muted?: boolean;
+  /** Small label under the service, e.g. "Dimundurkan". */
+  tag?: string;
 };
 
 export default function AdjacentQueueCard({
@@ -13,6 +15,7 @@ export default function AdjacentQueueCard({
   name,
   service,
   muted = false,
+  tag,
 }: AdjacentQueueCardProps) {
   return (
     <div className="flex items-end gap-5 rounded-[20px] bg-white px-[35px] py-5 shadow-soft">
@@ -37,6 +40,11 @@ export default function AdjacentQueueCard({
         <span className="font-display text-[16px] font-medium text-queue-idle">
           {service}
         </span>
+        {tag && (
+          <span className="w-fit rounded-md bg-warning-soft px-2 py-0.5 font-display text-xs font-semibold text-warning">
+            {tag}
+          </span>
+        )}
       </div>
     </div>
   );

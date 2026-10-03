@@ -26,8 +26,14 @@ Web:
         - Fallback data karangan dihapus; query gagal dilempar, nol ulasan tampil sebagai empty state.
     4. [x] Integrasi login instansi.
         - Catatan: login pakai username diubah jadi <prefix>@civigo.com, jadi akun per cabang tidak bisa dibedakan lewat username.
-    5. [ ] Tambah tombol "Mundurkan Antrean" (ke urutan paling akhir) di dasbor antrean loket. ⭐ (Baru)
-        - API sudah ada (POST /api/queue/[id]/postpone), tinggal dipanggil dari AntreanManager.
+    5. [x] Tambah tombol "Mundurkan Antrean" (ke urutan paling akhir) di dasbor antrean loket. ⭐ (03/10/2026)
+        - Tombol kuning "Mundurkan Antrean" saat ada tiket dilayani; memanggil POST /api/queue/[id]/postpone.
+        - Opsi A: tiket yang dimundurkan di belakang semua orang, termasuk yang belum check-in.
+        - Kartu "Selanjutnya"/"Sisa Antrean" dan layar TV kini memakai urutan yang sama dengan tombol panggil
+          (lib/queue/ordering.ts); tiket berikutnya yang pernah dimundurkan diberi label "Dimundurkan".
+        - API postpone hanya menerima tiket served (422 POSTPONE_REQUIRES_SERVED), jadi tiket yang belum datang
+          tidak bisa ditandai hadir.
+        - Simulasi, keputusan, dan screenshot: business-flow/web5-mundurkan-antrean.md.
     6. [ ] Halaman /reset-password (tujuan link email forgot password; sekarang 404). (Baru)
 
     Mobile:

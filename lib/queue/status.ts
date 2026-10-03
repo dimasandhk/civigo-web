@@ -8,7 +8,8 @@ import {
   type Failure,
   type QueueStatus,
 } from "./shared";
-import { parseTimeBlock, todayInJakarta } from "./time";
+import { sortWaiting } from "./ordering";
+import { todayInJakarta } from "./time";
 
 /**
  * Ticket lifecycle, driven by the buttons in the admin dashboard.
@@ -225,6 +226,11 @@ export type PostponeQueueResult =
  * Memundurkan antrean ke urutan paling akhir dari antrean yang menunggu.
  * Tiket diberi tanda `postponed = true`, `postponed_at = now()`,
  * status diatur ke `present`, dan counter_id dikosongkan.
+ *
+ * Hanya tiket `served` (sedang dilayani di loket) yang bisa dimundurkan:
+ * orangnya sudah dipanggil, jadi memang ada di lokasi dan `present` benar.
+ * Tiket `scheduled` ditolak — kalau diterima, orang yang belum pernah datang
+ * tercatat hadir dan kios menjawab "Anda sudah check-in" saat ia akhirnya datang.
  */
 export async function postponeQueue(ticketId: string): Promise<PostponeQueueResult> {
   if (!isUuid(ticketId)) {
@@ -250,6 +256,14 @@ export async function postponeQueue(ticketId: string): Promise<PostponeQueueResu
     );
   }
 
+  if (ticket.status !== "served") {
+    return fail(
+      422,
+      "POSTPONE_REQUIRES_SERVED",
+      `Hanya antrean yang sedang dilayani di loket yang dapat dimundurkan. Tiket ${ticket.queue_number} berstatus ${STATUS_LABEL[ticket.status]}.`,
+    );
+  }
+
   const { data: updated, error: updateError } = await db
     .from("queues")
     .update({
@@ -259,11 +273,22 @@ export async function postponeQueue(ticketId: string): Promise<PostponeQueueResu
       postponed_at: new Date().toISOString(),
     })
     .eq("id", ticket.id)
+    // Sama dengan updateQueueStatus: kalau petugas lain sudah menyelesaikan atau
+    // menghanguskan tiket ini sejak dibaca, jangan timpa perubahannya.
+    .eq("status", "served")
     .select()
-    .single();
+    .maybeSingle();
 
-  if (updateError || !updated) {
-    return fail(500, "POSTPONE_FAILED", updateError?.message ?? "Gagal memundurkan antrean.");
+  if (updateError) {
+    return fail(500, "POSTPONE_FAILED", updateError.message);
+  }
+
+  if (!updated) {
+    return fail(
+      409,
+      "CONCURRENT_UPDATE",
+      "Status tiket baru saja diubah petugas lain. Muat ulang lalu coba lagi.",
+    );
   }
 
   return {
@@ -290,9 +315,10 @@ export type CallNextResult =
 /**
  * Calls the longest-waiting ticket for the officer's agency to a counter.
  *
- * Ordering puts `present` ahead of `scheduled`: somebody standing in the room
- * should be seen before somebody who has not turned up yet. Within that, the
- * earlier session goes first, then the lower ticket number.
+ * Ordering comes from `sortWaiting()` in `./ordering`, shared with the
+ * dashboard's "Selanjutnya" card and the TV board so all three agree on who is
+ * next: postponed tickets last, then `present` ahead of `scheduled`, then the
+ * earlier session, then the lower ticket number.
  */
 export async function callNextQueue(raw: unknown): Promise<CallNextResult> {
   if (typeof raw !== "object" || raw === null) {
@@ -356,34 +382,7 @@ export async function callNextQueue(raw: unknown): Promise<CallNextResult> {
     return fail(500, "INTERNAL_ERROR", error.message);
   }
 
-  const queue = (waiting ?? []).slice().sort((a, b) => {
-    // 1. Antrean normal (belum pernah dimundurkan) dipanggil duluan;
-    // Tiket yang dimundurkan (postponed = true) ditaruh di paling belakang pool
-    const isPostponedA = Boolean(a.postponed);
-    const isPostponedB = Boolean(b.postponed);
-    if (isPostponedA !== isPostponedB) {
-      return isPostponedA ? 1 : -1;
-    }
-
-    // 2. Kehadiran fisik: 'present' dipanggil sebelum 'scheduled'
-    const priority = (status: string) => (status === "present" ? 0 : 1);
-    if (priority(a.status) !== priority(b.status)) return priority(a.status) - priority(b.status);
-
-    // 3. Jika sesama postponed, urutkan FIFO berdasarkan waktu dimundurkan
-    if (isPostponedA && isPostponedB && a.postponed_at && b.postponed_at) {
-      const diff = new Date(a.postponed_at).getTime() - new Date(b.postponed_at).getTime();
-      if (diff !== 0) return diff;
-    }
-
-    // 4. Sesi jam jika ada
-    const startOf = (block: string | null) => (block ? parseTimeBlock(block)?.startMinutes ?? Number.MAX_SAFE_INTEGER : Number.MAX_SAFE_INTEGER);
-    if (startOf(a.time_block) !== startOf(b.time_block)) {
-      return startOf(a.time_block) - startOf(b.time_block);
-    }
-
-    // 5. Urutan nomor antrean alfabetis
-    return a.queue_number.localeCompare(b.queue_number);
-  });
+  const queue = sortWaiting(waiting ?? []);
 
   const next = queue[0];
 

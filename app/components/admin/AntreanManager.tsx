@@ -7,6 +7,7 @@ import AdjacentQueueCard from "./AdjacentQueueCard";
 import DetailField from "./DetailField";
 import LoketTab from "./LoketTab";
 import type { QueueItem } from "@/lib/data/admin";
+import { sortWaiting } from "@/lib/queue/ordering";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, Megaphone } from "lucide-react";
 
@@ -73,6 +74,8 @@ export default function AntreanManager({
         status: string;
         counter_id?: number | null;
         counter_name?: string | null;
+        postponed?: boolean;
+        postponed_at?: string | null;
       },
     ) =>
       state.map((q) =>
@@ -82,6 +85,8 @@ export default function AntreanManager({
               status: update.status,
               counter_id: update.counter_id !== undefined ? update.counter_id : q.counter_id,
               counter_name: update.counter_name !== undefined ? update.counter_name : q.counter_name,
+              postponed: update.postponed ?? q.postponed,
+              postponed_at: update.postponed_at !== undefined ? update.postponed_at : q.postponed_at,
             }
           : q,
       ),
@@ -126,9 +131,10 @@ export default function AntreanManager({
     .filter((q) => q.counter_id === selectedCounterId && q.status === "completed")
     .slice(-1)[0];
 
-  // Next queues in line (present or scheduled, not yet assigned counter)
-  const waitingQueues = queues.filter((q) =>
-    ["present", "scheduled"].includes(q.status),
+  // Next queues in line, in the same order "Panggil Antrean Berikutnya" uses,
+  // so the "Selanjutnya" card names the ticket that will actually be called.
+  const waitingQueues = sortWaiting(
+    queues.filter((q) => ["present", "scheduled"].includes(q.status)),
   );
   const nextInLine = waitingQueues[0];
   const remainingCount = waitingQueues.length;
@@ -167,6 +173,30 @@ export default function AntreanManager({
       }
 
       setActionMessage(`Antrean ${activeQueue.queue_number} ditandai hangus.`);
+      router.refresh();
+    });
+  };
+
+  const handlePostpone = () => {
+    if (!activeQueue) return;
+    startTransition(async () => {
+      setOptimisticQueues({
+        id: activeQueue.id,
+        status: "present",
+        counter_id: null,
+        counter_name: null,
+        postponed: true,
+        postponed_at: new Date().toISOString(),
+      });
+      const res = await callQueueApi(`/api/queue/${activeQueue.id}/postpone`, "POST");
+
+      if (!res.ok) {
+        setActionMessage(res.error.message);
+        router.refresh();
+        return;
+      }
+
+      setActionMessage(`Antrean ${activeQueue.queue_number} dimundurkan ke urutan paling akhir.`);
       router.refresh();
     });
   };
@@ -318,6 +348,18 @@ export default function AntreanManager({
                 )}
               </Button>
               <Button
+                variant="warning"
+                className="flex-1 cursor-pointer"
+                disabled={isPending}
+                onClick={handlePostpone}
+              >
+                {isPending ? (
+                  <Loader2 className="size-5 animate-spin text-white" />
+                ) : (
+                  "Mundurkan Antrean"
+                )}
+              </Button>
+              <Button
                 variant="danger"
                 className="flex-1 cursor-pointer"
                 disabled={isPending}
@@ -374,6 +416,7 @@ export default function AntreanManager({
           number={nextInLine?.queue_number || "-"}
           name={nextInLine?.user_name || "Tidak ada antrean"}
           service={nextInLine?.service_name || "-"}
+          tag={nextInLine?.postponed ? "Dimundurkan" : undefined}
         />
       </div>
     </div>

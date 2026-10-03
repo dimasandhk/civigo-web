@@ -845,7 +845,7 @@ export async function GET() {
         post: {
           tags: ["Antrean (Queues)"],
           summary: "Mundurkan antrean ke urutan paling akhir",
-          description: "Opsi petugas loket untuk memundurkan nomor antrean pemohon yang belum siap atau izin sebentar. Tiket ditandai 'postponed = true' dan diletakkan di paling akhir antrean menunggu, tanpa menghanguskannya.",
+          description: "Opsi petugas loket untuk memundurkan nomor antrean pemohon yang belum siap atau izin sebentar. Hanya tiket yang sedang dilayani (status 'served') yang bisa dimundurkan. Tiket kembali berstatus 'present', ditandai 'postponed = true', dan diletakkan di paling akhir antrean menunggu (di belakang tiket yang belum check-in juga), tanpa menghanguskannya.",
           parameters: [
             {
               name: "id",
@@ -876,7 +876,8 @@ export async function GET() {
             },
             "400": { description: "ID tiket tidak valid." },
             "404": { description: "Tiket tidak ditemukan." },
-            "409": { description: "Tiket tidak dalam status antrean aktif untuk dimundurkan." },
+            "409": { description: "CONCURRENT_UPDATE: status tiket baru saja diubah petugas lain." },
+            "422": { description: "CANNOT_POSTPONE_FINAL_STATUS (tiket sudah selesai/hangus) atau POSTPONE_REQUIRES_SERVED (tiket belum dipanggil ke loket)." },
           },
         },
       },
