@@ -9,11 +9,13 @@ export default function AdminShell({
   children,
   agencyId,
   agencyName,
+  locationId,
   locationName,
 }: {
   children: ReactNode;
   agencyId: number;
   agencyName?: string;
+  locationId?: number | null;
   locationName?: string | null;
 }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -24,6 +26,7 @@ export default function AdminShell({
       <Sidebar
         agencyId={agencyId}
         agencyName={agencyName}
+        locationId={locationId}
         locationName={locationName}
         isMobileOpen={isMobileOpen}
         onCloseMobile={() => setIsMobileOpen(false)}

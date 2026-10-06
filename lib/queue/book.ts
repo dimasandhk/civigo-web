@@ -15,10 +15,11 @@ import {
  * Booking use-case, kept separate from the HTTP layer so the status endpoints
  * that come later can reuse the same identity and validation helpers.
  *
- * Capacity is *not* enforced here. The per-time-block quota table does not
- * exist yet, so the only thing limiting a session is the agency's closing time:
- * a booking is refused when the session start plus the service's estimate runs
- * past it. Until quotas land, a single session accepts unlimited tickets.
+ * Kapasitas dijaga jam operasional, bukan kuota (keputusan tetap, kuota tidak
+ * akan dibuat): booking ditolak kalau jam mulai + `services.estimated_time`
+ * melewati `agencies.close_time`. Jam mulai = awal sesi kalau ada `time_block`;
+ * tanpa sesi (kios walk-in, sejak 06/10/2026) = sekarang, atau jam buka kalau
+ * instansi belum buka.
  */
 
 const MAX_ADVANCE_DAYS = 30;
@@ -41,6 +42,7 @@ export type BookingErrorCode =
   | "DATE_IN_PAST"
   | "DATE_TOO_FAR"
   | "AGENCY_CLOSED"
+  | "AGENCY_NOT_AT_LOCATION"
   | "INVALID_TIME_BLOCK"
   | "OUTSIDE_OPERATING_HOURS"
   | "SERVICE_EXCEEDS_CLOSING"
@@ -209,8 +211,8 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
     return fail(
       400,
       "INVALID_BODY",
-      "Body tidak valid. Wajib: service_id (angka), schedule_date (YYYY-MM-DD), " +
-        "time_block (\"HH:MM - HH:MM\"). Opsional: nik (16 digit).",
+      "Body tidak valid. Wajib: service_id (angka), schedule_date (YYYY-MM-DD). " +
+        "Opsional: time_block (\"HH:MM - HH:MM\"), nik (16 digit).",
     );
   }
 
@@ -247,6 +249,25 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
     return fail(404, "SERVICE_NOT_FOUND", "Instansi penyelenggara layanan ini tidak ditemukan.");
   }
 
+  // Tiket dicatat di cabang tempat warga mengambilnya (kios mengirim lokasinya). Tanpa
+  // location_id tetap jatuh ke lokasi 1 (MPP) supaya klien lama tidak rusak; semua
+  // instansi memang ada di MPP. Instansi yang tidak membuka layanan di cabang itu ditolak.
+  const locationId = input.location_id ?? 1;
+  const { data: servesLocation } = await db
+    .from("agency_locations")
+    .select("agency_id")
+    .eq("agency_id", agency.id)
+    .eq("location_id", locationId)
+    .maybeSingle();
+
+  if (!servesLocation) {
+    return fail(
+      422,
+      "AGENCY_NOT_AT_LOCATION",
+      `${agency.name} tidak membuka layanan di lokasi ini. Silakan ambil antrean di lokasi ${agency.name}.`,
+    );
+  }
+
   const today = todayInJakarta();
   const dayOffset = daysBetween(today, input.schedule_date);
 
@@ -275,12 +296,12 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
   const estimatedTime = service.estimated_time ?? DEFAULT_ESTIMATED_MINUTES;
   const finishMinutes = block ? block.startMinutes + estimatedTime : null;
 
-  // Izinkan pengujian di luar jam kerja (misal malam hari, akhir pekan, atau testing) saat development atau testing
+  // Cek jam operasional hanya dilewati lewat saklar uji coba: `next dev`, atau
+  // ALLOW_OFFHOURS_TESTING="true" (mis. demo malam/akhir pekan di deployment).
+  // Dulu juga dilewati untuk sesi mulai >= 18:00 dan untuk hari ini yang libur, sehingga
+  // booking malam/akhir pekan ikut diterima di production. Dihapus 06/10/2026.
   const isDevTesting =
-    process.env.NODE_ENV !== "production" ||
-    process.env.ALLOW_OFFHOURS_TESTING === "true" ||
-    (block && block.startMinutes >= 1080) ||
-    (dayOffset === 0 && !agency.operating_days.includes(isoDayOfWeek(input.schedule_date)));
+    process.env.NODE_ENV !== "production" || process.env.ALLOW_OFFHOURS_TESTING === "true";
 
   if (!isDevTesting) {
     if (!agency.operating_days.includes(isoDayOfWeek(input.schedule_date))) {
@@ -315,6 +336,30 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
           422,
           "TIME_BLOCK_PASSED",
           `Sesi ${minutesToTime(block.startMinutes)} hari ini sudah lewat.`,
+        );
+      }
+    } else if (dayOffset === 0) {
+      // Tanpa sesi: dilayani mulai sekarang (atau saat buka). Aturan yang sama
+      // dengan sesi, supaya walk-in tidak lolos dari batas jam operasional.
+      const openMinutes = timeToMinutes(agency.open_time);
+      const closeMinutes = timeToMinutes(agency.close_time);
+      const startMinutes = Math.max(nowMinutesInJakarta(), openMinutes);
+      const hours = `${minutesToTime(openMinutes)} - ${minutesToTime(closeMinutes)}`;
+
+      if (startMinutes >= closeMinutes) {
+        return fail(
+          422,
+          "OUTSIDE_OPERATING_HOURS",
+          `${agency.name} sudah tutup hari ini (jam operasional ${hours}).`,
+        );
+      }
+
+      if (startMinutes + estimatedTime > closeMinutes) {
+        return fail(
+          422,
+          "SERVICE_EXCEEDS_CLOSING",
+          `Layanan ${service.name} (${estimatedTime} menit) tidak akan selesai sebelum ` +
+            `${agency.name} tutup pukul ${minutesToTime(closeMinutes)}.`,
         );
       }
     }
@@ -362,7 +407,7 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
 
   const inserted = await insertTicketWithNumber(db, {
     serviceId: service.id,
-    locationId: input.location_id ?? 1,
+    locationId,
     familyMemberId: input.family_member_id ?? null,
     scheduleDate: input.schedule_date,
     timeBlock: input.time_block,

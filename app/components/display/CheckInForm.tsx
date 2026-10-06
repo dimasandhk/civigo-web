@@ -9,13 +9,14 @@ type CheckInTicket = {
   queue_number: string;
   status: string;
   schedule_date: string;
-  time_block: string;
+  /** Null untuk tiket tanpa sesi jam (walk-in kios). */
+  time_block: string | null;
   service_name: string;
   counter_name: string | null;
   agency_name: string;
 };
 
-export default function CheckInForm() {
+export default function CheckInForm({ homeHref }: { homeHref: string }) {
   const [code, setCode] = useState("");
   const [isPending, startTransition] = useTransition();
   const [ticket, setTicket] = useState<CheckInTicket | null>(null);
@@ -78,9 +79,11 @@ export default function CheckInForm() {
             </span>
             <div className="mt-2 flex flex-col items-center text-center gap-1 text-sm font-medium text-ink">
               <span>{ticket.agency_name} — {ticket.service_name}</span>
-              <span className="flex items-center gap-1.5 text-xs text-queue-idle">
-                <Clock size={14} /> Sesi: {ticket.time_block}
-              </span>
+              {ticket.time_block && (
+                <span className="flex items-center gap-1.5 text-xs text-queue-idle">
+                  <Clock size={14} /> Sesi: {ticket.time_block}
+                </span>
+              )}
             </div>
           </div>
 
@@ -103,7 +106,7 @@ export default function CheckInForm() {
                 Scan Lagi
               </button>
               <Link
-                href="/display"
+                href={homeHref}
                 className="flex-1 flex items-center justify-center cursor-pointer rounded-[12px] bg-brand py-3 font-display text-sm font-semibold text-white shadow-soft hover:opacity-95 transition-opacity"
               >
                 Selesai

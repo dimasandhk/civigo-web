@@ -30,12 +30,17 @@ const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin/profil", label: "Profil", icon: UserRound },
 ];
 
-// Papan display tidak punya sesi, jadi instansinya harus ikut di URL.
-const displayHref = (agencyId: number) => `/display/${agencyId}/antrean`;
+// Papan display dan kios tidak punya sesi, jadi instansi dan cabang petugas ikut di URL.
+// Tanpa cabang, TV menampilkan antrean semua cabang dan kios mencatat walk-in di lokasi 1.
+const withLocation = (path: string, locationId?: number | null) =>
+  locationId ? `${path}?locationId=${locationId}` : path;
+const displayHref = (agencyId: number, locationId?: number | null) =>
+  withLocation(`/display/${agencyId}/antrean`, locationId);
 
 export type SidebarProps = {
   agencyId: number;
   agencyName?: string;
+  locationId?: number | null;
   locationName?: string | null;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
@@ -46,6 +51,7 @@ export type SidebarProps = {
 export default function Sidebar({
   agencyId,
   agencyName,
+  locationId,
   locationName,
   isMobileOpen = false,
   onCloseMobile,
@@ -144,7 +150,7 @@ export default function Sidebar({
           <nav className="flex flex-col gap-1.5">
             {[
               ...NAV_ITEMS.slice(0, 4),
-              { href: displayHref(agencyId), label: "Display", icon: Monitor },
+              { href: displayHref(agencyId, locationId), label: "Display", icon: Monitor },
               ...NAV_ITEMS.slice(4),
             ].map(({ href, label, icon: Icon }) => {
               const isActive = pathname === href;
@@ -239,7 +245,9 @@ export default function Sidebar({
 
       {/* Modal Dialog Konfirmasi saat mengklik Display */}
       <DisplayConfirmModal
-        href={displayHref(agencyId)}
+        href={displayHref(agencyId, locationId)}
+        // Akun tanpa cabang: kios meminta lokasinya dipilih dulu.
+        kioskHref={withLocation("/display", locationId)}
         isOpen={isDisplayModalOpen}
         onClose={() => setIsDisplayModalOpen(false)}
       />

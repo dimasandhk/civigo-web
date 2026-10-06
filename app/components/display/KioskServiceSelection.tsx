@@ -42,7 +42,8 @@ type IssuedTicket = {
   id: string;
   queue_number: string;
   schedule_date: string;
-  time_block: string;
+  /** Selalu null dari kios: walk-in tidak memilih sesi jam (sejak 06/10/2026). */
+  time_block: string | null;
   status: string;
   estimated_finish: string;
   nik: string | null;
@@ -81,17 +82,6 @@ function getServiceIconAndColor(name: string): {
   return { icon: FileText, bg: "#F1F5F9", color: "#475569" };
 }
 
-function timeToMinutes(val: string): number {
-  const [h, m] = val.split(":");
-  return Number(h) * 60 + Number(m);
-}
-
-function minutesToTime(mins: number): string {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
-
 function getTodayJakarta(): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Jakarta",
@@ -101,27 +91,18 @@ function getTodayJakarta(): string {
   }).format(new Date());
 }
 
-function getNowMinutesJakarta(): number {
-  const [h, m] = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Jakarta",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  })
-    .format(new Date())
-    .split(":");
-  return Number(h) * 60 + Number(m);
-}
-
-function getIsoDayOfWeek(dateStr: string): number {
-  const d = new Date(`${dateStr}T00:00:00Z`).getUTCDay();
-  return d === 0 ? 7 : d;
+/** "08:00:00" -> "08:00" */
+function shortTime(value: string | undefined): string {
+  return (value ?? "").slice(0, 5);
 }
 
 export default function KioskServiceSelection({
   services,
+  locationId,
 }: {
   services: KioskService[];
+  /** Cabang tempat kios dipasang; tiket walk-in dicatat di sini. */
+  locationId: number;
 }) {
   const searchInputId = useId();
   const [searchQuery, setSearchQuery] = useState("");
@@ -130,7 +111,6 @@ export default function KioskServiceSelection({
   // Booking Modal state
   const [selectedService, setSelectedService] = useState<KioskService | null>(null);
   const [targetDate, setTargetDate] = useState<string>(getTodayJakarta());
-  const [selectedTimeBlock, setSelectedTimeBlock] = useState<string>("");
   const [nik, setNik] = useState<string>("");
   const [isPending, startTransition] = useTransition();
   const [bookingError, setBookingError] = useState<string | null>(null);
@@ -156,126 +136,12 @@ export default function KioskServiceSelection({
     });
   }, [services, searchQuery, selectedAgencyFilter]);
 
-  // Compute available sessions for the modal
-  const availableTimeBlocks = useMemo(() => {
-    if (!selectedService || !selectedService.agency) return [];
-
-    const agency = selectedService.agency;
-    const openMin = timeToMinutes(agency.open_time || "08:00");
-    const closeMin = timeToMinutes(agency.close_time || "16:00");
-    const estimated = selectedService.estimated_time ?? 15;
-    const isToday = targetDate === getTodayJakarta();
-    const nowMin = getNowMinutesJakarta();
-
-    const blocks: { label: string; disabled: boolean; reason?: string }[] = [];
-
-    // Check if agency is open on target date
-    const dayOfWeek = getIsoDayOfWeek(targetDate);
-    const isOpenDay = agency.operating_days?.includes(dayOfWeek) ?? true;
-
-    // Jika hari libur dan BUKAN hari ini (misal warga memilih tanggal di masa depan), kembalikan kosong
-    if (!isOpenDay && !isToday) {
-      return [];
-    }
-
-    // Generate jam operasional reguler jika hari buka
-    if (isOpenDay) {
-      for (let start = openMin; start + 60 <= closeMin; start += 60) {
-        const end = start + 60;
-        const label = `${minutesToTime(start)} - ${minutesToTime(end)}`;
-        const exceedsClose = start + estimated > closeMin;
-        const hasPassed = isToday && start <= nowMin;
-
-        const disabled = exceedsClose || hasPassed;
-        let reason: string | undefined;
-        if (exceedsClose) reason = "Melewati jam tutup";
-        else if (hasPassed) reason = "Sesi telah lewat";
-
-        blocks.push({ label, disabled, reason });
-      }
-    }
-
-    // Jika seluruh sesi reguler hari ini telah lewat ATAU hari ini adalah hari libur/weekend:
-    // Sediakan sesi uji coba/testing aktif untuk hari ini
-    const allDisabled = blocks.length === 0 || blocks.every((b) => b.disabled);
-    if (isToday && allDisabled) {
-      const currentHour = Math.floor(nowMin / 60);
-      const testStart = currentHour * 60;
-      const testEnd = (currentHour + 1) * 60;
-      const testLabel = `${minutesToTime(testStart)} - ${minutesToTime(testEnd)}`;
-      const reasonLabel = !isOpenDay
-        ? "Sesi Uji Coba (Weekend)"
-        : "Sesi Uji Coba Malam Hari";
-
-      const testSessions = [
-        {
-          label: testLabel,
-          disabled: false,
-          reason: reasonLabel,
-        },
-      ];
-
-      // Opsi sesi 1 jam berikutnya jika belum lewat 24:00
-      if (testEnd + 60 <= 1440) {
-        testSessions.push({
-          label: `${minutesToTime(testEnd)} - ${minutesToTime(testEnd + 60)}`,
-          disabled: false,
-          reason: reasonLabel,
-        });
-      }
-
-      blocks.unshift(...testSessions);
-    }
-
-    return blocks;
-  }, [selectedService, targetDate]);
-
-  // Derivasi sesi aktif yang valid tanpa memicu cascading setState di effect
-  const effectiveTimeBlock = useMemo(() => {
-    if (availableTimeBlocks.length === 0) return "";
-    const isCurrentValid = availableTimeBlocks.some(
-      (b) => b.label === selectedTimeBlock && !b.disabled
-    );
-    if (isCurrentValid) return selectedTimeBlock;
-    const firstAvailable = availableTimeBlocks.find((b) => !b.disabled);
-    return firstAvailable ? firstAvailable.label : "";
-  }, [availableTimeBlocks, selectedTimeBlock]);
-
   const handleOpenModal = (service: KioskService) => {
     setSelectedService(service);
-    const today = getTodayJakarta();
-    setTargetDate(today);
+    setTargetDate(getTodayJakarta());
     setNik("");
     setBookingError(null);
     setIssuedTicket(null);
-
-    // Auto-select first available session
-    const agency = service.agency;
-    if (agency) {
-      const openMin = timeToMinutes(agency.open_time || "08:00");
-      const closeMin = timeToMinutes(agency.close_time || "16:00");
-      const nowMin = getNowMinutesJakarta();
-      const dayOfWeek = getIsoDayOfWeek(today);
-      const isOpenDay = agency.operating_days?.includes(dayOfWeek) ?? true;
-      let firstBlock = "";
-
-      if (isOpenDay) {
-        for (let start = openMin; start + 60 <= closeMin; start += 60) {
-          if (start > nowMin) {
-            firstBlock = `${minutesToTime(start)} - ${minutesToTime(start + 60)}`;
-            break;
-          }
-        }
-      }
-
-      // Jika seluruh sesi reguler telah lewat atau hari libur (weekend), pilih sesi testing jam sekarang
-      if (!firstBlock) {
-        const currentHour = Math.floor(nowMin / 60);
-        firstBlock = `${minutesToTime(currentHour * 60)} - ${minutesToTime((currentHour + 1) * 60)}`;
-      }
-
-      setSelectedTimeBlock(firstBlock);
-    }
   };
 
   const handleCloseModal = () => {
@@ -294,11 +160,6 @@ export default function KioskServiceSelection({
       return;
     }
 
-    if (!effectiveTimeBlock) {
-      setBookingError("Silakan pilih sesi jam layanan.");
-      return;
-    }
-
     setBookingError(null);
 
     startTransition(async () => {
@@ -310,7 +171,9 @@ export default function KioskServiceSelection({
           body: JSON.stringify({
             service_id: selectedService.id,
             schedule_date: targetDate,
-            time_block: effectiveTimeBlock,
+            location_id: locationId,
+            // Tanpa time_block: walk-in dilayani sesuai urutan nomor. Server tetap
+            // menolak kalau layanan tidak akan selesai sebelum jam tutup.
             nik: nik.trim(),
           }),
         });
@@ -476,8 +339,8 @@ export default function KioskServiceSelection({
                     <span className="font-semibold">{issuedTicket.schedule_date}</span>
                   </div>
                   <div className="text-center">
-                    <span className="text-queue-idle block">Sesi Jam</span>
-                    <span className="font-semibold">{issuedTicket.time_block}</span>
+                    <span className="text-queue-idle block">Estimasi Layanan</span>
+                    <span className="font-semibold">± {issuedTicket.service.estimated_time} menit</span>
                   </div>
                 </div>
               </div>
@@ -521,6 +384,12 @@ export default function KioskServiceSelection({
                 <span className="flex items-center gap-1 text-xs text-queue-idle">
                   <Clock size={14} /> Estimasi pengerjaan: {selectedService.estimated_time ?? 15} menit
                 </span>
+                {selectedService.agency && (
+                  <span className="text-xs text-queue-idle">
+                    Jam layanan {shortTime(selectedService.agency.open_time)} –{" "}
+                    {shortTime(selectedService.agency.close_time)}. Dilayani sesuai urutan nomor antrean.
+                  </span>
+                )}
               </header>
  
               {((selectedService.output_documents && selectedService.output_documents.length > 0) ||
@@ -587,46 +456,6 @@ export default function KioskServiceSelection({
                   />
                 </div>
 
-                {/* Sesi Jam Layanan */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-wider text-ink">
-                    <Clock size={14} className="text-brand" />
-                    <span>Pilih Sesi Jam Layanan</span>
-                  </label>
-
-                  {availableTimeBlocks.length === 0 ? (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                      Tidak ada sesi operasional tersedia untuk tanggal ini. Instansi mungkin libur atau seluruh sesi hari ini telah lewat.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      {availableTimeBlocks.map((block) => {
-                        const isSelected = effectiveTimeBlock === block.label;
-                        return (
-                          <button
-                            key={block.label}
-                            type="button"
-                            disabled={block.disabled}
-                            onClick={() => setSelectedTimeBlock(block.label)}
-                            className={`flex flex-col items-center justify-center rounded-xl p-2.5 text-center font-display text-xs transition-colors cursor-pointer ${
-                              block.disabled
-                                ? "cursor-not-allowed bg-zinc-100 text-zinc-400 border border-zinc-200"
-                                : isSelected
-                                ? "bg-brand text-white font-semibold shadow-xs"
-                                : "bg-white border border-line text-ink hover:bg-board"
-                            }`}
-                          >
-                            <span>{block.label}</span>
-                            {block.reason && (
-                              <span className="text-[10px] text-zinc-400 mt-0.5">{block.reason}</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
                 {/* Input NIK */}
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="kiosk-nik" className="flex items-center gap-1.5 font-display text-xs font-semibold uppercase tracking-wider text-ink">
@@ -651,7 +480,7 @@ export default function KioskServiceSelection({
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  disabled={isPending || !effectiveTimeBlock || nik.length !== 16}
+                  disabled={isPending || nik.length !== 16}
                   className="mt-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[14px] bg-linear-to-b from-counter-top to-counter-bottom py-3.5 font-display text-sm font-semibold text-white shadow-soft transition-opacity hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isPending ? (

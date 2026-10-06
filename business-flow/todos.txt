@@ -6,9 +6,17 @@ Dokumentasi tugas web yang sudah selesai: dokumentasi-web-tasks.md
 web-dashboard:
     1. [ ] Integrasi QR code scanner di kiosk mode.
         - Catatan: sekarang check-in kios masih ketik kode manual (CheckInForm); belum ada library scanner QR.
-    2. [ ] Hapus pilih sesi jam layanan di kiosk mode.
-        - Catatan: queues.time_block sudah nullable, dan dasbor sudah menampilkan "Tanpa sesi" untuk tiket tanpa sesi.
-          Yang tersisa: langkah "Pilih Sesi Jam Layanan" di KioskServiceSelection.
+    2. [x] Hapus pilih sesi jam layanan di kiosk mode. (06/10/2026)
+        - Form walk-in kios tidak lagi punya "Pilih Sesi Jam Layanan" (termasuk sesi uji coba malam/weekend); tiket
+          dibuat tanpa time_block dan dilayani sesuai urutan nomor. Form menampilkan jam layanan instansi.
+        - Server: booking tanpa sesi untuk hari ini tetap dijaga jam operasional (sekarang/jam buka + estimasi layanan
+          tidak boleh melewati jam tutup) → OUTSIDE_OPERATING_HOURS / SERVICE_EXCEEDS_CLOSING.
+        - Struk kios menampilkan "Estimasi Layanan", dan layar check-in tidak lagi menampilkan "Sesi:" kosong.
+        - Kios kini tahu cabangnya (?locationId=, dipilih sekali per perangkat atau dibuka dari dasbor petugas),
+          hanya menampilkan instansi yang buka di cabang itu, dan tiket walk-in tercatat di cabang tersebut.
+          Dulu selalu lokasi 1 (MPP). Server menolak instansi yang tidak buka di cabang itu (AGENCY_NOT_AT_LOCATION).
+        - Pengecualian uji coba di production (sesi >= 18:00, hari ini libur) dihapus; cek jam operasional hanya
+          dilewati di next dev atau dengan ALLOW_OFFHOURS_TESTING="true".
     3. [ ] Tambah config range waktu di page analytics dashboard.
         - Catatan: Beranda sekarang terkunci ke "hari ini" + grafik mingguan.
     4. [x] Pengaturan profil (edit, ubah password, ...). (06/10/2026)

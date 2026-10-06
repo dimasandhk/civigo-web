@@ -19,10 +19,11 @@ Kondisi per 03/10/2026, termasuk perbaikan hasil audit sore hari (lihat [Perbaik
 6. [Web #4 — Login instansi](#web-4--login-instansi-)
 7. [Web #5 — Antrean loket & mundurkan antrean](#web-5--antrean-loket--mundurkan-antrean-adminantrean)
 8. [Profil & ubah password (daftar baru #4–#5)](#profil--ubah-password-adminprofil-daftar-baru-45-06102026)
-9. [Web #6 — Halaman reset password (tidak dilanjutkan)](#web-6--halaman-reset-password-tidak-dilanjutkan)
-10. [Perbaikan setelah audit (03/10/2026)](#perbaikan-setelah-audit-03102026)
-11. [Masalah yang masih diketahui](#masalah-yang-masih-diketahui)
-12. [Lampiran: cara menguji, file, dan riwayat commit](#lampiran)
+9. [Kios walk-in tanpa sesi jam (daftar baru #2)](#kios-walk-in-tanpa-sesi-jam-displayselect-layanan-daftar-baru-2-06102026)
+10. [Web #6 — Halaman reset password (tidak dilanjutkan)](#web-6--halaman-reset-password-tidak-dilanjutkan)
+11. [Perbaikan setelah audit (03/10/2026)](#perbaikan-setelah-audit-03102026)
+12. [Masalah yang masih diketahui](#masalah-yang-masih-diketahui)
+13. [Lampiran: cara menguji, file, dan riwayat commit](#lampiran)
 
 ---
 
@@ -38,7 +39,8 @@ Kondisi per 03/10/2026, termasuk perbaikan hasil audit sore hari (lihat [Perbaik
 | 5 | Tombol "Mundurkan Antrean" | Selesai | 03/10/2026 | `06f5a8a` |
 | — | Perbaikan hasil audit Web #1, #4, #5 | Selesai | 03/10/2026 | `76cd9ff` |
 | 6 | Halaman `/reset-password` | Tidak dilanjutkan | 06/10/2026 | diganti Profil & ubah password |
-| baru #4–#5 | Profil, ubah password, toggle tampilkan password | Selesai | 06/10/2026 | — |
+| baru #4–#5 | Profil, ubah password, toggle tampilkan password | Selesai | 06/10/2026 | `36cb675` |
+| baru #2 | Kios walk-in tanpa pilih sesi jam | Selesai | 06/10/2026 | — |
 
 "Selesai" berarti fiturnya sudah dibangun dan berjalan sesuai tugas. Celah yang masih ada dicatat terpisah di
 [Masalah yang masih diketahui](#masalah-yang-masih-diketahui).
@@ -507,6 +509,74 @@ saat mengecek password lama.
 
 ---
 
+## Kios walk-in tanpa sesi jam (`/display/select-layanan`, daftar baru #2, 06/10/2026)
+
+Tugas web-dashboard #2 di [`todos.txt`](./todos.txt): warga yang datang langsung tidak lagi memilih sesi jam di kios.
+**Kode:** `app/components/display/KioskServiceSelection.tsx`, `app/components/display/CheckInForm.tsx`,
+`bookQueue()` di `lib/queue/book.ts`.
+
+### Alur langkah demi langkah
+
+| # | Warga di kios | Sistem & layar |
+|---|---|---|
+| 1 | Memilih **Belum Mendaftar**, lalu memilih layanan instansi yang buka di cabang kios ini (bisa dicari atau disaring per instansi). | Muncul form: nama layanan, estimasi pengerjaan, **jam layanan instansi** ("Jam layanan 08:00 – 16:00. Dilayani sesuai urutan nomor antrean."), dokumen, tanggal, dan NIK. Tidak ada pilihan sesi jam. |
+| 2 | Mengisi NIK 16 digit, klik **Ambil Nomor Antrean**. | Kios memanggil `POST /api/queue/book` dengan `location_id` cabang kios dan **tanpa** `time_block`. |
+| 3 | — | Server mengecek jam operasional (lihat aturan di bawah), mencegah booking ganda, lalu menerbitkan nomor. |
+| 4 | — | Untuk tanggal hari ini, kios langsung mencatat kehadiran (`present`). Struk menampilkan nomor, layanan, tanggal, dan **Estimasi Layanan** (bukan sesi jam). |
+| 5 | (Opsional) Memasukkan nomor di **Sudah Mendaftar**. | "Anda sudah check-in" dengan kartu nomor antrean; baris "Sesi:" tidak ditampilkan untuk tiket tanpa sesi. |
+
+![Form walk-in tanpa sesi](img/web-tasks/06-kios-form-tanpa-sesi.jpg)
+![Struk tanpa sesi](img/web-tasks/07-kios-tiket-tanpa-sesi.jpg)
+![Check-in tiket tanpa sesi](img/web-tasks/08-kios-checkin-tanpa-sesi.jpg)
+
+### Aturan jam operasional tanpa sesi
+
+Kapasitas dijaga jam operasional, bukan kuota (keputusan tetap). Dulu aturannya hanya berlaku lewat sesi; sekarang
+booking **hari ini tanpa sesi** memakai jam mulai = sekarang, atau jam buka kalau instansi belum buka:
+
+| Kasus (contoh Samsat 08:00–16:00, layanan 30 menit) | Hasil |
+|---|---|
+| Pukul 10:00 | Tiket terbit. |
+| Pukul 06:30 (belum buka) | Tiket terbit; dilayani mulai jam buka. |
+| Pukul 15:45 (selesai 16:15) | `422 SERVICE_EXCEEDS_CLOSING`: `Layanan … (30 menit) tidak akan selesai sebelum Samsat tutup pukul 16:00.` |
+| Pukul 16:30 | `422 OUTSIDE_OPERATING_HOURS`: `Samsat sudah tutup hari ini (jam operasional 08:00 - 16:00).` |
+| Tanggal lain (besok, dst.) | Jam sekarang tidak dipakai; hanya dicek hari operasional (`AGENCY_CLOSED` kalau libur). |
+| `next dev` atau `ALLOW_OFFHOURS_TESTING="true"` | Cek jam operasional dilewati, supaya kios bisa diuji malam/akhir pekan. Ini satu-satunya pengecualian: sejak 06/10/2026 sesi mulai ≥ 18:00 dan booking hari ini di hari libur **tidak** lagi otomatis lolos di production. |
+
+### Cabang kios (`?locationId=`)
+
+Kios tidak login, jadi cabangnya ikut di URL, sama seperti layar TV:
+
+| # | Siapa | Yang terjadi |
+|---|---|---|
+| 1 | Petugas membuka **Display → Mesin Kios** dari dasbor. | Kios terbuka di `/display?locationId=<cabang petugas>`. Layar TV dari dialog yang sama juga membawa `?locationId=`. |
+| 1b | Atau perangkat membuka `/display` tanpa lokasi. | Muncul "Kios ini berada di lokasi mana?" dengan daftar cabang; dipilih sekali saat memasang kios. |
+| 2 | — | Beranda kios menampilkan "Lokasi kios: …" dan tautan **Ganti lokasi**. Semua tautan kios (Sudah/Belum Mendaftar, Kembali, Selesai) membawa `?locationId=`. |
+| 3 | Warga memilih **Belum Mendaftar**. | Hanya layanan instansi yang buka di cabang itu (`agency_locations`) yang tampil, mis. Kantor Samsat Bandung Timur: Samsat saja. |
+| 4 | Warga mengambil nomor. | Kios mengirim `location_id`; tiket muncul di dasbor dan TV cabang itu, bukan di MPP. |
+
+![Pilih lokasi kios](img/web-tasks/09-kios-pilih-lokasi.jpg)
+![Kios dengan lokasi](img/web-tasks/10-kios-lokasi-mpp.jpg)
+
+| Kasus cabang | Hasil |
+|---|---|
+| Halaman kios dibuka tanpa `?locationId=` atau dengan id yang tidak ada | `/display` menampilkan pemilih lokasi; `/display/select-layanan` dan `/display/input-code` dialihkan ke sana. |
+| Booking untuk instansi yang tidak buka di cabang itu (mis. Samsat di Kantor Disdukcapil) | `422 AGENCY_NOT_AT_LOCATION`: `Samsat tidak membuka layanan di lokasi ini. Silakan ambil antrean di lokasi Samsat.` |
+| Klien tanpa `location_id` (mis. mobile lama) | Tetap lokasi 1 (MPP); semua instansi buka di MPP. |
+| Akun petugas tanpa `location_id` membuka kios dari dasbor | Kios meminta lokasinya dipilih dulu. |
+
+### Semua kasus lain
+
+| Kasus | Hasil |
+|---|---|
+| NIK bukan 16 digit | Tombol nonaktif; kalau tetap terkirim: `NIK wajib terdiri dari 16 digit angka.` |
+| NIK yang sama sudah punya antrean aktif untuk layanan & tanggal itu | `409 DUPLICATE_BOOKING` dengan nomor antrean yang sudah ada. |
+| NIK cocok dengan akun warga | Tiket ditautkan ke akun itu (muncul di aplikasi mobile warga). |
+| Tanggal sudah lewat / lebih dari 30 hari ke depan | `DATE_IN_PAST` / `DATE_TOO_FAR`. |
+| Klien lain (mis. mobile) masih mengirim `time_block` | Tetap didukung dengan aturan sesi yang lama. |
+
+---
+
 ## Web #6 — Halaman reset password (tidak dilanjutkan)
 
 Tidak dilanjutkan (06/10/2026): diganti ubah password setelah login (lihat bagian sebelumnya). Kondisi alur email yang tersisa:
@@ -548,6 +618,7 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 | Akun per cabang tidak bisa login lewat username. | #4 | `disdukcapil.mpp` dan `disdukcapil.induk` sama-sama menjadi `disdukcapil@civigo.com`. | Pakai email lengkap. |
 | Mundurkan tidak dibatasi jumlah dan tidak dicek cabang. | #5 | Tiket bisa dimundurkan berkali-kali; API mengecek instansi tapi tidak `location_id`. | Risiko rendah; diputuskan di luar cakupan Web #5. |
 | `super_admin` tanpa instansi selalu melihat instansi id 1. | semua | — | Belum ada akun `super_admin`, jadi belum berdampak. |
+| Check-in kios tidak mengecek cabang tiket. | kios | Tiket cabang A bisa di-check-in di kios cabang B. | Nomor antrean unik per layanan per hari, jadi tiketnya tetap benar; hanya lokasi check-in yang tidak dicek. |
 | Durasi layanan rata-rata belum bisa dihitung. | — | Beranda menampilkan "-". | Sudah ada `completed_at`, tapi belum ada waktu mulai dilayani (`served_at`). |
 
 ---
@@ -560,7 +631,7 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 - Untuk menguji booking di luar jam operasional (malam/akhir pekan), tambahkan ke `.env.local`:
   `ALLOW_OFFHOURS_TESTING="true"`. Flag ini hanya dibaca saat booking. Memanggil, menyelesaikan, menghanguskan,
   dan memundurkan antrean tidak dicek jam operasional.
-- Test otomatis: `npx vitest run` (132 test per 06/10/2026, semua di-mock, tidak memakai kuota apa pun).
+- Test otomatis: `npx vitest run` (145 test per 06/10/2026, semua di-mock, tidak memakai kuota apa pun).
 
 ### File utama per tugas
 
@@ -570,6 +641,7 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 | Web #2 | `lib/data/service-actions.ts`, `lib/data/admin.ts` (`getAdminServices`, `getServiceDocuments`), `app/components/admin/LayananManager.tsx`, `ServiceDocumentPicker.tsx` |
 | Web #3 | `app/admin/ulasan/page.tsx`, `lib/data/admin.ts` (`getAdminReviews`, `getReviewFilterOptions`), `app/api/reviews/route.ts` |
 | Web #4 | `lib/auth/actions.ts`, `lib/auth/session.ts`, `app/components/auth/LoginForm.tsx` |
+| Kios tanpa sesi & cabang (#2 baru) | `app/display/page.tsx`, `app/display/select-layanan/page.tsx`, `app/display/input-code/page.tsx`, `lib/data/kiosk.ts`, `app/components/display/KioskServiceSelection.tsx`, `app/components/display/CheckInForm.tsx`, `app/components/admin/Sidebar.tsx`, `DisplayConfirmModal.tsx`, `lib/queue/book.ts`, `tests/unit/book-without-session.test.ts` |
 | Profil (#4–#5 baru) | `app/admin/profil/page.tsx`, `lib/auth/actions.ts` (`updateProfileName`, `changePassword`), `app/components/admin/ProfileNameForm.tsx`, `ChangePasswordForm.tsx`, `FormStatus.tsx`, `app/components/PasswordInput.tsx` |
 | Web #5 | `lib/queue/ordering.ts`, `lib/queue/status.ts`, `lib/data/admin.ts` (`getTodayQueues`), `app/components/admin/AntreanManager.tsx`, `app/admin/antrean/page.tsx`, `app/display/[agencyId]/antrean/page.tsx`, `supabase/migrations/20261003115823_add_completed_at_to_queues.sql` |
 

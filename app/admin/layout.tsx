@@ -16,6 +16,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     <AdminShell
       agencyId={context.agencyId}
       agencyName={context.agencyName}
+      locationId={context.locationId}
       locationName={context.locationName}
     >
       {children}

@@ -1,18 +1,36 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import BackButton from "../../components/display/BackButton";
 import KioskServiceSelection, {
   type KioskService,
 } from "../../components/display/KioskServiceSelection";
 import { getAllServices } from "@/lib/queue/cross-agency";
+import {
+  getAgencyIdsAtLocation,
+  resolveKioskLocation,
+  withKioskLocation,
+} from "@/lib/data/kiosk";
 
 export const metadata: Metadata = {
   title: "Pilih Layanan atau Instansi — CiviGo",
 };
 
-export default async function SelectLayananPage() {
-  const allServices = await getAllServices();
+export default async function SelectLayananPage({
+  searchParams,
+}: PageProps<"/display/select-layanan">) {
+  const location = await resolveKioskLocation((await searchParams).locationId);
+  // Tanpa lokasi, kios tidak tahu tiket walk-in dicatat di cabang mana: pilih dulu.
+  if (!location) redirect("/display");
 
-  const kioskServices: KioskService[] = allServices.map((s) => ({
+  const [allServices, agencyIds] = await Promise.all([
+    getAllServices(),
+    getAgencyIdsAtLocation(location.id),
+  ]);
+
+  // Hanya layanan instansi yang buka di cabang ini (mis. Kantor Disdukcapil: Disdukcapil saja).
+  const kioskServices: KioskService[] = allServices
+    .filter((s) => agencyIds.has(s.agency.id))
+    .map((s) => ({
     id: s.id,
     name: s.name,
     estimated_time: s.estimated_time,
@@ -32,7 +50,7 @@ export default async function SelectLayananPage() {
     <main className="relative flex min-h-screen flex-col items-center justify-start overflow-y-auto bg-board px-6 py-8 sm:px-10 sm:py-10 lg:px-14">
       {/* Tombol Kembali ke Kiosk Menu */}
       <BackButton
-        href="/display"
+        href={withKioskLocation("/display", location.id)}
         className="absolute top-4 left-4 sm:top-6 sm:left-8 z-10"
       />
 
@@ -42,11 +60,11 @@ export default async function SelectLayananPage() {
             Pilih Layanan Antrean
           </h1>
           <p className="font-display text-sm sm:text-base font-medium text-brand">
-            Pilih layanan instansi untuk mengambil nomor antrean walk-in
+            Pilih layanan instansi untuk mengambil nomor antrean walk-in — {location.name}
           </p>
         </header>
 
-        <KioskServiceSelection services={kioskServices} />
+        <KioskServiceSelection services={kioskServices} locationId={location.id} />
       </div>
     </main>
   );
