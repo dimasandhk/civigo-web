@@ -1,73 +1,44 @@
-Status dicek 27/09/2026 (kode di main 2ccb974 + DB remote via Supabase MCP)
+Daftar tugas aktif — dibuat 06/10/2026
 Legenda: [x] selesai, [~] sebagian, [ ] belum
+Tugas lama (Web #1-#6, Mobile, Supabase per 27/09-03/10/2026): todos-arsip-03-10-2026.txt
+Dokumentasi tugas web yang sudah selesai: dokumentasi-web-tasks.md
 
-Web:
-    1. [x] Integrasi tambah loket, edit loket, hapus loket (location_id cabang).
-        - Tambah, ubah nama, hapus, toggle status tersimpan ke DB; location_id diambil dari profil petugas.
-        - Loket memang tidak punya jam operasional; jam operasional diatur per agency (agencies.open_time/close_time).
-          Kolom "Jadwal Buka" (isinya hardcoded "Senin - Jumat / 08:00 - 16:00") dihapus dari tabel loket. (28/09/2026)
-        - Akun tanpa location_id tidak lagi jatuh ke lokasi 1: tambah loket ditolak dengan pesan jelas. (28/09/2026)
-        - Toggle/ubah/hapus loket dicek dulu milik instansi + cabang petugas; id loket instansi lain ditolak. (28/09/2026)
-        - Catatan: kolom "Dibuat Pada" selalu "-" karena tabel counters tidak punya kolom created_at.
-        - Loket nonaktif tidak lagi muncul sebagai tab di /admin/antrean; cabang tanpa loket aktif melihat
-          "Belum Ada Loket Aktif" (dulu dasbor diam-diam memakai loket id 1 milik Disdukcapil). (03/10/2026)
-        - Diketahui: hapus loket belum mengecek ulasan; nama loket tidak dicek unik. Lihat dokumentasi-web-tasks.md.
-    2. [x] Integrasi CRUD layanan. (28/09/2026)
-        - Tambah, lihat detail, ubah, hapus, dan cari layanan di /admin/layanan; semua tulisan dibatasi agency_id petugas.
-        - Dokumen dipilih dari master service_documents (bisa tambah dokumen baru); id dan nama selalu ditulis berpasangan.
-        - Hapus ditolak kalau layanan sudah punya antrean/ulasan (services tidak punya kolom status, jadi tidak bisa dinonaktifkan).
-        - Catatan: /api/services tidak diubah (masih GET-only, bentuk respons sama).
-        - [x] Follow-up (03/10/2026): service_documents punya kolom type ('dokumen' | 'kondisi') sejak commit 3d06c2d
-              (Satya), dibaca mobile lewat requirements[] di /api/services/[id]/prerequisites. Pemilih dokumen belum tahu:
-              kondisi tampil seperti dokumen biasa, dan dokumen baru dari pemilih selalu jadi 'dokumen'.
-              Tampilkan type di pemilih, beri pilihan type saat tambah dokumen, dan jangan izinkan kondisi jadi dokumen output.
-              - Selesai 03/10/2026: label "KONDISI" di pemilih/tabel/detail, tombol "Tambah sebagai kondisi" di pemilih
-                prasyarat, pemilih output menyembunyikan kondisi dan server menolaknya. Detail: business-flow-notes.md poin 5.9.
-    3. [x] Integrasi page review. (28/09/2026)
-        - Filter layanan/loket/rating memakai data asli instansi dan menyaring statistik, rincian rating, dan daftar (lewat URL ?layanan=&loket=&rating=).
-        - "Bulan Ini" = rata-rata ulasan bulan berjalan (WIB).
-        - Fallback data karangan dihapus; query gagal dilempar, nol ulasan tampil sebagai empty state.
-    4. [x] Integrasi login instansi.
-        - Catatan: login pakai username diubah jadi <prefix>@civigo.com, jadi akun per cabang tidak bisa dibedakan lewat username.
-        - Contoh di kolom username diganti dari "disdukcapil.surabaya" jadi "disdukcapil atau email lengkap akun Anda". (03/10/2026)
-    5. [x] Tambah tombol "Mundurkan Antrean" (ke urutan paling akhir) di dasbor antrean loket. ⭐ (03/10/2026)
-        - Tombol kuning "Mundurkan Antrean" saat ada tiket dilayani; memanggil POST /api/queue/[id]/postpone.
-        - Opsi A: tiket yang dimundurkan di belakang semua orang, termasuk yang belum check-in.
-        - Kartu "Selanjutnya"/"Sisa Antrean" dan layar TV kini memakai urutan yang sama dengan tombol panggil
-          (lib/queue/ordering.ts); tiket berikutnya yang pernah dimundurkan diberi label "Dimundurkan".
-        - API postpone hanya menerima tiket served (422 POSTPONE_REQUIRES_SERVED), jadi tiket yang belum datang
-          tidak bisa ditandai hadir.
-        - Simulasi, keputusan, dan screenshot: business-flow/web5-mundurkan-antrean.md.
-        - Perbaikan setelah audit (03/10/2026):
-          - Kartu "Sebelumnya" memakai kolom baru queues.completed_at (diisi trigger), bukan nomor tiket terbesar.
-          - Dasbor realtime lewat broadcast display:agency:<id> (dulu postgres_changes yang terblokir RLS, jadi cuma polling 12 detik).
-          - Tiket tanpa sesi jam menampilkan "Tanpa sesi", bukan "Sesi:" kosong.
-        - Dokumentasi lengkap Web #1-#6: business-flow/dokumentasi-web-tasks.md.
-    6. [ ] Halaman /reset-password (tujuan link email forgot password; sekarang 404). (Baru)
+web-dashboard:
+    1. [ ] Integrasi QR code scanner di kiosk mode.
+        - Catatan: sekarang check-in kios masih ketik kode manual (CheckInForm); belum ada library scanner QR.
+    2. [ ] Hapus pilih sesi jam layanan di kiosk mode.
+        - Catatan: queues.time_block sudah nullable, dan dasbor sudah menampilkan "Tanpa sesi" untuk tiket tanpa sesi.
+          Yang tersisa: langkah "Pilih Sesi Jam Layanan" di KioskServiceSelection.
+    3. [ ] Tambah config range waktu di page analytics dashboard.
+        - Catatan: Beranda sekarang terkunci ke "hari ini" + grafik mingguan.
+    4. [ ] Pengaturan profil (edit, ubah password, ...).
+        - Catatan: ubah password cukup untuk user yang sudah login, tanpa OTP/email. POST /api/auth/reset-password
+          sudah memanggil updateUser({ password }) dengan sesi yang aktif. Lupa password → direset admin (lihat backend #1).
+    5. [ ] Tambah toggle visibility input password.
 
-    Mobile:
-    1. Benerin keyboard input (KeyboardAvoidingView).
-    2. Integrasi bikin queue (tanpa milih sesi jam).
-    3. Integrasi chatbot AI.
-    4. Integrasi review layanan.
-    5. Integrasi get all instansi / layanan.
-    6. Integrasi login & register warga (NIK).
-    7. Integrasi seluruh alur antrean.
-    8. State tiket hangus (skipped) & button reschedule mandiri.
-    9. Pemilihan anggota keluarga penerima layanan sebelum checklist dokumen.
-    10. Buttons kelengkapan dokumen: Sudah tersedia, Belum memiliki, Hilang/rusak.
-    11. Fitur aksesibilitas (skala font lansia).
+mobile:
+    1. [ ] Ubah password di dalam app kalau sudah login.
+    2. [ ] Lokasi pengguna diambil dari GPS, jadi aplikasi punya akses ke GPS. Lokasi instansi yang dijadikan opsi
+           adalah yang terdekat dengan daerah lokasi pengguna. Namun, user juga bisa memilih lokasi lain, dan list
+           lokasi instansi yang diberikan akan menyesuaikan daerah tersebut.
+        alur:
+          a. GPS: app dapat koordinat user lewat GPS -> app dapat posisi kota user -> app menunjukkan list lokasi
+             instansi di kota tersebut.
+          b. Lokasi custom: user memilih lokasi sendiri (misal: Kota Serang, Banten) -> app menunjukkan list lokasi
+             instansi di lokasi tersebut (misal: seluruh instansi di Kota Serang).
 
-    Supabase:
-    1. [x] Bersihkan nama loket di counters (hapus dalam kurung).
-    2. [x] Backend/Flow forgot password (supabase.auth.resetPasswordForEmail).
-        - Halaman tujuan link di web belum ada, lihat Web #6.
-    3. [x] Backend analytics kepuasan & antrean.
-    4. [x] Aktifkan realtime publication untuk tabel queues (display TV).
-        - queues masuk publication supabase_realtime, REPLICA IDENTITY FULL (tetap dipakai untuk warga yang login, mis. mobile).
-        - Display TV (anon) tidak bisa pakai postgres_changes karena RLS queues. Diganti broadcast dari database (27/09/2026):
-          trigger queues_broadcast_to_display -> topic display:agency:<id>, event queue_changed, payload tanpa data tiket.
-          Diverifikasi end-to-end: listener anon menerima broadcast, postgres_changes tetap 0 event.
-    5. [x] Buat tabel master documents (pastikan API tetap me-return nama teks dokumen).
-        - Tabel service_documents (20 baris); requirement_doc_ids/output_doc_ids cocok dengan nama teks di services.
-    6. [x] Ubah time_block menjadi nullable/opsional di queues (JANGAN di-DROP kolomnya). ⭐ (Koreksi)
+supabase / backend:
+    1. [ ] Ubah password hanya bisa dilakukan di dalam app kalau sudah login.
+        - Catatan: alur lupa password lewat email (resetPasswordForEmail, POST /api/auth/forgot-password) masih ada
+          di kode, tapi halaman tujuannya tidak dibuat. Mailer bawaan Supabase hanya mengirim ke anggota Team project.
+    2. [ ] API untuk convert lat/long ke nama kota.
+    3. [ ] Ambil list instansi/agencies berdasarkan nama kota atau latitude/longitude user, supaya bisa menampilkan
+           list instansi di kota tersebut + jarak (contoh: "1.4 km dari Anda").
+    4. [ ] Buat database daftar nama kota untuk memilih kota lokasi di mobile.
+    5. [ ] POST /api/services/cross-agency: kalau item berupa kondisi, statusnya bukan ada/hilang rusak/belum dibuat,
+           tapi ya/tidak. Response menunjukkan status kondisinya (ya/tidak) dan menandai apakah item itu
+           "kondisi" atau "dokumen".
+        - Catatan: jenis item sudah ada di service_documents.type ('dokumen' | 'kondisi').
+
+pertanyaan:
+    1.
