@@ -8,12 +8,12 @@ function ticket(queue_number: string, extra: Partial<WaitingTicket> = {}): Waiti
 const numbers = (list: WaitingTicket[]) => list.map((t) => t.queue_number);
 
 describe("sortWaiting (urutan panggil bersama)", () => {
-  it("puts present ahead of scheduled", () => {
+  it("orders by queue number regardless of check-in status (un-checked-in ticket can be called next)", () => {
     const sorted = sortWaiting([
       ticket("B-001", { status: "scheduled" }),
       ticket("B-002", { status: "present" }),
     ]);
-    expect(numbers(sorted)).toEqual(["B-002", "B-001"]);
+    expect(numbers(sorted)).toEqual(["B-001", "B-002"]);
   });
 
   it("orders by session start, tickets without a session last, then by number", () => {
@@ -43,6 +43,16 @@ describe("sortWaiting (urutan panggil bersama)", () => {
       ticket("B-005"),
     ]);
     expect(numbers(sorted)).toEqual(["B-005", "B-002", "B-001"]);
+  });
+
+  it("keeps session and queue number priority even when earlier ticket is scheduled and later is present", () => {
+    const sorted = sortWaiting([
+      ticket("B-002", { time_block: "08:00 - 09:00", status: "present" }),
+      ticket("B-001", { time_block: "08:00 - 09:00", status: "scheduled" }),
+      ticket("B-003", { time_block: "09:00 - 10:00", status: "present" }),
+      ticket("B-004", { time_block: "09:00 - 10:00", status: "scheduled" }),
+    ]);
+    expect(numbers(sorted)).toEqual(["B-001", "B-002", "B-003", "B-004"]);
   });
 
   it("does not mutate the input array", () => {

@@ -83,6 +83,7 @@ export default function AntreanManager({
         postponed?: boolean;
         postponed_at?: string | null;
         completed_at?: string | null;
+        is_checked_in?: boolean;
       },
     ) =>
       state.map((q) =>
@@ -95,6 +96,7 @@ export default function AntreanManager({
               postponed: update.postponed ?? q.postponed,
               postponed_at: update.postponed_at !== undefined ? update.postponed_at : q.postponed_at,
               completed_at: update.completed_at !== undefined ? update.completed_at : q.completed_at,
+              is_checked_in: update.is_checked_in !== undefined ? update.is_checked_in : q.is_checked_in,
             }
           : q,
       ),
@@ -214,7 +216,7 @@ export default function AntreanManager({
     if (counterId === null) return;
     startTransition(async () => {
       const res = await callQueueApi<{
-        ticket: { id: string; queue_number: string };
+        ticket: { id: string; queue_number: string; is_checked_in?: boolean };
         remaining: number;
       }>("/api/queue/call-next", "POST", { counter_id: counterId });
 
@@ -225,15 +227,21 @@ export default function AntreanManager({
 
       const called = res.data.ticket;
       const counterName = counters.find((c) => c.id === counterId)?.name || "Loket";
+      const isCheckedIn = called.is_checked_in ?? (nextInLine?.is_checked_in ?? false);
 
       setOptimisticQueues({
         id: called.id,
         status: "served",
         counter_id: counterId,
         counter_name: counterName,
+        is_checked_in: isCheckedIn,
       });
 
-      setActionMessage(`Memanggil nomor antrean ${called.queue_number} ke ${counterName}`);
+      setActionMessage(
+        `Memanggil nomor antrean ${called.queue_number} ke ${counterName}${
+          !isCheckedIn ? " (Catatan: Warga belum check-in di kios)" : ""
+        }`,
+      );
 
       // Suara panggilan loket otomatis (Text-to-Speech)
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -308,12 +316,30 @@ export default function AntreanManager({
               <span className="font-display text-[72px] leading-none font-semibold text-brand sm:text-[100px] lg:text-[120px]">
                 {activeQueue.queue_number}
               </span>
-              {/* Tiket walk-in / dynamic pooling tidak punya sesi jam. */}
-              {activeQueue.time_block && (
-                <span className="font-display text-[16px] font-medium text-queue-idle sm:text-[20px]">
-                  Sesi: {activeQueue.time_block}
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                {/* Tiket walk-in / dynamic pooling tidak punya sesi jam. */}
+                {activeQueue.time_block && (
+                  <span className="font-display text-[16px] font-medium text-queue-idle sm:text-[20px]">
+                    Sesi: {activeQueue.time_block}
+                  </span>
+                )}
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-display text-xs sm:text-sm font-semibold border ${
+                    activeQueue.is_checked_in
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-amber-50 text-amber-800 border-amber-200"
+                  }`}
+                >
+                  <span
+                    className={`size-2 rounded-full ${
+                      activeQueue.is_checked_in
+                        ? "bg-emerald-500"
+                        : "bg-amber-500 animate-pulse"
+                    }`}
+                  />
+                  {activeQueue.is_checked_in ? "Sudah Check-in" : "Belum Check-in"}
                 </span>
-              )}
+              </div>
             </div>
           ) : (
             <div className="flex min-h-[140px] flex-col items-center justify-center gap-4 py-8 text-center sm:h-[182px]">
@@ -332,25 +358,44 @@ export default function AntreanManager({
         </div>
 
         {activeQueue ? (
-          <div className="grid grid-cols-2 gap-4 sm:flex sm:justify-between">
-            <DetailField label="Nama Lengkap" value={activeQueue.user_name} />
-            {/* "No HP" dihapus: tidak ada kolom telepon di skema, jadi yang
-                tampil selama ini satu nomor karangan yang sama untuk semua. */}
-            <DetailField
-              label="Sesi"
-              value={activeQueue.time_block ?? "Tanpa sesi"}
-              valueClassName="leading-6 tracking-[0.05em]"
-            />
-            <DetailField
-              label="NIK"
-              value={activeQueue.user_nik}
-              valueClassName="tracking-[0.1em]"
-            />
-            <DetailField
-              label="Layanan"
-              value={activeQueue.service_name}
-              valueClassName="leading-6 tracking-[0.02em]"
-            />
+          <div className="flex flex-col gap-4">
+            {!activeQueue.is_checked_in && (
+              <div className="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-2.5 text-xs sm:text-sm font-medium text-amber-800">
+                <span className="size-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                <span>
+                  Perhatian: Warga pemegang antrean ini belum melakukan check-in mandiri di kios fisik.
+                </span>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4 sm:flex sm:justify-between">
+              <DetailField label="Nama Lengkap" value={activeQueue.user_name} />
+              {/* "No HP" dihapus: tidak ada kolom telepon di skema, jadi yang
+                  tampil selama ini satu nomor karangan yang sama untuk semua. */}
+              <DetailField
+                label="Sesi"
+                value={activeQueue.time_block ?? "Tanpa sesi"}
+                valueClassName="leading-6 tracking-[0.05em]"
+              />
+              <DetailField
+                label="NIK"
+                value={activeQueue.user_nik}
+                valueClassName="tracking-[0.1em]"
+              />
+              <DetailField
+                label="Layanan"
+                value={activeQueue.service_name}
+                valueClassName="leading-6 tracking-[0.02em]"
+              />
+              <DetailField
+                label="Status Kehadiran"
+                value={activeQueue.is_checked_in ? "Sudah Check-in" : "Belum Check-in"}
+                valueClassName={
+                  activeQueue.is_checked_in
+                    ? "text-emerald-700 font-semibold"
+                    : "text-amber-700 font-semibold"
+                }
+              />
+            </div>
           </div>
         ) : null}
 
@@ -438,7 +483,19 @@ export default function AntreanManager({
           number={nextInLine?.queue_number || "-"}
           name={nextInLine?.user_name || "Tidak ada antrean"}
           service={nextInLine?.service_name || "-"}
-          tag={nextInLine?.postponed ? "Dimundurkan" : undefined}
+          tags={
+            nextInLine
+              ? [
+                  ...(nextInLine.postponed
+                    ? [{ label: "Dimundurkan", variant: "warning" as const }]
+                    : []),
+                  {
+                    label: nextInLine.is_checked_in ? "Sudah Check-in" : "Belum Check-in",
+                    variant: nextInLine.is_checked_in ? ("success" as const) : ("amber" as const),
+                  },
+                ]
+              : undefined
+          }
         />
       </div>
     </div>

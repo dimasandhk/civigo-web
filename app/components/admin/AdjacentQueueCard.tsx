@@ -1,3 +1,8 @@
+export type QueueTag = {
+  label: string;
+  variant?: "warning" | "amber" | "success" | "neutral";
+};
+
 export type AdjacentQueueCardProps = {
   label: string;
   number: string;
@@ -7,6 +12,15 @@ export type AdjacentQueueCardProps = {
   muted?: boolean;
   /** Small label under the service, e.g. "Dimundurkan". */
   tag?: string;
+  tagVariant?: "warning" | "amber" | "success" | "neutral";
+  tags?: QueueTag[];
+};
+
+const tagStyles: Record<string, string> = {
+  warning: "bg-warning-soft text-warning",
+  amber: "bg-amber-50 text-amber-700 border border-amber-200",
+  success: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  neutral: "bg-slate-100 text-slate-700 border border-slate-200",
 };
 
 export default function AdjacentQueueCard({
@@ -16,7 +30,15 @@ export default function AdjacentQueueCard({
   service,
   muted = false,
   tag,
+  tagVariant = "warning",
+  tags,
 }: AdjacentQueueCardProps) {
+  const allTags: QueueTag[] = tags && tags.length > 0
+    ? tags
+    : tag
+      ? [{ label: tag, variant: tagVariant }]
+      : [];
+
   return (
     <div className="flex items-end gap-5 rounded-[20px] bg-white px-[35px] py-5 shadow-soft">
       <div className="flex flex-col gap-2.5">
@@ -40,10 +62,19 @@ export default function AdjacentQueueCard({
         <span className="font-display text-[16px] font-medium text-queue-idle">
           {service}
         </span>
-        {tag && (
-          <span className="w-fit rounded-md bg-warning-soft px-2 py-0.5 font-display text-xs font-semibold text-warning">
-            {tag}
-          </span>
+        {allTags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {allTags.map((t, idx) => (
+              <span
+                key={idx}
+                className={`w-fit rounded-md px-2 py-0.5 font-display text-xs font-semibold ${
+                  tagStyles[t.variant ?? "warning"] ?? tagStyles.warning
+                }`}
+              >
+                {t.label}
+              </span>
+            ))}
+          </div>
         )}
       </div>
     </div>

@@ -48,6 +48,7 @@ export type TicketSummary = {
   counter_name: string | null;
   service: { id: number; name: string };
   agency: { id: number; name: string };
+  is_checked_in?: boolean;
 };
 
 export type StatusResult = { ok: true; ticket: TicketSummary } | Failure;
@@ -390,11 +391,20 @@ export async function callNextQueue(raw: unknown): Promise<CallNextResult> {
     return fail(404, "NO_WAITING_QUEUE", "Tidak ada antrean berikutnya yang menunggu.");
   }
 
+  const wasCheckedIn = next.status === "present";
+
   // Reuse the transition path so the guards and the concurrency check apply
   // here too, rather than being duplicated.
   const result = await updateQueueStatus(next.id, { status: "served", counter_id: counterId });
 
   if (!result.ok) return result;
 
-  return { ok: true, ticket: result.ticket, remaining: queue.length - 1 };
+  return {
+    ok: true,
+    ticket: {
+      ...result.ticket,
+      is_checked_in: wasCheckedIn,
+    },
+    remaining: queue.length - 1,
+  };
 }

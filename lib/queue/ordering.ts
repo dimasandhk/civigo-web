@@ -10,10 +10,9 @@ import { parseTimeBlock } from "./time";
  *
  * 1. Tiket yang belum pernah dimundurkan dulu; yang dimundurkan paling belakang,
  *    di belakang semua orang termasuk yang belum check-in (keputusan 03/10/2026, opsi A).
- * 2. `present` (sudah check-in) sebelum `scheduled` (belum datang).
- * 3. Sesama dimundurkan: yang dimundurkan lebih dulu dipanggil lebih dulu.
- * 4. Sesi jam yang lebih awal, tiket tanpa sesi paling belakang.
- * 5. Nomor antrean.
+ * 2. Sesama dimundurkan: yang dimundurkan lebih dulu dipanggil lebih dulu.
+ * 3. Sesi jam yang lebih awal, tiket tanpa sesi paling belakang.
+ * 4. Nomor antrean (tiket yang belum check-in tetap bisa dipanggil sesuai urutannya).
  *
  * Modul ini tanpa akses server supaya bisa dipakai komponen client.
  */
@@ -34,9 +33,6 @@ export function compareWaiting(a: WaitingTicket, b: WaitingTicket): number {
   const postponedA = Boolean(a.postponed);
   const postponedB = Boolean(b.postponed);
   if (postponedA !== postponedB) return postponedA ? 1 : -1;
-
-  const presence = (status: string) => (status === "present" ? 0 : 1);
-  if (presence(a.status) !== presence(b.status)) return presence(a.status) - presence(b.status);
 
   if (postponedA && postponedB && a.postponed_at && b.postponed_at) {
     const diff = new Date(a.postponed_at).getTime() - new Date(b.postponed_at).getTime();

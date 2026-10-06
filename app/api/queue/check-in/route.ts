@@ -134,10 +134,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Transition from 'scheduled' -> 'present'
-    const { error: updateError } = await supabase
+    const updatePayload: { status: string; checked_in_at?: string } = {
+      status: "present",
+      checked_in_at: new Date().toISOString(),
+    };
+
+    let { error: updateError } = await supabase
       .from("queues")
-      .update({ status: "present" })
+      .update(updatePayload)
       .eq("id", todayTicket.id);
+
+    // Fallback jika kolom checked_in_at belum dieksekusi di remote DB
+    if (updateError && (updateError.message.includes("checked_in_at") || updateError.code === "42703")) {
+      const fallback = await supabase
+        .from("queues")
+        .update({ status: "present" })
+        .eq("id", todayTicket.id);
+      updateError = fallback.error;
+    }
 
     if (updateError) {
       return errorResponse({

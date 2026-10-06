@@ -311,6 +311,9 @@ export type QueueItem = {
   postponed_at: string | null;
   /** Waktu selesai; diisi trigger DB. Null untuk tiket yang belum/selesai sebelum 03/10/2026. */
   completed_at: string | null;
+  /** Warga sudah melakukan check-in di kios fisik. */
+  is_checked_in: boolean;
+  checked_in_at?: string | null;
 };
 
 /** `3175012345678901` -> `3175••••••••••01`. Tidak menutupi apa pun kalau kosong. */
@@ -331,6 +334,7 @@ type RawQueueRow = {
   postponed?: boolean | null;
   postponed_at?: string | null;
   completed_at?: string | null;
+  checked_in_at?: string | null;
   counter?: { id: number; counter_name: string } | null;
   service?: { id: number; name: string; agency_id: number } | null;
   user?: { id: string; full_name: string; nik: string | null } | null;
@@ -422,6 +426,8 @@ export async function getTodayQueues(
       postponed: Boolean(q.postponed),
       postponed_at: q.postponed_at ?? null,
       completed_at: q.completed_at ?? null,
+      is_checked_in: Boolean(q.checked_in_at) || q.status === "present",
+      checked_in_at: q.checked_in_at ?? null,
     };
   });
 }

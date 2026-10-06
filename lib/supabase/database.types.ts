@@ -231,6 +231,7 @@ export type Database = {
       }
       queues: {
         Row: {
+          checked_in_at: string | null
           completed_at: string | null
           counter_id: number | null
           created_at: string | null
@@ -249,6 +250,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          checked_in_at?: string | null
           completed_at?: string | null
           counter_id?: number | null
           created_at?: string | null
@@ -267,6 +269,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          checked_in_at?: string | null
           completed_at?: string | null
           counter_id?: number | null
           created_at?: string | null
