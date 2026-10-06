@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { signIn, type AuthState } from "@/lib/auth/actions";
 import Button from "../Button";
 import Input from "../Input";
+import PasswordInput from "../PasswordInput";
 import Label from "../Label";
 import { AlertCircle, Loader2 } from "lucide-react";
 
@@ -41,10 +42,9 @@ export default function LoginForm() {
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">Password</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           required
           autoComplete="current-password"
           placeholder="Masukkan password"

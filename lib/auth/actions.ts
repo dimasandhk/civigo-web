@@ -1,7 +1,10 @@
 "use server";
 
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseEnv } from "@/lib/supabase/env";
 
 /**
  * Every export in this file is a Server Action, which means it is a POST
@@ -120,7 +123,8 @@ export async function signIn(
     .single();
 
   if (profile && profile.role !== "instansi" && profile.role !== "super_admin") {
-    await supabase.auth.signOut();
+    // Hanya sesi web ini; sesi warga di aplikasi mobile jangan ikut diputus.
+    await supabase.auth.signOut({ scope: "local" });
     return {
       error:
         "Akun ini bukan akun instansi. Portal ini khusus untuk petugas pelayanan instansi.",
@@ -132,7 +136,10 @@ export async function signIn(
 
 export async function signOut() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  // `local`: default supabase-js adalah `global`, yang mengeluarkan akun ini dari
+  // semua perangkat. Satu akun cabang dipakai beberapa loket sekaligus, jadi keluar
+  // di satu loket tidak boleh memutus loket lain.
+  await supabase.auth.signOut({ scope: "local" });
 
   redirect("/");
 }
@@ -165,3 +172,137 @@ export async function requestPasswordReset(
   };
 }
 
+export type ProfileState =
+  | {
+      error?: string;
+      message?: string;
+      fieldErrors?: {
+        fullName?: string;
+        currentPassword?: string;
+        newPassword?: string;
+        confirmPassword?: string;
+      };
+    }
+  | undefined;
+
+const FULL_NAME_MAX = 100; // public.users.full_name varchar(100)
+const PASSWORD_MIN = 8; // sama dengan POST /api/auth/register dan /api/auth/reset-password
+
+/**
+ * Ubah nama lengkap akun yang sedang login (halaman Profil).
+ *
+ * Lewat sesi pengguna sendiri, bukan service_role: RLS `users` hanya mengizinkan
+ * baris milik sendiri, dan grant kolom untuk `authenticated` hanya `full_name`.
+ * Jadi peran, instansi, cabang, dan email tidak bisa ikut diubah dari sini.
+ */
+export async function updateProfileName(
+  _state: ProfileState,
+  formData: FormData,
+): Promise<ProfileState> {
+  const fullName = text(formData, "full_name");
+
+  if (fullName.length < 2) {
+    return { fieldErrors: { fullName: "Nama lengkap minimal 2 karakter." } };
+  }
+  if (fullName.length > FULL_NAME_MAX) {
+    return { fieldErrors: { fullName: `Nama lengkap maksimal ${FULL_NAME_MAX} karakter.` } };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/");
+
+  const { data, error } = await supabase
+    .from("users")
+    .update({ full_name: fullName })
+    .eq("id", user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { error: `Gagal menyimpan nama: ${error.message}` };
+  if (!data) return { error: "Profil akun tidak ditemukan." };
+
+  revalidatePath("/admin", "layout");
+  return { message: "Nama lengkap berhasil diperbarui." };
+}
+
+/**
+ * Ubah password akun yang sedang login. Tidak perlu OTP atau email.
+ *
+ * Password saat ini selalu dicek dulu, supaya orang yang menemukan dasbor yang
+ * masih login tidak bisa mengambil alih akun. Pengecekannya memakai client
+ * sekali pakai (tanpa cookie) lalu sesi cek itu langsung dicabut dengan scope
+ * `local`, jadi sesi petugas di browser ini dan di loket lain tidak tersentuh.
+ * Sesi lain sengaja tidak dikeluarkan: satu akun cabang bisa dipakai beberapa
+ * loket sekaligus.
+ */
+export async function changePassword(
+  _state: ProfileState,
+  formData: FormData,
+): Promise<ProfileState> {
+  const currentPassword = String(formData.get("current_password") ?? "");
+  const newPassword = String(formData.get("new_password") ?? "");
+  const confirmPassword = String(formData.get("confirm_password") ?? "");
+
+  if (!currentPassword) {
+    return { fieldErrors: { currentPassword: "Password saat ini wajib diisi." } };
+  }
+  if (newPassword.length < PASSWORD_MIN) {
+    return { fieldErrors: { newPassword: `Password baru minimal ${PASSWORD_MIN} karakter.` } };
+  }
+  if (newPassword === currentPassword) {
+    return { fieldErrors: { newPassword: "Password baru harus berbeda dari password saat ini." } };
+  }
+  if (newPassword !== confirmPassword) {
+    return { fieldErrors: { confirmPassword: "Konfirmasi password tidak sama dengan password baru." } };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.email) redirect("/");
+
+  const { url, publishableKey } = supabaseEnv();
+  const verifier = createSupabaseClient(url, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+  const { error: verifyError } = await verifier.auth.signInWithPassword({
+    email: user.email,
+    password: currentPassword,
+  });
+
+  if (verifyError) {
+    if (verifyError.code === "over_request_rate_limit") {
+      return { error: "Terlalu banyak percobaan. Tunggu beberapa menit lalu coba lagi." };
+    }
+    return { fieldErrors: { currentPassword: "Password saat ini salah." } };
+  }
+  await verifier.auth.signOut({ scope: "local" });
+
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword,
+    // Hanya dipakai Supabase kalau "Require current password" aktif di dashboard.
+    current_password: currentPassword,
+  });
+
+  if (error) {
+    switch (error.code) {
+      case "same_password":
+        return { fieldErrors: { newPassword: "Password baru harus berbeda dari password saat ini." } };
+      case "weak_password":
+        return { fieldErrors: { newPassword: `Password terlalu lemah: ${error.message}` } };
+      case "reauthentication_needed":
+        return {
+          error:
+            "Sesi login Anda sudah lebih dari 24 jam. Keluar lalu masuk lagi, kemudian ubah password.",
+        };
+      default:
+        return { error: `Gagal mengubah password: ${error.message}` };
+    }
+  }
+
+  return { message: "Password berhasil diubah. Gunakan password baru saat login berikutnya." };
+}

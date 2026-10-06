@@ -1,7 +1,7 @@
 # Dokumentasi Tugas Web CiviGo (Web #1–#6)
 
 Dokumen ini menjelaskan, langkah demi langkah, apa yang sudah dikerjakan untuk setiap tugas **Web** di
-[`todos.txt`](./todos.txt):
+[`todos-arsip-03-10-2026.txt`](./todos-arsip-03-10-2026.txt) (daftar tugas lama, dipindahkan dari `todos.txt` pada 06/10/2026):
 - alur yang dialami petugas;
 - apa yang dilakukan sistem di setiap langkah;
 - semua kasus (berhasil, ditolak, dan kasus pinggir) beserta pesan yang muncul;
@@ -18,10 +18,11 @@ Kondisi per 03/10/2026, termasuk perbaikan hasil audit sore hari (lihat [Perbaik
 5. [Web #3 — Halaman ulasan](#web-3--halaman-ulasan-adminulasan)
 6. [Web #4 — Login instansi](#web-4--login-instansi-)
 7. [Web #5 — Antrean loket & mundurkan antrean](#web-5--antrean-loket--mundurkan-antrean-adminantrean)
-8. [Web #6 — Halaman reset password (belum)](#web-6--halaman-reset-password-belum)
-9. [Perbaikan setelah audit (03/10/2026)](#perbaikan-setelah-audit-03102026)
-10. [Masalah yang masih diketahui](#masalah-yang-masih-diketahui)
-11. [Lampiran: cara menguji, file, dan riwayat commit](#lampiran)
+8. [Profil & ubah password (daftar baru #4–#5)](#profil--ubah-password-adminprofil-daftar-baru-45-06102026)
+9. [Web #6 — Halaman reset password (tidak dilanjutkan)](#web-6--halaman-reset-password-tidak-dilanjutkan)
+10. [Perbaikan setelah audit (03/10/2026)](#perbaikan-setelah-audit-03102026)
+11. [Masalah yang masih diketahui](#masalah-yang-masih-diketahui)
+12. [Lampiran: cara menguji, file, dan riwayat commit](#lampiran)
 
 ---
 
@@ -36,7 +37,8 @@ Kondisi per 03/10/2026, termasuk perbaikan hasil audit sore hari (lihat [Perbaik
 | 4 | Login instansi | Selesai | 12/09/2026 | `810cd50` (Satya) |
 | 5 | Tombol "Mundurkan Antrean" | Selesai | 03/10/2026 | `06f5a8a` |
 | — | Perbaikan hasil audit Web #1, #4, #5 | Selesai | 03/10/2026 | `76cd9ff` |
-| 6 | Halaman `/reset-password` | **Belum** | — | — |
+| 6 | Halaman `/reset-password` | Tidak dilanjutkan | 06/10/2026 | diganti Profil & ubah password |
+| baru #4–#5 | Profil, ubah password, toggle tampilkan password | Selesai | 06/10/2026 | — |
 
 "Selesai" berarti fiturnya sudah dibangun dan berjalan sesuai tugas. Celah yang masih ada dicatat terpisah di
 [Masalah yang masih diketahui](#masalah-yang-masih-diketahui).
@@ -303,7 +305,7 @@ yang tercatat di loket instansi lain. Sekarang 0 tiket dan 0 ulasan dengan relas
 
 | # | Petugas | Sistem & layar |
 |---|---|---|
-| 1 | Klik ikon keluar di kartu akun, bawah sidebar. | Sesi diakhiri, kembali ke `/`. |
+| 1 | Klik ikon keluar di kartu akun, bawah sidebar. | Hanya sesi browser ini yang diakhiri (`signOut({ scope: "local" })`), lalu kembali ke `/`. Loket lain yang memakai akun cabang yang sama tetap login. Sebelum 06/10/2026 keluar di satu loket mengeluarkan semua loket (default supabase-js `global`). |
 
 ### Semua kasus
 
@@ -311,7 +313,7 @@ yang tercatat di loket instansi lain. Sekarang 0 tiket dan 0 ulasan dengan relas
 |---|---|
 | Username/email atau kata sandi kosong | `Username/Email dan kata sandi wajib diisi.` |
 | Username/email atau kata sandi salah | `Username atau kata sandi tidak sesuai.` |
-| Login dengan akun **warga** (`role = 'user'`) | Sesi langsung diakhiri, pesan `Akun ini bukan akun instansi. Portal ini khusus untuk petugas pelayanan instansi.` |
+| Login dengan akun **warga** (`role = 'user'`) | Sesi web itu saja yang diakhiri (sesi warga di aplikasi mobile tetap), pesan `Akun ini bukan akun instansi. Portal ini khusus untuk petugas pelayanan instansi.` |
 | Login dengan akun instansi / super_admin | Masuk ke `/admin`. |
 | Username bertitik, mis. `disdukcapil.mpp` | Tetap menjadi `disdukcapil@civigo.com`. Akun per cabang harus login dengan **email lengkap**. |
 | Membuka `/admin` tanpa login, atau dengan sesi akun warga | Diarahkan kembali ke `/`. |
@@ -438,9 +440,76 @@ B-001 dan B-002 sudah check-in, B-003 dan B-004 booking tapi belum datang.
 
 ---
 
-## Web #6 — Halaman reset password (belum)
+## Profil & ubah password (`/admin/profil`, daftar baru #4–#5, 06/10/2026)
 
-Belum dikerjakan. Kondisi sekarang:
+Tugas dari daftar baru [`todos.txt`](./todos.txt) (web-dashboard #4 dan #5). Menggantikan Web #6: password diubah
+**setelah login**, tanpa OTP atau email.
+**Kode:** `app/admin/profil/page.tsx`, `updateProfileName()` dan `changePassword()` di `lib/auth/actions.ts`,
+`app/components/admin/ProfileNameForm.tsx`, `ChangePasswordForm.tsx`, `app/components/PasswordInput.tsx`.
+
+### Alur langkah demi langkah
+
+**A. Membuka profil**
+
+| # | Petugas | Sistem & layar |
+|---|---|---|
+| 1 | Klik **Profil** di sidebar (paling bawah daftar menu). | Halaman Profil: kartu **Informasi Akun** dan kartu **Ubah Password**. |
+| 2 | — | Email, peran, instansi, dan cabang tampil sebagai teks (hanya baca), dengan catatan bahwa yang mengatur adalah admin. |
+
+![Halaman Profil](img/web-tasks/04-profil.jpg)
+
+**B. Mengubah nama lengkap**
+
+| # | Petugas | Sistem & layar |
+|---|---|---|
+| 1 | Mengubah **Nama Lengkap**, klik **Simpan Nama**. | Server memakai sesi petugas sendiri (bukan service_role). RLS hanya mengizinkan baris milik sendiri, dan grant kolom untuk `authenticated` hanya `full_name`. |
+| 2 | — | Pesan: `Nama lengkap berhasil diperbarui.` |
+
+**C. Mengubah password**
+
+| # | Petugas | Sistem & layar |
+|---|---|---|
+| 1 | Mengisi **Password Saat Ini**, **Password Baru**, dan **Konfirmasi Password Baru**. Ikon mata di tiap kolom menampilkan/menyembunyikan isinya. | — |
+| 2 | Klik **Ubah Password**. | Server memvalidasi isian, lalu mengecek password saat ini dengan login sekali pakai (tanpa cookie). Sesi cek itu langsung dicabut (scope `local`). |
+| 3 | — | Server memanggil `updateUser({ password })` untuk sesi petugas. Pesan: `Password berhasil diubah. Gunakan password baru saat login berikutnya.` |
+| 4 | — | Kolom dikosongkan setelah setiap submit. Sesi di loket lain **tidak** dikeluarkan, karena satu akun cabang bisa dipakai beberapa loket. |
+
+![Password saat ini salah](img/web-tasks/05-profil-password-saat-ini-salah.jpg)
+
+### Semua kasus
+
+| Kasus | Hasil |
+|---|---|
+| Nama kurang dari 2 / lebih dari 100 karakter | `Nama lengkap minimal 2 karakter.` / `Nama lengkap maksimal 100 karakter.` |
+| Password saat ini kosong | `Password saat ini wajib diisi.` |
+| Password baru kurang dari 8 karakter | `Password baru minimal 8 karakter.` |
+| Password baru sama dengan password saat ini | `Password baru harus berbeda dari password saat ini.` |
+| Konfirmasi tidak sama | `Konfirmasi password tidak sama dengan password baru.` |
+| Password saat ini salah | `Password saat ini salah.` Password tidak berubah. |
+| Terlalu banyak percobaan (rate limit Supabase) | `Terlalu banyak percobaan. Tunggu beberapa menit lalu coba lagi.` |
+| Password ditolak Supabase karena lemah | `Password terlalu lemah: …` |
+| "Require reauthentication" aktif di dashboard dan sesi lebih dari 24 jam | `Sesi login Anda sudah lebih dari 24 jam. Keluar lalu masuk lagi, kemudian ubah password.` |
+| Sesi habis | Diarahkan ke halaman login. |
+| Ingin mengubah email/peran/instansi/cabang | Tidak tersedia di halaman Profil; diatur admin. |
+| Lupa password | Tidak ada alur mandiri; password direset admin (Supabase Dashboard → Authentication → Users). |
+
+### Toggle tampilkan password
+
+`PasswordInput` dipakai di form login dan ketiga kolom password di Profil. Tombolnya `type="button"` (tidak men-submit
+form), label aksesibilitasnya berganti antara "Tampilkan password" dan "Sembunyikan password", dan `aria-pressed`
+mengikuti keadaannya.
+
+### Hubungan dengan endpoint mobile
+
+Aplikasi mobile memakai `POST /api/auth/change-password` (Satya, `732df00`) dengan aturan yang sama: minimal 8 karakter
+dan password saat ini wajib benar. Bedanya, endpoint itu meng-`trim()` password dan tidak mencabut sesi yang dibuat
+saat mengecek password lama.
+
+---
+
+## Web #6 — Halaman reset password (tidak dilanjutkan)
+
+Tidak dilanjutkan (06/10/2026): diganti ubah password setelah login (lihat bagian sebelumnya). Kondisi alur email yang tersisa:
 
 1. Alur **lupa password** sudah ada: `requestPasswordReset()` (web) dan `POST /api/auth/forgot-password` (mobile)
    memanggil `supabase.auth.resetPasswordForEmail()`. Kasus yang sudah ditangani:
@@ -491,7 +560,7 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 - Untuk menguji booking di luar jam operasional (malam/akhir pekan), tambahkan ke `.env.local`:
   `ALLOW_OFFHOURS_TESTING="true"`. Flag ini hanya dibaca saat booking. Memanggil, menyelesaikan, menghanguskan,
   dan memundurkan antrean tidak dicek jam operasional.
-- Test otomatis: `npx vitest run` (97 test per 03/10/2026, semua di-mock, tidak memakai kuota apa pun).
+- Test otomatis: `npx vitest run` (132 test per 06/10/2026, semua di-mock, tidak memakai kuota apa pun).
 
 ### File utama per tugas
 
@@ -501,6 +570,7 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 | Web #2 | `lib/data/service-actions.ts`, `lib/data/admin.ts` (`getAdminServices`, `getServiceDocuments`), `app/components/admin/LayananManager.tsx`, `ServiceDocumentPicker.tsx` |
 | Web #3 | `app/admin/ulasan/page.tsx`, `lib/data/admin.ts` (`getAdminReviews`, `getReviewFilterOptions`), `app/api/reviews/route.ts` |
 | Web #4 | `lib/auth/actions.ts`, `lib/auth/session.ts`, `app/components/auth/LoginForm.tsx` |
+| Profil (#4–#5 baru) | `app/admin/profil/page.tsx`, `lib/auth/actions.ts` (`updateProfileName`, `changePassword`), `app/components/admin/ProfileNameForm.tsx`, `ChangePasswordForm.tsx`, `FormStatus.tsx`, `app/components/PasswordInput.tsx` |
 | Web #5 | `lib/queue/ordering.ts`, `lib/queue/status.ts`, `lib/data/admin.ts` (`getTodayQueues`), `app/components/admin/AntreanManager.tsx`, `app/admin/antrean/page.tsx`, `app/display/[agencyId]/antrean/page.tsx`, `supabase/migrations/20261003115823_add_completed_at_to_queues.sql` |
 
 ### Riwayat commit
@@ -518,7 +588,7 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 
 ### Dokumen terkait
 
-- [`todos.txt`](./todos.txt): status semua tugas (Web, Mobile, Supabase).
+- [`todos-arsip-03-10-2026.txt`](./todos-arsip-03-10-2026.txt): daftar tugas lama tempat Web #1–#6 berasal. Tugas aktif sejak 06/10/2026 ada di [`todos.txt`](./todos.txt).
 - [`business-flow-notes.md`](./business-flow-notes.md): alur bisnis dan keputusan arsitektur (poin 5.7–5.11 untuk tugas Web).
 - [`web5-mundurkan-antrean.md`](./web5-mundurkan-antrean.md): simulasi lengkap Web #5.
 - [`supabase-backend-integration-notes.md`](./supabase-backend-integration-notes.md): endpoint API, akun uji, data dummy.

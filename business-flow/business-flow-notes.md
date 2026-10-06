@@ -150,3 +150,9 @@ Skema database menggunakan tipe enum `public.user_role`:
    - Tiket tanpa sesi jam menampilkan "Tanpa sesi"; `QueueItem.time_block` kini `string | null` sesuai kolomnya.
    - Contoh username di form login tidak lagi `disdukcapil.surabaya` (menyiratkan username per cabang berfungsi).
    - Masalah yang masih diketahui dicatat di [`dokumentasi-web-tasks.md`](./dokumentasi-web-tasks.md#masalah-yang-masih-diketahui).
+12. **Profil & ubah password tanpa OTP (06/10/2026, daftar baru web-dashboard #4–#5)**:
+   - Keputusan: alur lupa password lewat email (Web #6 lama) tidak dilanjutkan. Mailer bawaan Supabase hanya mengirim ke anggota Team project, dan akun instansi `@civigo.com` bukan mailbox sungguhan. Password diubah setelah login; lupa password direset admin.
+   - `/admin/profil`: ubah nama lengkap lewat sesi pengguna sendiri (RLS + grant kolom `full_name`), dan ubah password dengan password saat ini + konfirmasi. Password saat ini dicek dengan login sekali pakai yang sesinya dicabut `scope: "local"`; sesi lain tidak dikeluarkan karena satu akun cabang dipakai beberapa loket.
+   - `PasswordInput` (tombol tampilkan/sembunyikan) dipakai di login dan Profil.
+   - **Logout kini `signOut({ scope: "local" })`.** Default supabase-js adalah `global`, jadi keluar di satu loket dulu mengeluarkan semua loket yang memakai akun cabang yang sama. Penolakan akun warga di portal web juga hanya mengakhiri sesi web, bukan sesi warga di aplikasi mobile.
+   - Detail dan semua kasus: [`dokumentasi-web-tasks.md`](./dokumentasi-web-tasks.md#profil--ubah-password-adminprofil-daftar-baru-45-06102026).

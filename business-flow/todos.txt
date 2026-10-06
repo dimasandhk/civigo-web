@@ -11,10 +11,13 @@ web-dashboard:
           Yang tersisa: langkah "Pilih Sesi Jam Layanan" di KioskServiceSelection.
     3. [ ] Tambah config range waktu di page analytics dashboard.
         - Catatan: Beranda sekarang terkunci ke "hari ini" + grafik mingguan.
-    4. [ ] Pengaturan profil (edit, ubah password, ...).
-        - Catatan: ubah password cukup untuk user yang sudah login, tanpa OTP/email. POST /api/auth/reset-password
-          sudah memanggil updateUser({ password }) dengan sesi yang aktif. Lupa password → direset admin (lihat backend #1).
-    5. [ ] Tambah toggle visibility input password.
+    4. [x] Pengaturan profil (edit, ubah password, ...). (06/10/2026)
+        - Halaman /admin/profil (menu "Profil" di sidebar): info akun (email, peran, instansi, cabang — hanya baca),
+          ubah nama lengkap, dan ubah password tanpa OTP/email.
+        - Ubah password wajib isi password saat ini + konfirmasi. Sesi petugas lain (loket lain) tidak ikut keluar.
+        - Email/peran/instansi/cabang tidak bisa diubah sendiri (grant kolom users hanya full_name). Lupa password → direset admin.
+    5. [x] Tambah toggle visibility input password. (06/10/2026)
+        - Komponen PasswordInput (ikon mata) dipakai di form login dan semua kolom password di halaman Profil.
 
 mobile:
     1. [ ] Ubah password di dalam app kalau sudah login.
@@ -28,6 +31,8 @@ mobile:
              instansi di lokasi tersebut (misal: seluruh instansi di Kota Serang).
 
 supabase / backend:
+    Catatan: commit 732df00 (Satya, 03/10/2026) mengerjakan ubah password (POST /api/auth/change-password),
+    reverse-geocode, daftar kota, agencies per kota/jarak, dan prasyarat kondisi. Status per item belum dicek ulang.
     1. [ ] Ubah password hanya bisa dilakukan di dalam app kalau sudah login.
         - Catatan: alur lupa password lewat email (resetPasswordForEmail, POST /api/auth/forgot-password) masih ada
           di kode, tapi halaman tujuannya tidak dibuat. Mailer bawaan Supabase hanya mengirim ke anggota Team project.

@@ -8,6 +8,7 @@ import {
   Monitor,
   PanelLeftClose,
   PanelLeftOpen,
+  UserRound,
   UserStar,
   Users,
   X,
@@ -26,6 +27,7 @@ const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin/loket", label: "Loket", icon: Building },
   { href: "/admin/layanan", label: "Layanan", icon: ClipboardList },
   { href: "/admin/ulasan", label: "Ulasan", icon: UserStar },
+  { href: "/admin/profil", label: "Profil", icon: UserRound },
 ];
 
 // Papan display tidak punya sesi, jadi instansinya harus ikut di URL.
@@ -191,11 +193,11 @@ export default function Sidebar({
                 ? "justify-center p-2.5 text-center"
                 : "justify-between p-3"
             }`}
-            title="Disdukcapil MPP Siola - Surabaya"
+            title={[agencyName, locationName].filter(Boolean).join(" — ") || undefined}
           >
             {isCollapsed ? (
               <div className="flex size-8 items-center justify-center rounded-md bg-brand-tint font-display text-[12px] font-bold text-brand">
-                DS
+                {(agencyName ?? "Instansi").slice(0, 2).toUpperCase()}
               </div>
             ) : (
               <div className="flex flex-col gap-0.5 overflow-hidden pr-2">
