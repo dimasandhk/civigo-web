@@ -191,5 +191,50 @@ describe("Family Members Endpoints (API Tests)", () => {
       expect(json.ok).toBe(true);
       expect(json.message).toContain("berhasil dihapus");
     });
+    it("returns 401 if unauthenticated on delete", async () => {
+      mockGetUser.mockResolvedValueOnce({
+        data: { user: null },
+        error: null,
+      });
+
+      const req = new NextRequest("http://localhost:3000/api/family-members/2", {
+        method: "DELETE",
+      });
+
+      const res = await deleteFamilyMember(req, {
+        params: Promise.resolve({ id: "2" }),
+      });
+      const json = await res.json();
+
+      expect(res.status).toBe(401);
+      expect(json.ok).toBe(false);
+      expect(json.error.code).toBe("UNAUTHORIZED");
+    });
+
+    it("returns 404 if family member not found or belongs to another user", async () => {
+      mockGetUser.mockResolvedValueOnce({
+        data: { user: { id: "user-uuid-1" } },
+        error: null,
+      });
+
+      mockFrom.mockReturnValueOnce({
+        delete: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockResolvedValueOnce({ data: [], error: null }),
+      });
+
+      const req = new NextRequest("http://localhost:3000/api/family-members/999", {
+        method: "DELETE",
+      });
+
+      const res = await deleteFamilyMember(req, {
+        params: Promise.resolve({ id: "999" }),
+      });
+      const json = await res.json();
+
+      expect(res.status).toBe(404);
+      expect(json.ok).toBe(false);
+      expect(json.error.code).toBe("MEMBER_NOT_FOUND");
+    });
   });
 });

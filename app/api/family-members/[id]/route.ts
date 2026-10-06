@@ -28,21 +28,40 @@ export async function DELETE(
       );
     }
 
+    const authHeader = _request.headers.get("authorization");
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.substring(7).trim()
+      : undefined;
+
     const supabase = await createClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = token
+      ? await supabase.auth.getUser(token)
+      : await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "Silakan login terlebih dahulu untuk menghapus data anggota keluarga.",
+          },
+        },
+        { status: 401 }
+      );
+    }
 
     const serviceDb = createServiceClient();
 
-    // Pastikan anggota keluarga milik user yang bersangkutan (jika ada sesi login)
-    let query = serviceDb.from("family_members").delete().eq("id", memberId);
-
-    if (user) {
-      query = query.eq("user_id", user.id);
-    }
-
-    const { error } = await query;
+    // Hapus anggota keluarga strictly milik user yang sedang login
+    const { data: deleted, error } = await serviceDb
+      .from("family_members")
+      .delete()
+      .eq("id", memberId)
+      .eq("user_id", user.id)
+      .select("id");
 
     if (error) {
       return NextResponse.json(
@@ -54,6 +73,19 @@ export async function DELETE(
           },
         },
         { status: 400 }
+      );
+    }
+
+    if (!deleted || deleted.length === 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "MEMBER_NOT_FOUND",
+            message: "Data anggota keluarga tidak ditemukan atau bukan milik akun Anda.",
+          },
+        },
+        { status: 404 }
       );
     }
 

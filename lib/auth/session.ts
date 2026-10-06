@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 /**
  * Read side of auth. Deliberately not a `"use server"` module — these are
@@ -24,32 +26,52 @@ export type Profile = {
  * Returns the signed-in user's profile, or `null` when there is no valid
  * session.
  *
- * Uses `getClaims()` rather than `getSession()`: the session is read straight
- * from a cookie the browser controls, so only the verified claims can be
- * trusted on the server.
+ * Mendukung Bearer token (Mobile) dan Cookie session (Web Dashboard).
  */
 export const getCurrentUser = cache(async function getCurrentUser(): Promise<Profile | null> {
+  let token: string | undefined;
+  try {
+    const reqHeaders = await headers();
+    const authHeader = reqHeaders.get("authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      token = authHeader.substring(7).trim();
+    }
+  } catch {
+    // Dipanggil di luar request context (misal build time / isolated tests)
+  }
+
   const supabase = await createClient();
 
-  const { data, error } = await supabase.auth.getClaims();
-  const userId = data?.claims?.sub;
+  let userId: string | undefined;
 
-  if (error || !userId) return null;
+  if (token) {
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (!userError && userData?.user) {
+      userId = userData.user.id;
+    }
+  }
 
-  // RLS restricts this to the caller's own row, so the filter is a query hint
-  // rather than the access control.
-  const { data: profile, error: selectErr } = await supabase
+  if (!userId) {
+    const { data, error } = await supabase.auth.getClaims();
+    userId = data?.claims?.sub;
+  }
+
+  if (!userId) return null;
+
+  const db = createServiceClient();
+  const { data: profile, error: selectErr } = await db
     .from("users")
     .select("id, nik, full_name, email, role, agency_id, location_id")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
 
-  if (selectErr && (selectErr.code === "42703" || selectErr.message.includes("location_id"))) {
-    const { data: fallbackProfile } = await supabase
+  const err = selectErr as { code?: string; message?: string } | null;
+  if (err && (err.code === "42703" || err.message?.includes("location_id"))) {
+    const { data: fallbackProfile } = await db
       .from("users")
       .select("id, nik, full_name, email, role, agency_id")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
 
     if (!fallbackProfile) return null;
 
@@ -58,6 +80,8 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Pro
       location_id: null,
     };
   }
+
+  if (!profile) return null;
 
   return (profile as unknown as Profile) ?? null;
 });

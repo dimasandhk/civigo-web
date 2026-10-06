@@ -24,12 +24,7 @@ export async function GET(request: NextRequest) {
       ? await supabase.auth.getUser(token)
       : await supabase.auth.getUser();
 
-    const { searchParams } = new URL(request.url);
-    const queryUserId = searchParams.get("user_id");
-
-    const targetUserId = user?.id ?? queryUserId;
-
-    if (!targetUserId) {
+    if (!user) {
       return NextResponse.json(
         {
           ok: false,
@@ -41,6 +36,8 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    const targetUserId = user.id;
 
     const serviceDb = createServiceClient();
     const { data: familyMembers, error } = await serviceDb
@@ -126,9 +123,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const targetUserId = user?.id ?? body.user_id;
-
-    if (!targetUserId) {
+    if (!user) {
       return NextResponse.json(
         {
           ok: false,
@@ -140,6 +135,8 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    const targetUserId = user.id;
 
     const fullName = body.full_name?.trim();
     const nik = body.nik?.trim();

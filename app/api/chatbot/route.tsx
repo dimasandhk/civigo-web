@@ -65,6 +65,19 @@ export async function POST(
       );
     }
 
+    if (pertanyaan.length > 500) {
+      return NextResponse.json(
+        {
+          status: "error",
+          message:
+            "Pertanyaan terlalu panjang. Maksimal 500 karakter.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
     const embeddingResponse =
       await openai.embeddings.create({
         model: "text-embedding-3-small",
@@ -147,10 +160,18 @@ ${document.content}
             .join("\n\n")
         : "Tidak ada informasi yang relevan ditemukan.";
 
-    const chatHistory =
-      riwayat.map((message) => ({
+    const chatHistory = (Array.isArray(riwayat) ? riwayat : [])
+      .filter(
+        (message): message is ChatMessage =>
+          Boolean(message) &&
+          (message.role === "user" || message.role === "assistant") &&
+          typeof message.content === "string" &&
+          message.content.trim().length > 0
+      )
+      .slice(-6)
+      .map((message) => ({
         role: message.role,
-        content: message.content,
+        content: message.content.slice(0, 1000),
       }));
 
     const response =
