@@ -17,8 +17,13 @@ web-dashboard:
           Dulu selalu lokasi 1 (MPP). Server menolak instansi yang tidak buka di cabang itu (AGENCY_NOT_AT_LOCATION).
         - Pengecualian uji coba di production (sesi >= 18:00, hari ini libur) dihapus; cek jam operasional hanya
           dilewati di next dev atau dengan ALLOW_OFFHOURS_TESTING="true".
-    3. [ ] Tambah config range waktu di page analytics dashboard.
-        - Catatan: Beranda sekarang terkunci ke "hari ini" + grafik mingguan.
+    3. [x] Tambah config range waktu di page analytics dashboard. (06/10/2026)
+        - "Tingkat Kehadiran" dan "Antrean Hangus" masing-masing punya pilihan Hari ini / Minggu ini / Bulan ini
+          (default Hari ini). "Antrean Per Layanan" juga (default Minggu ini). "Antrean Per Minggu" tanpa dropdown.
+        - Pilihan disimpan di URL (?kehadiran=&hangus=&layanan=). Semua rentang berakhir hari ini (WIB); minggu mulai Senin.
+        - Tingkat kehadiran kini = hadir (present/served/completed) / (hadir + hangus); tiket yang masih scheduled
+          tidak dihitung. Antrean per layanan kini benar-benar mengikuti rentang (dulu semua tiket sepanjang masa).
+        - "null%" / "null menit" di Beranda diganti "-".
     4. [x] Pengaturan profil (edit, ubah password, ...). (06/10/2026)
         - Halaman /admin/profil (menu "Profil" di sidebar): info akun (email, peran, instansi, cabang — hanya baca),
           ubah nama lengkap, dan ubah password tanpa OTP/email.

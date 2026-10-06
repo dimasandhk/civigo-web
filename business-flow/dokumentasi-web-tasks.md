@@ -20,10 +20,11 @@ Kondisi per 03/10/2026, termasuk perbaikan hasil audit sore hari (lihat [Perbaik
 7. [Web #5 — Antrean loket & mundurkan antrean](#web-5--antrean-loket--mundurkan-antrean-adminantrean)
 8. [Profil & ubah password (daftar baru #4–#5)](#profil--ubah-password-adminprofil-daftar-baru-45-06102026)
 9. [Kios walk-in tanpa sesi jam (daftar baru #2)](#kios-walk-in-tanpa-sesi-jam-displayselect-layanan-daftar-baru-2-06102026)
-10. [Web #6 — Halaman reset password (tidak dilanjutkan)](#web-6--halaman-reset-password-tidak-dilanjutkan)
-11. [Perbaikan setelah audit (03/10/2026)](#perbaikan-setelah-audit-03102026)
-12. [Masalah yang masih diketahui](#masalah-yang-masih-diketahui)
-13. [Lampiran: cara menguji, file, dan riwayat commit](#lampiran)
+10. [Beranda: rentang waktu (daftar baru #3)](#beranda-rentang-waktu-admin-daftar-baru-3-06102026)
+11. [Web #6 — Halaman reset password (tidak dilanjutkan)](#web-6--halaman-reset-password-tidak-dilanjutkan)
+12. [Perbaikan setelah audit (03/10/2026)](#perbaikan-setelah-audit-03102026)
+13. [Masalah yang masih diketahui](#masalah-yang-masih-diketahui)
+14. [Lampiran: cara menguji, file, dan riwayat commit](#lampiran)
 
 ---
 
@@ -40,7 +41,8 @@ Kondisi per 03/10/2026, termasuk perbaikan hasil audit sore hari (lihat [Perbaik
 | — | Perbaikan hasil audit Web #1, #4, #5 | Selesai | 03/10/2026 | `76cd9ff` |
 | 6 | Halaman `/reset-password` | Tidak dilanjutkan | 06/10/2026 | diganti Profil & ubah password |
 | baru #4–#5 | Profil, ubah password, toggle tampilkan password | Selesai | 06/10/2026 | `36cb675` |
-| baru #2 | Kios walk-in tanpa pilih sesi jam | Selesai | 06/10/2026 | — |
+| baru #2 | Kios walk-in tanpa pilih sesi jam | Selesai | 06/10/2026 | `f3bcd3b` |
+| baru #3 | Rentang waktu di Beranda | Selesai | 06/10/2026 | — |
 
 "Selesai" berarti fiturnya sudah dibangun dan berjalan sesuai tugas. Celah yang masih ada dicatat terpisah di
 [Masalah yang masih diketahui](#masalah-yang-masih-diketahui).
@@ -577,6 +579,58 @@ Kios tidak login, jadi cabangnya ikut di URL, sama seperti layar TV:
 
 ---
 
+## Beranda: rentang waktu (`/admin`, daftar baru #3, 06/10/2026)
+
+Tugas web-dashboard #3 di [`todos.txt`](./todos.txt). **Kode:** `app/admin/page.tsx`,
+`app/components/admin/RangeSelect.tsx`, `getQueueOutcome()` dan `getServiceDonutData()` di `lib/data/admin.ts`,
+`dateRangeBounds()` / `parseDateRange()` di `lib/queue/time.ts`.
+
+### Rentang
+
+| Pilihan | Tanggal (WIB, inklusif) |
+|---|---|
+| Hari ini | hari ini |
+| Minggu ini | Senin minggu berjalan s.d. hari ini |
+| Bulan ini | tanggal 1 s.d. hari ini |
+
+Semua rentang berakhir hari ini: tiket bertanggal mendatang belum punya hasil hadir/hangus.
+
+### Alur langkah demi langkah
+
+| # | Petugas | Sistem & layar |
+|---|---|---|
+| 1 | Membuka **Beranda**. | Baris pertama (Total, Selesai, Sisa, Rata-rata) tetap **hari ini**. "Tingkat Kehadiran" dan "Antrean Hangus" default **Hari ini**, "Antrean Per Layanan" default **Minggu ini**. |
+| 2 | Memilih rentang di pojok kanan atas salah satu kartu. | Parameter URL kartu itu berubah (`?kehadiran=`, `?hangus=`, atau `?layanan=`) dan server menghitung ulang. Kartu lain tidak berubah. |
+| 3 | — | Tampilan bertahan saat di-refresh atau dibagikan, karena pilihannya ada di URL. |
+
+![Beranda default](img/web-tasks/11-beranda-default.jpg)
+![Beranda bulan ini](img/web-tasks/12-beranda-bulan-ini.jpg)
+
+### Isi kartu
+
+| Kartu | Isi |
+|---|---|
+| **Tingkat Kehadiran** | Hadir ÷ (hadir + hangus), "-" kalau belum ada keduanya. Hadir = `present`, `served`, `completed`; tiket yang masih `scheduled` belum punya hasil dan **tidak** dihitung. Keterangan: "4 dari 5 tiket hadir". Dulu rumusnya (total − hangus) ÷ total, sehingga semua booking yang belum datang ikut terhitung hadir. |
+| **Antrean Hangus** | Jumlah tiket `skipped` dalam rentang. |
+| **Antrean Per Layanan** | Jumlah dan persentase per layanan dalam rentang, dikelompokkan per id layanan. Kosong → "Belum ada antrean pada periode ini". Dulu menghitung semua tiket sepanjang masa (meski labelnya "Minggu Ini") dan menampilkan layanan 0% kalau kosong. |
+| **Antrean Per Minggu** | Tanpa dropdown (keputusan 06/10/2026): selalu Senin–Jumat minggu berjalan. |
+
+### Semua kasus
+
+| Kasus | Hasil |
+|---|---|
+| Nilai URL asing (`?kehadiran=tahun-ini`) | Dianggap default kartu itu. |
+| Belum ada tiket hadir/hangus dalam rentang | Kehadiran "-", keterangan "Belum ada tiket hadir atau hangus". |
+| Tidak ada antrean dalam rentang | Antrean Per Layanan menampilkan empty state. |
+| Rata-rata Waktu belum bisa dihitung | "-" dengan keterangan "Belum bisa dihitung" (dulu "null menit"). |
+| Query gagal | Error dilempar (tidak diganti data karangan). |
+| Petugas terikat cabang | Semua angka dibatasi instansi + cabang petugas. |
+
+Diverifikasi 06/10/2026 dengan data Samsat MPP: Hari ini 100% (3 dari 3), hangus 0; Bulan ini 80% (4 dari 5), hangus 1;
+per layanan minggu ini 2 (67%) / 1 (33%), bulan ini 2 (40%) / 2 (40%) / 1 (20%) — sama dengan hitungan langsung di database.
+
+---
+
 ## Web #6 — Halaman reset password (tidak dilanjutkan)
 
 Tidak dilanjutkan (06/10/2026): diganti ubah password setelah login (lihat bagian sebelumnya). Kondisi alur email yang tersisa:
@@ -631,7 +685,7 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 - Untuk menguji booking di luar jam operasional (malam/akhir pekan), tambahkan ke `.env.local`:
   `ALLOW_OFFHOURS_TESTING="true"`. Flag ini hanya dibaca saat booking. Memanggil, menyelesaikan, menghanguskan,
   dan memundurkan antrean tidak dicek jam operasional.
-- Test otomatis: `npx vitest run` (145 test per 06/10/2026, semua di-mock, tidak memakai kuota apa pun).
+- Test otomatis: `npx vitest run` (155 test per 06/10/2026, semua di-mock, tidak memakai kuota apa pun).
 
 ### File utama per tugas
 
@@ -641,6 +695,7 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 | Web #2 | `lib/data/service-actions.ts`, `lib/data/admin.ts` (`getAdminServices`, `getServiceDocuments`), `app/components/admin/LayananManager.tsx`, `ServiceDocumentPicker.tsx` |
 | Web #3 | `app/admin/ulasan/page.tsx`, `lib/data/admin.ts` (`getAdminReviews`, `getReviewFilterOptions`), `app/api/reviews/route.ts` |
 | Web #4 | `lib/auth/actions.ts`, `lib/auth/session.ts`, `app/components/auth/LoginForm.tsx` |
+| Beranda rentang waktu (#3 baru) | `app/admin/page.tsx`, `app/components/admin/RangeSelect.tsx`, `PerformanceCard.tsx`, `ServiceDonutChart.tsx`, `WeeklyQueueChart.tsx`, `lib/data/admin.ts` (`getQueueOutcome`, `getServiceDonutData`), `lib/queue/time.ts`, `tests/unit/dashboard-ranges.test.ts` |
 | Kios tanpa sesi & cabang (#2 baru) | `app/display/page.tsx`, `app/display/select-layanan/page.tsx`, `app/display/input-code/page.tsx`, `lib/data/kiosk.ts`, `app/components/display/KioskServiceSelection.tsx`, `app/components/display/CheckInForm.tsx`, `app/components/admin/Sidebar.tsx`, `DisplayConfirmModal.tsx`, `lib/queue/book.ts`, `tests/unit/book-without-session.test.ts` |
 | Profil (#4–#5 baru) | `app/admin/profil/page.tsx`, `lib/auth/actions.ts` (`updateProfileName`, `changePassword`), `app/components/admin/ProfileNameForm.tsx`, `ChangePasswordForm.tsx`, `FormStatus.tsx`, `app/components/PasswordInput.tsx` |
 | Web #5 | `lib/queue/ordering.ts`, `lib/queue/status.ts`, `lib/data/admin.ts` (`getTodayQueues`), `app/components/admin/AntreanManager.tsx`, `app/admin/antrean/page.tsx`, `app/display/[agencyId]/antrean/page.tsx`, `supabase/migrations/20261003115823_add_completed_at_to_queues.sql` |

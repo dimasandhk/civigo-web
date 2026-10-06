@@ -150,3 +150,35 @@ export function isoDayOfWeek(date: string): number {
   const day = new Date(`${date}T00:00:00Z`).getUTCDay(); // Sunday = 0
   return day === 0 ? 7 : day;
 }
+
+/**
+ * Rentang waktu untuk filter di Beranda. Semua rentang berakhir hari ini (WIB):
+ * tiket yang tanggalnya belum tiba belum punya hasil hadir/hangus.
+ */
+export type DateRange = "hari-ini" | "minggu-ini" | "bulan-ini";
+
+export const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
+  { value: "hari-ini", label: "Hari ini" },
+  { value: "minggu-ini", label: "Minggu ini" },
+  { value: "bulan-ini", label: "Bulan ini" },
+];
+
+/** Nilai `?…=` dari URL -> rentang yang dikenal, atau `fallback` kalau kosong/asing. */
+export function parseDateRange(raw: string | string[] | undefined, fallback: DateRange): DateRange {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return DATE_RANGE_OPTIONS.some((option) => option.value === value) ? (value as DateRange) : fallback;
+}
+
+/**
+ * Tanggal awal dan akhir (inklusif, `YYYY-MM-DD`) sebuah rentang.
+ * Minggu dimulai Senin; bulan dimulai tanggal 1.
+ */
+export function dateRangeBounds(range: DateRange, today: string): { from: string; to: string } {
+  if (range === "hari-ini") return { from: today, to: today };
+
+  if (range === "bulan-ini") return { from: `${today.slice(0, 7)}-01`, to: today };
+
+  const monday = new Date(`${today}T00:00:00Z`);
+  monday.setUTCDate(monday.getUTCDate() - (isoDayOfWeek(today) - 1));
+  return { from: monday.toISOString().slice(0, 10), to: today };
+}

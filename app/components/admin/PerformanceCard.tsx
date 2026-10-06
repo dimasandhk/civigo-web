@@ -1,8 +1,10 @@
-import { ChevronDown, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 export type PerformanceCardProps = {
   title: string;
-  filterLabel?: string;
+  /** Kontrol di pojok kanan atas, mis. `<RangeSelect>`. */
+  filter?: ReactNode;
   icon: LucideIcon;
   iconBg: string;
   iconColor: string;
@@ -13,7 +15,7 @@ export type PerformanceCardProps = {
 
 export default function PerformanceCard({
   title,
-  filterLabel = "Hari ini",
+  filter,
   icon: Icon,
   iconBg,
   iconColor,
@@ -23,15 +25,9 @@ export default function PerformanceCard({
 }: PerformanceCardProps) {
   return (
     <div className="flex flex-1 flex-col justify-between gap-4 rounded-[15px] bg-white p-5 shadow-soft">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <span className="text-[15px] font-medium text-ink">{title}</span>
-        <button
-          type="button"
-          className="flex cursor-pointer items-center gap-1 font-display text-[13px] text-queue-idle"
-        >
-          {filterLabel}
-          <ChevronDown size={14} />
-        </button>
+        {filter}
       </div>
       <div className="flex items-center gap-4">
         <div

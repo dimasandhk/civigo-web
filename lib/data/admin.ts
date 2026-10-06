@@ -1,5 +1,10 @@
 import { requireOfficer } from "@/lib/auth/session";
-import { startOfMonthInJakarta, todayInJakarta } from "@/lib/queue/time";
+import {
+  dateRangeBounds,
+  startOfMonthInJakarta,
+  todayInJakarta,
+  type DateRange,
+} from "@/lib/queue/time";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { RatingLevel } from "@/app/components/admin/ratings";
 import type { ServiceDonutItem } from "@/app/components/admin/ServiceDonutChart";
@@ -86,8 +91,6 @@ export type DashboardStats = {
   completedToday: number;
   remainingToday: number;
   avgTimeMinutes: number | null;
-  attendanceRate: number | null;
-  skippedCount: number;
   activeCounters: number;
   activeServices: number;
 };
@@ -125,7 +128,6 @@ export async function getAdminDashboardStats(
 
   const totalToday = list.length;
   const completedToday = list.filter((q) => q.status === "completed").length;
-  const skippedCount = list.filter((q) => q.status === "skipped").length;
   const remainingToday = list.filter((q) =>
     ["scheduled", "present", "served"].includes(q.status),
   ).length;
@@ -151,11 +153,6 @@ export async function getAdminDashboardStats(
     totalToday,
     completedToday,
     remainingToday,
-    skippedCount,
-    // null, bukan angka karangan: tanpa tiket sama sekali, persentase kehadiran
-    // tidak punya arti.
-    attendanceRate:
-      totalToday > 0 ? Math.round(((totalToday - skippedCount) / totalToday) * 100) : null,
     // `queues` belum punya called_at/served_at (completed_at saja tidak cukup),
     // jadi durasi nyata memang belum bisa dihitung. Sebelumnya di sini ada angka 15 yang
     // hardcoded tanpa syarat apa pun.
@@ -587,6 +584,56 @@ export async function getAdminReviews(
   };
 }
 
+export type QueueOutcome = {
+  /** Tiket yang datang: check-in, sedang/sudah dilayani (`present`, `served`, `completed`). */
+  attended: number;
+  /** Tiket hangus (`skipped`). */
+  skipped: number;
+  /** attended / (attended + skipped), dibulatkan; `null` kalau belum ada keduanya. */
+  attendanceRate: number | null;
+};
+
+const ATTENDED_STATUSES = new Set(["present", "served", "completed"]);
+
+/**
+ * Hadir vs hangus dalam rentang waktu, untuk kartu "Tingkat Kehadiran" dan
+ * "Antrean Hangus" di Beranda.
+ *
+ * Tiket yang masih `scheduled` (belum check-in, belum hangus) tidak dihitung: hasilnya
+ * belum ada. Dulu rumusnya (total - hangus) / total, jadi semua booking yang belum
+ * datang ikut terhitung "hadir" — makin salah begitu rentangnya sebulan.
+ */
+export async function getQueueOutcome(
+  agencyId: number,
+  locationId: number | null | undefined,
+  range: DateRange,
+): Promise<QueueOutcome> {
+  const { from, to } = dateRangeBounds(range, todayInJakarta());
+
+  let query = createServiceClient()
+    .from("queues")
+    .select("status, service:services!inner(agency_id)")
+    .eq("service.agency_id", agencyId)
+    .gte("schedule_date", from)
+    .lte("schedule_date", to);
+
+  if (locationId) query = query.eq("location_id", locationId);
+
+  const { data, error } = await query;
+  if (error) throw new Error(`Gagal memuat kehadiran antrean: ${error.message}`);
+
+  const rows = data ?? [];
+  const attended = rows.filter((q) => ATTENDED_STATUSES.has(q.status)).length;
+  const skipped = rows.filter((q) => q.status === "skipped").length;
+  const resolved = attended + skipped;
+
+  return {
+    attended,
+    skipped,
+    attendanceRate: resolved > 0 ? Math.round((attended / resolved) * 100) : null,
+  };
+}
+
 const DONUT_COLORS = [
   "#8979FF",
   "#FFAE4C",
@@ -598,57 +645,49 @@ const DONUT_COLORS = [
   "#F59E0B",
 ];
 
+/**
+ * Sebaran antrean per layanan dalam rentang waktu (kartu "Antrean Per Layanan").
+ * Dulu menghitung semua tiket sepanjang masa meski labelnya "Minggu Ini", dan
+ * menampilkan layanan dengan 0% kalau belum ada data. Sekarang kosong = kosong.
+ */
 export async function getServiceDonutData(
   agencyId: number,
-  locationId?: number | null,
+  locationId: number | null | undefined,
+  range: DateRange,
 ): Promise<ServiceDonutItem[]> {
-  const supabase = createServiceClient();
+  const { from, to } = dateRangeBounds(range, todayInJakarta());
 
-  let queueQuery = supabase
+  let queueQuery = createServiceClient()
     .from("queues")
-    .select("id, service:services!inner(id, name, agency_id)")
-    .eq("service.agency_id", agencyId);
+    .select("service:services!inner(id, name, agency_id)")
+    .eq("service.agency_id", agencyId)
+    .gte("schedule_date", from)
+    .lte("schedule_date", to);
 
   if (locationId) {
     queueQuery = queueQuery.eq("location_id", locationId);
   }
 
   const { data: queues, error } = await queueQuery;
+  if (error) throw new Error(`Gagal memuat antrean per layanan: ${error.message}`);
+  if (!queues || queues.length === 0) return [];
 
-  if (error || !queues || queues.length === 0) {
-    const { data: services } = await supabase
-      .from("services")
-      .select("name")
-      .eq("agency_id", agencyId)
-      .limit(4);
-
-    if (services && services.length > 0) {
-      return services.map((s, idx) => ({
-        name: s.name,
-        color: DONUT_COLORS[idx % DONUT_COLORS.length],
-        percentage: 0,
-        strokeDasharray: "0 226.2",
-        strokeDashoffset: 0,
-      }));
-    }
-
-    return [];
-  }
-
-  const counts: Record<string, number> = {};
+  // Dikelompokkan per id layanan, bukan per nama.
+  const counts = new Map<number, { name: string; count: number }>();
   for (const q of queues) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sName = (q.service as any)?.name ?? "Layanan";
-    counts[sName] = (counts[sName] || 0) + 1;
+    const service = q.service as unknown as { id: number; name: string };
+    const entry = counts.get(service.id) ?? { name: service.name, count: 0 };
+    entry.count += 1;
+    counts.set(service.id, entry);
   }
 
   const total = queues.length;
   const CIRCUMFERENCE = 2 * Math.PI * 36; // ~226.195
 
-  const sortedEntries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const sortedEntries = [...counts.values()].sort((a, b) => b.count - a.count);
   let accumulatedOffset = 0;
 
-  return sortedEntries.map(([name, count], index) => {
+  return sortedEntries.map(({ name, count }, index) => {
     const percentage = Math.round((count / total) * 100);
     const arcLength = (count / total) * CIRCUMFERENCE;
     const strokeDasharray = `${arcLength.toFixed(2)} ${(CIRCUMFERENCE - arcLength).toFixed(2)}`;
@@ -657,6 +696,7 @@ export async function getServiceDonutData(
 
     return {
       name,
+      count,
       color: DONUT_COLORS[index % DONUT_COLORS.length],
       percentage,
       strokeDasharray,
