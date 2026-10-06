@@ -31,10 +31,12 @@ export async function GET(request: NextRequest) {
       : await supabase.auth.getUser();
 
     const { searchParams } = new URL(request.url);
-    const queryUserId = searchParams.get("user_id");
     const queryNik = searchParams.get("nik")?.trim();
+    const queryUserId = searchParams.get("user_id");
 
-    const targetUserId = user?.id ?? queryUserId;
+    // Keamanan: user_id wajib berasal dari sesi login pengguna (Bearer token / Cookie),
+    // kecuali jika pengguna login memiliki role admin/petugas yang menginspeksi user lain.
+    const targetUserId = user ? (queryUserId && user.role !== "user" ? queryUserId : user.id) : null;
 
     if (!targetUserId && !queryNik) {
       return NextResponse.json(
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest) {
           error: {
             code: "UNAUTHORIZED",
             message:
-              "Silakan login terlebih dahulu atau sediakan parameter nik/user_id untuk melihat riwayat antrean.",
+              "Silakan login terlebih dahulu (sertakan Bearer token) untuk melihat riwayat antrean Anda.",
           },
         },
         { status: 401 }

@@ -854,21 +854,15 @@ export async function GET() {
         get: {
           tags: ["Antrean (Queues)"],
           summary: "Riwayat tiket antrean warga (aktif & lampau)",
-          description: "Mengambil daftar seluruh tiket antrean warga, otomatis dipisahkan menjadi `active_tickets` (hari ini/mendatang) dan `history_tickets` (selesai atau hangus). Tiket yang dilewati/hangus memiliki flag `can_reschedule: true` untuk tombol reschedule.",
+          description: "Mengambil daftar seluruh tiket antrean milik pengguna yang sedang login (menggunakan Bearer token di Mobile atau Cookie sesi di Web). Akun otomatis dideteksi dari token sesi secara aman sehingga tidak perlu mengirim user_id secara manual. Output otomatis dipisahkan menjadi `active_tickets` (hari ini/mendatang) dan `history_tickets` (selesai atau hangus). Tiket yang dilewati/hangus memiliki flag `can_reschedule: true` untuk tombol reschedule.",
+          security: [{ BearerAuth: [] }, { CookieAuth: [] }],
           parameters: [
-            {
-              name: "user_id",
-              in: "query",
-              required: false,
-              schema: { type: "string", format: "uuid" },
-              description: "User ID akun warga",
-            },
             {
               name: "nik",
               in: "query",
               required: false,
               schema: { type: "string", minLength: 16, maxLength: 16 },
-              description: "NIK warga (berguna untuk tiket walk-in atau kiosk)",
+              description: "Opsional: NIK warga (jika diakses dari mode kiosk pengunjung walk-in)",
             },
           ],
           responses: {
@@ -1240,6 +1234,22 @@ export async function GET() {
               },
             },
           },
+        },
+      },
+    },
+    components: {
+      securitySchemes: {
+        BearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+          description: "Sertakan Bearer token pengguna (access_token) yang diperoleh setelah login.",
+        },
+        CookieAuth: {
+          type: "apiKey",
+          in: "cookie",
+          name: "sb-access-token",
+          description: "Cookie sesi otomatis untuk pengguna web dashboard.",
         },
       },
     },
