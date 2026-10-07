@@ -361,6 +361,7 @@ export async function getTodayQueues(
       postponed,
       postponed_at,
       completed_at,
+      checked_in_at,
       counter:counters(id, counter_name),
       service:services!inner(id, name, agency_id),
       user:users(id, full_name, nik)
