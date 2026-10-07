@@ -55,7 +55,7 @@ Semua migrasi berikut telah berhasil di-push ke database Supabase remote:
 ### B. Fitur "Mundurkan Antrean" (Postpone Queue) untuk Petugas Loket
 - Petugas loket dapat memundurkan nomor antrean warga yang belum siap berkas atau sedang izin sebentar via `POST /api/queue/{id}/postpone`.
 - **Mekanisme**: Tiket diberi tanda `postponed = true`, `postponed_at = now()`, dan status tetap `present`.
-- **Pengurutan Prioritas**: Fungsi `callNextQueue` mendahulukan seluruh antrean reguler terlebih dahulu. Antrean yang dimundurkan ditempatkan di paling akhir antrean menunggu dan dilayani secara FIFO berdasarkan jam dimundurkannya (`postponed_at`).
+- **Pengurutan Prioritas**: Fungsi `callNextQueue` mendahulukan seluruh antrean reguler terlebih dahulu. Antrean yang dimundurkan ditempatkan di paling akhir antrean menunggu dan dilayani secara FIFO berdasarkan jam dimundurkannya (`postponed_at`). Di antara antrean reguler: sesi jam lebih awal, lalu nomor antrean. Sejak 06/10/2026 (`9c6273d`) status check-in tidak mempengaruhi urutan: tiket yang belum check-in tetap dipanggil sesuai nomornya.
 
 ### C. Modul Anggota Keluarga (Family Members)
 - Warga dapat mendaftarkan anggota keluarga (ayah, ibu, anak, istri, suami) melalui `POST /api/family-members` (validasi format NIK 16 digit).

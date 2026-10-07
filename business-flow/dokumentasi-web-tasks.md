@@ -343,7 +343,7 @@ Analisis dan simulasi sebelum/sesudah: [`web5-mundurkan-antrean.md`](./web5-mund
 | Dari | Ke | Lewat |
 |---|---|---|
 | `scheduled` (booking, belum datang) | `present` (sudah hadir) | Check-in di kios. |
-| `scheduled` | `served` (sedang dilayani) | Dipanggil langsung sebelum check-in. Bisa terjadi lewat "Panggil Antrean Berikutnya" kalau semua yang hadir sudah habis. |
+| `scheduled` | `served` (sedang dilayani) | Dipanggil sebelum check-in. Terjadi lewat "Panggil Antrean Berikutnya" begitu nomornya tiba gilirannya: sejak 06/10/2026 status check-in tidak mempengaruhi urutan. |
 | `present` | `served` | Dipanggil ke loket. |
 | `served` | `completed` (selesai) | **Selesaikan Layanan**. Waktu selesai dicatat di `completed_at` oleh trigger database. |
 | `served` | `present` + `postponed = true` | **Mundurkan Antrean**. |
@@ -358,10 +358,14 @@ Analisis dan simulasi sebelum/sesudah: [`web5-mundurkan-antrean.md`](./web5-mund
 
 1. Tiket yang belum pernah dimundurkan dulu. Yang dimundurkan paling belakang, **di belakang semua orang
    termasuk yang belum check-in** (keputusan 03/10/2026, opsi A).
-2. `present` sebelum `scheduled`.
-3. Sesama dimundurkan: yang lebih dulu dimundurkan dipanggil lebih dulu.
-4. Sesi jam yang lebih awal; tiket tanpa sesi di belakang.
-5. Nomor antrean.
+2. Sesama dimundurkan: yang lebih dulu dimundurkan dipanggil lebih dulu.
+3. Sesi jam yang lebih awal; tiket tanpa sesi di belakang.
+4. Nomor antrean — **sudah check-in atau belum tidak berpengaruh**.
+
+> **Perubahan 06/10/2026 (`9c6273d`, Satya), disengaja:** aturan "`present` (sudah check-in) sebelum `scheduled`
+> (belum datang)" dihapus. Antrean dipanggil sesuai nomornya, termasuk warga yang belum check-in di kios.
+> Contoh: B-001 booking tapi belum check-in, B-002 sudah check-in → yang dipanggil lebih dulu **B-001**
+> (dulu B-002). Kalau warganya tidak ada, petugas menghanguskan atau memundurkannya.
 
 ### Alur langkah demi langkah
 
@@ -412,7 +416,8 @@ Analisis dan simulasi sebelum/sesudah: [`web5-mundurkan-antrean.md`](./web5-mund
 
 ### Contoh lengkap (dari simulasi 03/10/2026)
 
-B-001 dan B-002 sudah check-in, B-003 dan B-004 booking tapi belum datang.
+B-001 dan B-002 sudah check-in, B-003 dan B-004 booking tapi belum datang. Hasilnya sama dengan urutan sejak
+06/10/2026, karena di contoh ini yang sudah check-in kebetulan bernomor lebih kecil.
 
 1. Panggil → **B-001**. B-001 minta waktu, petugas klik **Mundurkan Antrean**.
 2. "Selanjutnya" berubah ke **B-002**. Layar TV: B-002 → B-003 → B-004 → B-001.
@@ -425,6 +430,7 @@ B-001 dan B-002 sudah check-in, B-003 dan B-004 booking tapi belum datang.
 
 | Kasus | Hasil |
 |---|---|
+| Tiket belum check-in bernomor lebih kecil dari tiket yang sudah check-in (sesi sama) | Yang belum check-in dipanggil lebih dulu (sejak 06/10/2026). Kalau warganya tidak ada: hanguskan atau mundurkan. |
 | Mundurkan tiket yang sedang dilayani | Berhasil: `present`, `postponed = true`, loket dilepas, pindah ke paling belakang. |
 | Tiket yang sama dimundurkan lagi setelah dipanggil ulang | Berhasil; pindah ke belakang sesama tiket yang dimundurkan (urut waktu dimundurkan). Tidak ada batas jumlah. |
 | Mundurkan tiket yang **belum dipanggil** (`scheduled`/`present`), mis. lewat API | `422 POSTPONE_REQUIRES_SERVED`: `Hanya antrean yang sedang dilayani di loket yang dapat dimundurkan. Tiket … berstatus terjadwal.` Tiketnya tidak berubah. |
@@ -712,6 +718,7 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 | `c79295e` | 03/10/2026 | Dimas | Prasyarat kondisi di pemilih dokumen (Web #2 follow-up) |
 | `06f5a8a` | 03/10/2026 | Dimas | Tombol Mundurkan Antrean dan satu urutan panggil (Web #5) |
 | `76cd9ff` | 03/10/2026 | Dimas | Perbaikan hasil audit: `completed_at`, loket aktif saja, realtime dasbor, contoh username, tanpa sesi |
+| `9c6273d` | 06/10/2026 | Satya | Urutan panggil tidak lagi mendahulukan tiket yang sudah check-in; penanda check-in di dasbor |
 
 ### Dokumen terkait
 

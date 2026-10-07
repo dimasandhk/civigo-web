@@ -166,3 +166,7 @@ Skema database menggunakan tipe enum `public.user_role`:
    - **Rumus kehadiran diganti:** hadir (`present`/`served`/`completed`) ÷ (hadir + `skipped`); tiket `scheduled` belum punya hasil dan tidak dihitung. Rumus lama (total − hangus) ÷ total menghitung semua booking yang belum datang sebagai hadir.
    - "Antrean Per Layanan" dulu menghitung semua tiket sepanjang masa dan menampilkan layanan 0% saat kosong; sekarang mengikuti rentang dan punya empty state. Dropdown di kartu-kartu ini dulu hanya hiasan.
    - Detail: [`dokumentasi-web-tasks.md`](./dokumentasi-web-tasks.md#beranda-rentang-waktu-admin-daftar-baru-3-06102026).
+15. **Urutan panggil sesuai nomor, tanpa mendahulukan yang sudah check-in (06/10/2026, `9c6273d`, Satya)**:
+   - Aturan "`present` (sudah check-in) sebelum `scheduled` (belum datang)" dihapus dari `sortWaiting()` (`lib/queue/ordering.ts`). Urutan sekarang: belum dimundurkan dulu (yang dimundurkan paling akhir, FIFO menurut `postponed_at`), lalu sesi jam lebih awal, lalu nomor antrean.
+   - **Disengaja (dikonfirmasi 07/10/2026):** antrean dipanggil sesuai nomornya, termasuk warga yang belum check-in di kios. Contoh: B-001 booking tapi belum check-in, B-002 sudah check-in → B-001 dipanggil lebih dulu (dulu B-002). Kalau warganya tidak ada, petugas menghanguskan atau memundurkannya.
+   - Berlaku sama untuk tombol "Panggil Antrean Berikutnya", kartu "Selanjutnya"/"Sisa Antrean", dan layar TV, karena ketiganya memakai `sortWaiting()`.

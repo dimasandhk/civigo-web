@@ -5,6 +5,11 @@ Disusun 03/10/2026 sebelum Web #5 dikerjakan, lalu diperbarui setelah keputusan 
 Semua temuan dibuktikan lewat simulasi nyata di dev server (`localhost:3000`, akun petugas Samsat,
 Loket 1, MPP Grha Sawala) memakai Claude in Chrome dan DB remote.
 
+> **Pembaruan 06/10/2026 (`9c6273d`, Satya):** urutan panggil tidak lagi mendahulukan tiket yang sudah check-in
+> (`present`) atas yang belum datang (`scheduled`); antrean dipanggil sesuai nomor. Dokumen ini catatan per 03/10/2026,
+> jadi bagian "Cara kerja sekarang" dan hasil simulasinya memakai aturan lama. Aturan terbaru:
+> [`dokumentasi-web-tasks.md`](./dokumentasi-web-tasks.md#urutan-panggil-satu-sumber-untuk-semua-tampilan).
+
 ## Ringkasan
 
 | | |

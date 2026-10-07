@@ -137,6 +137,10 @@ ini dipanggil.
 
 ### Urutan pemanggilan
 
+> **Sudah tidak berlaku sejak 06/10/2026 (`9c6273d`):** poin 1 di bawah dihapus. Antrean dipanggil sesuai sesi lalu
+> nomor, sudah check-in atau belum; tiket yang dimundurkan tetap paling akhir. Lihat
+> [`dokumentasi-web-tasks.md`](./dokumentasi-web-tasks.md#urutan-panggil-satu-sumber-untuk-semua-tampilan).
+
 1. `present` didahulukan atas `scheduled` — yang sudah berdiri di ruangan
    dilayani sebelum yang belum datang;
 2. sesi paling awal;
