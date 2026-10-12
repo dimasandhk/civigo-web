@@ -31,6 +31,21 @@ web-dashboard:
         - Email/peran/instansi/cabang tidak bisa diubah sendiri (grant kolom users hanya full_name). Lupa password → direset admin.
     5. [x] Tambah toggle visibility input password. (06/10/2026)
         - Komponen PasswordInput (ikon mata) dipakai di form login dan semua kolom password di halaman Profil.
+    6. [x] Check-in kios pakai input NIK, dan hanya mengambil antrean hari itu di lokasi kios tersebut. (12/10/2026)
+        - Pencarian NIK/nomor antrean dibatasi schedule_date = hari ini (WIB) dan location_id = cabang kios. Dulu
+          POST /api/queue/check-in mencari di semua tanggal dan lokasi (urut tanggal terbaru, limit 3), jadi tiket hari
+          ini bisa tidak terambil kalau ada >= 3 booking mendatang, dan tiket cabang lain bisa ikut ter-check-in.
+        - Keputusan: NIK meng-check-in SEMUA tiket NIK itu hari ini di cabang kios (check-in = orangnya sudah datang),
+          termasuk tiket anggota keluarga ("Atas nama: ..."). Nomor antrean / id tiket hanya meng-check-in tiket itu.
+        - Layar hasil menampilkan semua tiket dengan statusnya (check-in berhasil / sudah check-in / sedang dipanggil
+          di Loket X / selesai / hangus). Semua selesai/hangus → pesan, bukan "Check-in berhasil".
+        - Tiket hari ini di cabang lain → ditolak dengan nama cabangnya (WRONG_LOCATION). NIK tanpa tiket hari ini
+          tapi ada booking mendatang → DATE_MISMATCH dengan tanggalnya.
+        - Tiket served yang belum check-in (dipanggil sebelum datang) kini diisi checked_in_at, status tetap served.
+        - Respons: tickets[] + checkedInCount; ticket (tiket pertama) & alreadyCheckedIn tetap ada untuk pemanggil
+          lama. location_id opsional. OpenAPI dibetulkan (dulu menulis ticket_id, padahal body-nya code).
+        - Check-in otomatis setelah walk-in kios kini mengirim id tiket, bukan nomor antrean.
+        - Detail: business-flow-notes.md poin 5.17. Kode: lib/queue/check-in.ts, tests/unit/check-in.test.ts.
 
 mobile:
     1. [ ] Ubah password di dalam app kalau sudah login.

@@ -22,7 +22,7 @@ export default async function InputCodePage({
         className="absolute top-4 left-4 sm:top-6 sm:left-8 z-10"
       />
 
-      <CheckInForm homeHref={withKioskLocation("/display", location.id)} />
+      <CheckInForm homeHref={withKioskLocation("/display", location.id)} locationId={location.id} />
     </main>
   );
 }

@@ -189,7 +189,8 @@ export default function KioskServiceSelection({
               method: "POST",
               headers: { "Content-Type": "application/json" },
               credentials: "omit",
-              body: JSON.stringify({ code: data.ticket.queue_number }),
+              // Pakai id: hanya tiket yang baru dibuat ini yang di-check-in.
+              body: JSON.stringify({ code: data.ticket.id, location_id: locationId }),
             }).catch(() => {});
           }
           setIssuedTicket(data.ticket);

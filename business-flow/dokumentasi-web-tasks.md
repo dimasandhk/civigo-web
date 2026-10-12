@@ -21,10 +21,11 @@ Kondisi per 03/10/2026, termasuk perbaikan hasil audit sore hari (lihat [Perbaik
 8. [Profil & ubah password (daftar baru #4–#5)](#profil--ubah-password-adminprofil-daftar-baru-45-06102026)
 9. [Kios walk-in tanpa sesi jam (daftar baru #2)](#kios-walk-in-tanpa-sesi-jam-displayselect-layanan-daftar-baru-2-06102026)
 10. [Beranda: rentang waktu (daftar baru #3)](#beranda-rentang-waktu-admin-daftar-baru-3-06102026)
-11. [Web #6 — Halaman reset password (tidak dilanjutkan)](#web-6--halaman-reset-password-tidak-dilanjutkan)
-12. [Perbaikan setelah audit (03/10/2026)](#perbaikan-setelah-audit-03102026)
-13. [Masalah yang masih diketahui](#masalah-yang-masih-diketahui)
-14. [Lampiran: cara menguji, file, dan riwayat commit](#lampiran)
+11. [Check-in kios per NIK (daftar baru #6)](#check-in-kios-per-nik-displayinput-code-daftar-baru-6-12102026)
+12. [Web #6 — Halaman reset password (tidak dilanjutkan)](#web-6--halaman-reset-password-tidak-dilanjutkan)
+13. [Perbaikan setelah audit (03/10/2026)](#perbaikan-setelah-audit-03102026)
+14. [Masalah yang masih diketahui](#masalah-yang-masih-diketahui)
+15. [Lampiran: cara menguji, file, dan riwayat commit](#lampiran)
 
 ---
 
@@ -43,6 +44,7 @@ Kondisi per 03/10/2026, termasuk perbaikan hasil audit sore hari (lihat [Perbaik
 | baru #4–#5 | Profil, ubah password, toggle tampilkan password | Selesai | 06/10/2026 | `36cb675` |
 | baru #2 | Kios walk-in tanpa pilih sesi jam | Selesai | 06/10/2026 | `f3bcd3b` |
 | baru #3 | Rentang waktu di Beranda | Selesai | 06/10/2026 | — |
+| baru #6 | Check-in kios per NIK, hanya hari ini di cabang kios | Selesai | 12/10/2026 | — |
 
 "Selesai" berarti fiturnya sudah dibangun dan berjalan sesuai tugas. Celah yang masih ada dicatat terpisah di
 [Masalah yang masih diketahui](#masalah-yang-masih-diketahui).
@@ -530,8 +532,8 @@ Tugas web-dashboard #2 di [`todos.txt`](./todos.txt): warga yang datang langsung
 | 1 | Memilih **Belum Mendaftar**, lalu memilih layanan instansi yang buka di cabang kios ini (bisa dicari atau disaring per instansi). | Muncul form: nama layanan, estimasi pengerjaan, **jam layanan instansi** ("Jam layanan 08:00 – 16:00. Dilayani sesuai urutan nomor antrean."), dokumen, tanggal, dan NIK. Tidak ada pilihan sesi jam. |
 | 2 | Mengisi NIK 16 digit, klik **Ambil Nomor Antrean**. | Kios memanggil `POST /api/queue/book` dengan `location_id` cabang kios dan **tanpa** `time_block`. |
 | 3 | — | Server mengecek jam operasional (lihat aturan di bawah), mencegah booking ganda, lalu menerbitkan nomor. |
-| 4 | — | Untuk tanggal hari ini, kios langsung mencatat kehadiran (`present`). Struk menampilkan nomor, layanan, tanggal, dan **Estimasi Layanan** (bukan sesi jam). |
-| 5 | (Opsional) Memasukkan nomor di **Sudah Mendaftar**. | "Anda sudah check-in" dengan kartu nomor antrean; baris "Sesi:" tidak ditampilkan untuk tiket tanpa sesi. |
+| 4 | — | Untuk tanggal hari ini, kios langsung mencatat kehadiran (`present`) lewat id tiket (sejak 12/10/2026; dulu lewat nomor antrean). Struk menampilkan nomor, layanan, tanggal, dan **Estimasi Layanan** (bukan sesi jam). |
+| 5 | (Opsional) Memasukkan nomor di **Sudah Mendaftar**. | "Anda Sudah Check-in" dengan kartu nomor antrean; baris "Sesi:" tidak ditampilkan untuk tiket tanpa sesi. Lihat juga [Check-in kios per NIK](#check-in-kios-per-nik-displayinput-code-daftar-baru-6-12102026). |
 
 ![Form walk-in tanpa sesi](img/web-tasks/06-kios-form-tanpa-sesi.jpg)
 ![Struk tanpa sesi](img/web-tasks/07-kios-tiket-tanpa-sesi.jpg)
@@ -637,6 +639,103 @@ per layanan minggu ini 2 (67%) / 1 (33%), bulan ini 2 (40%) / 2 (40%) / 1 (20%) 
 
 ---
 
+## Check-in kios per NIK (`/display/input-code`, daftar baru #6, 12/10/2026)
+
+Tugas web-dashboard #6 di [`todos.txt`](./todos.txt): check-in di kios memakai NIK, dan hanya mengambil antrean hari
+itu di cabang kios tersebut. **Kode:** `checkInQueue()` di `lib/queue/check-in.ts`, `app/api/queue/check-in/route.ts`,
+`app/components/display/CheckInForm.tsx`, `app/display/input-code/page.tsx`.
+
+**Masalah sebelumnya:** `POST /api/queue/check-in` mencari nomor antrean atau NIK di **semua tanggal dan semua cabang**,
+urut tanggal terbaru, maksimal 3 tiket. Akibatnya:
+- warga yang punya ≥ 3 booking di tanggal mendatang tidak bisa check-in tiket hari ini (yang terambil tiket mendatang,
+  lalu ditolak "terdaftar untuk tanggal …");
+- tiket cabang lain bisa di-check-in di kios mana pun;
+- satu NIK dengan beberapa tiket hari ini hanya satu yang ter-check-in.
+
+### Aturan
+
+| Input | Tiket yang dicari | Yang di-check-in |
+|---|---|---|
+| **NIK** 16 digit (boleh diketik berkelompok, mis. `3273 0101 …`) | Semua tiket NIK itu **hari ini (WIB) di cabang kios**, termasuk tiket anggota keluarga (tiket keluarga menyimpan NIK pemilik akun). | Semua yang masih `scheduled`. Check-in berarti orangnya sudah datang, jadi semua tiketnya ikut (keputusan 12/10/2026). |
+| **Nomor antrean** (`A-01`, `a1`, `A01`) | Tiket bernomor itu hari ini. | Hanya tiket itu. |
+| **Id tiket** (uuid, dipakai check-in otomatis walk-in dan nanti scan QR) | Tiket itu. | Hanya tiket itu. |
+
+Kios mengirim `location_id` cabangnya (dari `?locationId=`). Per tiket:
+
+| Status tiket | Yang terjadi | Label di layar |
+|---|---|---|
+| `scheduled` | Menjadi `present`, `checked_in_at` diisi. | **Check-in berhasil** |
+| `present` | Tidak berubah. | **Sudah check-in** |
+| `served` (dipanggil sebelum orangnya sampai) | Status tetap; `checked_in_at` diisi kalau masih kosong, sehingga dasbor loket menampilkan "Sudah Check-in". | **Sedang dipanggil di Loket X**, kartu kuning, paling atas |
+| `completed` / `skipped` | Tidak berubah. | **Sudah selesai** / **Hangus** |
+
+### Alur langkah demi langkah
+
+| # | Warga di kios | Sistem & layar |
+|---|---|---|
+| 1 | Memilih **Sudah Mendaftar**. | Form "Pindai Kode Antrean": `Ketik NIK (16 digit) atau Nomor Antrean (cth: A-01)`. |
+| 2 | Mengetik NIK, klik **Konfirmasi Kehadiran (Check-In)**. | Server mencari tiket hari ini milik NIK itu, lalu menyaring ke cabang kios. |
+| 3 | — | Semua tiket `scheduled` di-check-in sekaligus. Tiket yang sedang dipanggil dicatat waktu kedatangannya. |
+| 4 | — | Layar hasil menampilkan semua tiket NIK itu hari ini di cabang ini dengan labelnya. Judul: **Check-in Berhasil!** kalau ada yang baru di-check-in, **Nomor Anda Sedang Dipanggil** kalau tidak ada yang baru tapi ada yang sedang dipanggil, selain itu **Anda Sudah Check-in**. |
+| 5 | Klik **Scan Lagi** (warga berikutnya) atau **Selesai** (kembali ke beranda kios). | — |
+
+![Form check-in NIK](img/web-tasks/13-kios-checkin-form-nik.jpg)
+
+**Contoh (diuji 12/10/2026 di kios MPP).** NIK uji punya 6 tiket: A-01 dan B-01 (`scheduled`, B-01 untuk anggota
+keluarga Siti Aminah), C-01 (`served` di Loket 1 Samsat, belum check-in), D-01 (`completed`), E-01 hari ini di Kantor
+Disdukcapil Kota Bandung, dan A-91 besok. Hasil:
+- layar menampilkan C-01 (sedang dipanggil) di atas, lalu A-01 dan B-01 (check-in berhasil, B-01 "Atas nama: Siti
+  Aminah"), lalu D-01 (sudah selesai). Pesan: `Check-in berhasil untuk 2 antrean. Nomor antrean C-01 sedang dipanggil di Loket 1, segera menuju loket.`
+- database: A-01 dan B-01 menjadi `present` dengan `checked_in_at`; C-01 tetap `served` dan kini punya `checked_in_at`;
+  D-01, E-01 (cabang lain), dan A-91 (besok) tidak berubah.
+
+![Check-in NIK dengan beberapa tiket](img/web-tasks/14-kios-checkin-nik-banyak-tiket.jpg)
+![Check-in NIK dengan beberapa tiket (bawah)](img/web-tasks/15-kios-checkin-nik-banyak-tiket-bawah.jpg)
+
+NIK yang sama dimasukkan lagi: judul **Nomor Anda Sedang Dipanggil**, A-01 dan B-01 berlabel **Sudah check-in**,
+tidak ada yang ditulis ulang.
+
+![NIK dimasukkan lagi](img/web-tasks/18-kios-checkin-nik-sudah-check-in.jpg)
+
+Nomor antrean `f1` (diubah menjadi `F-01`): hanya tiket itu, tampilan satu kartu besar.
+
+![Check-in dengan nomor antrean](img/web-tasks/17-kios-checkin-nomor-antrean.jpg)
+
+### Semua kasus
+
+| Kasus | Hasil |
+|---|---|
+| Tiket hari ini hanya ada di **cabang lain** | `422 WRONG_LOCATION`: `Antrean Anda hari ini terdaftar di Kantor Samsat Bandung Timur. Silakan check-in di lokasi tersebut.` Tidak ada yang di-check-in. |
+| NIK tanpa tiket hari ini, tapi punya booking mendatang | `422 DATE_MISMATCH`: `Nomor antrean … terdaftar untuk tanggal 15/10/2026. Check-in hanya dapat dilakukan pada tanggal jadwal layanan.` |
+| Id tiket untuk tanggal lain | `422 DATE_MISMATCH` (sama). |
+| NIK/nomor tidak punya tiket sama sekali hari ini | `404 TICKET_NOT_FOUND`: `Tidak ada antrean hari ini dengan kode/NIK "…". …` |
+| NIK punya ≥ 3 booking di tanggal mendatang + 1 hari ini | Tiket hari ini ter-check-in (dulu tidak terambil). |
+| Semua tiket hari ini sudah selesai/hangus | Satu tiket: `422 ALREADY_COMPLETED` / `TICKET_SKIPPED` (pesan lama). Beberapa: `422 NO_ACTIVE_TICKET`: `Semua antrean Anda hari ini sudah selesai atau hangus: A-01 (hangus), C-02 (selesai). …` |
+| Tiket dipanggil petugas tepat saat warga check-in | Tidak ditimpa (update hanya untuk yang masih `scheduled`); layar menampilkan tiket itu sebagai "Sedang dipanggil". |
+| Kode kosong | `400 CODE_REQUIRED` |
+| `location_id` bukan bilangan bulat positif | `400 INVALID_LOCATION` |
+| Pemanggil tanpa `location_id` | Cabang tidak dicek (hanya tanggal). Kios selalu mengirimnya. |
+
+![Tiket di cabang lain](img/web-tasks/16-kios-checkin-cabang-lain.jpg)
+
+### Bentuk respons API
+
+`200`: `{ ok, tickets: [...], checkedInCount, message, ticket, alreadyCheckedIn }`. Setiap tiket berisi `id`,
+`queue_number`, `status`, `schedule_date`, `time_block`, `service_name`, `agency_name`, `counter_name`,
+`family_member_name`, dan `outcome` (`checked_in` | `already_checked_in` | `being_served` | `completed` | `skipped`).
+`ticket` (= `tickets[0]`) dan `alreadyCheckedIn` (= tidak ada yang baru di-check-in) adalah bentuk lama, dipertahankan
+untuk pemanggil di luar kios. Di repo ini hanya kios yang memanggil endpoint ini; repo mobile belum dicek. Dokumentasi
+OpenAPI dulu menulis body `ticket_id` padahal endpoint membaca `code`; sudah dibetulkan.
+
+### Perubahan pendukung
+
+- **Check-in otomatis setelah walk-in** (`KioskServiceSelection.tsx`) kini mengirim id tiket + `location_id`, bukan
+  nomor antrean. Dengan pencarian lama, nomor bisa jatuh ke booking tanggal lain dan walk-in diam-diam tidak ter-check-in.
+- Fallback "kolom `checked_in_at` belum ada" dihapus dari endpoint; migrasinya sudah jalan di DB remote sejak 07/10/2026.
+- Test: `tests/unit/check-in.test.ts` (18 test, tabel `queues` tiruan di memori).
+
+---
+
 ## Web #6 — Halaman reset password (tidak dilanjutkan)
 
 Tidak dilanjutkan (06/10/2026): diganti ubah password setelah login (lihat bagian sebelumnya). Kondisi alur email yang tersisa:
@@ -678,7 +777,6 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 | Akun per cabang tidak bisa login lewat username. | #4 | `disdukcapil.mpp` dan `disdukcapil.induk` sama-sama menjadi `disdukcapil@civigo.com`. | Pakai email lengkap. |
 | Mundurkan tidak dibatasi jumlah dan tidak dicek cabang. | #5 | Tiket bisa dimundurkan berkali-kali; API mengecek instansi tapi tidak `location_id`. | Risiko rendah; diputuskan di luar cakupan Web #5. |
 | `super_admin` tanpa instansi selalu melihat instansi id 1. | semua | — | Belum ada akun `super_admin`, jadi belum berdampak. |
-| Check-in kios tidak mengecek cabang tiket. | kios | Tiket cabang A bisa di-check-in di kios cabang B. | Nomor antrean unik per layanan per hari, jadi tiketnya tetap benar; hanya lokasi check-in yang tidak dicek. |
 | Durasi layanan rata-rata belum bisa dihitung. | — | Beranda menampilkan "-". | Sudah ada `completed_at`, tapi belum ada waktu mulai dilayani (`served_at`). |
 
 ---
@@ -691,7 +789,7 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 - Untuk menguji booking di luar jam operasional (malam/akhir pekan), tambahkan ke `.env.local`:
   `ALLOW_OFFHOURS_TESTING="true"`. Flag ini hanya dibaca saat booking. Memanggil, menyelesaikan, menghanguskan,
   dan memundurkan antrean tidak dicek jam operasional.
-- Test otomatis: `npx vitest run` (155 test per 06/10/2026, semua di-mock, tidak memakai kuota apa pun).
+- Test otomatis: `npx vitest run` (176 test per 12/10/2026, semua di-mock, tidak memakai kuota apa pun).
 
 ### File utama per tugas
 
@@ -703,6 +801,7 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 | Web #4 | `lib/auth/actions.ts`, `lib/auth/session.ts`, `app/components/auth/LoginForm.tsx` |
 | Beranda rentang waktu (#3 baru) | `app/admin/page.tsx`, `app/components/admin/RangeSelect.tsx`, `PerformanceCard.tsx`, `ServiceDonutChart.tsx`, `WeeklyQueueChart.tsx`, `lib/data/admin.ts` (`getQueueOutcome`, `getServiceDonutData`), `lib/queue/time.ts`, `tests/unit/dashboard-ranges.test.ts` |
 | Kios tanpa sesi & cabang (#2 baru) | `app/display/page.tsx`, `app/display/select-layanan/page.tsx`, `app/display/input-code/page.tsx`, `lib/data/kiosk.ts`, `app/components/display/KioskServiceSelection.tsx`, `app/components/display/CheckInForm.tsx`, `app/components/admin/Sidebar.tsx`, `DisplayConfirmModal.tsx`, `lib/queue/book.ts`, `tests/unit/book-without-session.test.ts` |
+| Check-in kios per NIK (#6 baru) | `lib/queue/check-in.ts`, `app/api/queue/check-in/route.ts`, `app/components/display/CheckInForm.tsx`, `app/display/input-code/page.tsx`, `app/components/display/KioskServiceSelection.tsx`, `app/api/openapi.json/route.ts`, `tests/unit/check-in.test.ts` |
 | Profil (#4–#5 baru) | `app/admin/profil/page.tsx`, `lib/auth/actions.ts` (`updateProfileName`, `changePassword`), `app/components/admin/ProfileNameForm.tsx`, `ChangePasswordForm.tsx`, `FormStatus.tsx`, `app/components/PasswordInput.tsx` |
 | Web #5 | `lib/queue/ordering.ts`, `lib/queue/status.ts`, `lib/data/admin.ts` (`getTodayQueues`), `app/components/admin/AntreanManager.tsx`, `app/admin/antrean/page.tsx`, `app/display/[agencyId]/antrean/page.tsx`, `supabase/migrations/20261003115823_add_completed_at_to_queues.sql` |
 

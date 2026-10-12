@@ -47,8 +47,8 @@ Skema database menggunakan tipe enum `public.user_role`:
 
 ### B. Alur Check-in di Kios Fisik (`/display`)
 1. **Warga Sudah Mendaftar**:
-   - Memilih menu "Sudah Mendaftar" -> Scan QR Code atau ketik kode tiket.
-   - Tiket divalidasi ke sistem antrean hari tersebut.
+   - Memilih menu "Sudah Mendaftar" -> ketik NIK atau nomor antrean (scan QR belum ada).
+   - Hanya tiket hari ini di cabang kios itu yang dicari. NIK meng-check-in semua tiket NIK itu hari ini di cabang tersebut; nomor antrean hanya tiket itu (poin 5.17).
 2. **Warga Belum Mendaftar (Walk-in)**:
    - Memilih menu "Belum Mendaftar" -> Memilih instansi & jenis layanan.
    - Sistem mencetak/menerbitkan nomor antrean instan sesuai kuota walk-in.
@@ -174,3 +174,12 @@ Skema database menggunakan tipe enum `public.user_role`:
    - Commit `9c6273d` menambah penanda "Sudah/Belum Check-in" di dasbor loket dan kolom `queues.checked_in_at` (diisi `POST /api/queue/check-in`), tetapi tiket yang sedang dilayani selalu tampil "Belum Check-in" karena dua hal: migrasi `20261006191500_add_checked_in_at_to_queues` belum dijalankan di DB remote (endpoint check-in diam-diam memakai fallback tanpa kolom itu), dan `getTodayQueues()` tidak men-select `checked_in_at` sehingga penanda hanya membaca `status === "present"`.
    - 07/10/2026: migrasi dijalankan di DB remote dan dicatat dengan versi `20261006191500` (sama dengan file repo, seperti `supabase migration repair`), dan `checked_in_at` ditambahkan ke query dasbor.
    - Tiket yang check-in sebelum 07/10/2026 tidak punya `checked_in_at`, jadi kalau sedang dilayani masih tampil "Belum Check-in". Check-in baru tercatat normal.
+17. **Check-in kios per NIK, hanya hari ini di cabang kios (12/10/2026, daftar baru web-dashboard #6)**:
+   - `POST /api/queue/check-in` (logika di `lib/queue/check-in.ts`) dulu mencari nomor antrean/NIK di semua tanggal dan semua cabang (urut tanggal terbaru, limit 3). Tiket hari ini tidak terambil kalau ada ≥ 3 booking di tanggal mendatang, dan tiket cabang lain bisa di-check-in di kios mana pun. Sekarang pencarian NIK dan nomor antrean dibatasi `schedule_date` = hari ini (WIB); kios mengirim `location_id` cabangnya.
+   - **NIK meng-check-in semua tiket NIK itu hari ini di cabang kios** (keputusan 12/10/2026): check-in berarti orangnya sudah datang, jadi semua tiketnya ikut, termasuk tiket anggota keluarga (tiket keluarga menyimpan NIK pemilik akun; layar menampilkan "Atas nama: ..."). Nomor antrean atau id tiket hanya meng-check-in tiket itu.
+   - Layar hasil kios menampilkan semua tiket hari ini di cabang itu, masing-masing dengan status: check-in berhasil, sudah check-in, sedang dipanggil di Loket X (ditaruh paling atas), sudah selesai, hangus. Kalau semua tiket selesai/hangus → `422` (`ALREADY_COMPLETED` / `TICKET_SKIPPED` untuk satu tiket, `NO_ACTIVE_TICKET` untuk beberapa).
+   - **Tiket hari ini di cabang lain tidak di-check-in**; kios menjawab `422 WRONG_LOCATION` dengan nama cabangnya. NIK tanpa tiket hari ini tapi punya booking mendatang → `422 DATE_MISMATCH` dengan tanggalnya.
+   - **Tiket `served` yang belum check-in** (dipanggil sebelum orangnya sampai) kini diisi `checked_in_at` saat orangnya check-in di kios; status tetap `served`, penanda di dasbor loket jadi "Sudah Check-in".
+   - Respons kini `tickets: [...]` + `checkedInCount`; `ticket` (= tiket pertama) dan `alreadyCheckedIn` tetap ada untuk pemanggil lama. `location_id` opsional; tanpanya cabang tidak dicek. Dokumentasi OpenAPI dulu menulis body `ticket_id`, padahal endpoint membaca `code`; sudah dibetulkan.
+   - Check-in otomatis setelah walk-in kios kini mengirim id tiket, bukan nomor antrean. Dengan pencarian lama, nomor bisa jatuh ke booking tanggal lain sehingga walk-in diam-diam tidak ter-check-in.
+   - Fallback "kolom `checked_in_at` belum ada" dihapus dari endpoint; migrasinya sudah jalan di DB remote (poin 16).

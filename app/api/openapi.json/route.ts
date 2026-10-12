@@ -1059,23 +1059,49 @@ export async function GET() {
         post: {
           tags: ["Antrean (Queues)"],
           summary: "Check-in antrean di kios fisik",
-          description: "Mengonfirmasi kehadiran fisik warga di lokasi (mengubah status scheduled -> present).",
+          description:
+            "Mengonfirmasi kehadiran fisik warga (scheduled -> present, checked_in_at diisi). Hanya tiket hari ini (WIB). " +
+            "NIK meng-check-in semua tiket NIK itu hari ini di cabang location_id, termasuk tiket anggota keluarga; " +
+            "nomor antrean atau id tiket hanya meng-check-in tiket itu. Tiket served yang belum punya checked_in_at " +
+            "dicatat waktu kedatangannya tanpa mengubah status.",
           requestBody: {
             required: true,
             content: {
               "application/json": {
                 schema: {
                   type: "object",
-                  required: ["ticket_id"],
+                  required: ["code"],
                   properties: {
-                    ticket_id: { type: "string", format: "uuid" },
+                    code: {
+                      type: "string",
+                      description: "NIK 16 digit, nomor antrean (A-01), atau id tiket (uuid).",
+                      example: "3273010101010001",
+                    },
+                    location_id: {
+                      type: "integer",
+                      nullable: true,
+                      description: "Cabang kios. Kalau dikosongkan, cabang tiket tidak dicek.",
+                      example: 1,
+                    },
                   },
                 },
               },
             },
           },
           responses: {
-            "200": { description: "Check-in berhasil, status tiket kini 'present'." },
+            "200": {
+              description:
+                "Minimal satu tiket aktif. `tickets[]` berisi semua tiket hari ini di cabang itu dengan `outcome` " +
+                "(checked_in | already_checked_in | being_served | completed | skipped). `ticket` = tickets[0], " +
+                "`alreadyCheckedIn` = tidak ada tiket yang baru di-check-in (bentuk lama).",
+            },
+            "400": { description: "CODE_REQUIRED atau INVALID_LOCATION." },
+            "404": { description: "TICKET_NOT_FOUND: tidak ada tiket hari ini untuk kode/NIK itu." },
+            "422": {
+              description:
+                "DATE_MISMATCH (tiket untuk tanggal lain), WRONG_LOCATION (tiket hari ini ada di cabang lain), " +
+                "ALREADY_COMPLETED / TICKET_SKIPPED / NO_ACTIVE_TICKET (semua tiket selesai atau hangus).",
+            },
           },
         },
       },

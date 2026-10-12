@@ -2,25 +2,80 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { AlertCircle, CheckCircle2, Clock, Loader2, QrCode, Search, UserCheck } from "lucide-react";
+import { AlertCircle, BellRing, CheckCircle2, Clock, Loader2, QrCode, Search, UserCheck, Users } from "lucide-react";
+import type { CheckInOutcome, CheckInTicket } from "@/lib/queue/check-in";
 
-type CheckInTicket = {
-  id: string;
-  queue_number: string;
-  status: string;
-  schedule_date: string;
-  /** Null untuk tiket tanpa sesi jam (walk-in kios). */
-  time_block: string | null;
-  service_name: string;
-  counter_name: string | null;
-  agency_name: string;
+type CheckInResponse = {
+  tickets: CheckInTicket[];
+  checkedInCount: number;
+  message: string;
 };
 
-export default function CheckInForm({ homeHref }: { homeHref: string }) {
+const OUTCOME_BADGE: Record<CheckInOutcome, { label: string; className: string }> = {
+  checked_in: { label: "Check-in berhasil", className: "bg-emerald-100 text-emerald-700" },
+  already_checked_in: { label: "Sudah check-in", className: "bg-emerald-50 text-emerald-700" },
+  being_served: { label: "Sedang dipanggil", className: "bg-amber-100 text-amber-800" },
+  completed: { label: "Sudah selesai", className: "bg-zinc-100 text-zinc-600" },
+  skipped: { label: "Hangus", className: "bg-red-100 text-red-700" },
+};
+
+function badgeLabel(ticket: CheckInTicket): string {
+  return ticket.outcome === "being_served"
+    ? `Sedang dipanggil di ${ticket.counter_name ?? "loket"}`
+    : OUTCOME_BADGE[ticket.outcome].label;
+}
+
+function TicketCard({ ticket, large }: { ticket: CheckInTicket; large: boolean }) {
+  const finished = ticket.outcome === "completed" || ticket.outcome === "skipped";
+
+  return (
+    <div
+      className={`flex w-full flex-col items-center gap-2 rounded-[18px] border p-5 ${
+        ticket.outcome === "being_served"
+          ? "border-amber-300 bg-amber-50"
+          : finished
+            ? "border-line bg-board/60"
+            : "border-brand/20 bg-brand-tint/40"
+      }`}
+    >
+      {large && (
+        <span className="text-xs font-semibold uppercase tracking-wider text-brand">Nomor Antrean Anda</span>
+      )}
+      <span
+        className={`font-display font-extrabold tracking-tight ${large ? "text-6xl" : "text-4xl"} ${
+          finished ? "text-queue-idle" : "text-brand"
+        }`}
+      >
+        {ticket.queue_number}
+      </span>
+      <div className="flex flex-col items-center text-center gap-1 text-sm font-medium text-ink">
+        <span>
+          {ticket.agency_name} — {ticket.service_name}
+        </span>
+        {ticket.family_member_name && (
+          <span className="flex items-center gap-1.5 text-xs text-queue-idle">
+            <Users size={14} /> Atas nama: {ticket.family_member_name}
+          </span>
+        )}
+        {ticket.time_block && (
+          <span className="flex items-center gap-1.5 text-xs text-queue-idle">
+            <Clock size={14} /> Sesi: {ticket.time_block}
+          </span>
+        )}
+      </div>
+      <span
+        className={`mt-1 rounded-full px-3 py-1 text-xs font-semibold ${OUTCOME_BADGE[ticket.outcome].className}`}
+      >
+        {badgeLabel(ticket)}
+      </span>
+    </div>
+  );
+}
+
+export default function CheckInForm({ homeHref, locationId }: { homeHref: string; locationId: number }) {
   const [code, setCode] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [ticket, setTicket] = useState<CheckInTicket | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [result, setResult] = useState<CheckInResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -28,8 +83,7 @@ export default function CheckInForm({ homeHref }: { homeHref: string }) {
     if (!code.trim()) return;
 
     setError(null);
-    setMessage(null);
-    setTicket(null);
+    setResult(null);
 
     startTransition(async () => {
       try {
@@ -37,7 +91,7 @@ export default function CheckInForm({ homeHref }: { homeHref: string }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "omit",
-          body: JSON.stringify({ code: code.trim() }),
+          body: JSON.stringify({ code: code.trim(), location_id: locationId }),
         });
 
         const data = await res.json();
@@ -45,8 +99,7 @@ export default function CheckInForm({ homeHref }: { homeHref: string }) {
         if (!res.ok || !data.ok) {
           setError(data?.error?.message ?? "Tiket antrean tidak ditemukan. Coba periksa kembali.");
         } else {
-          setTicket(data.ticket);
-          setMessage(data.message);
+          setResult({ tickets: data.tickets, checkedInCount: data.checkedInCount, message: data.message });
         }
       } catch {
         setError("Gagal menghubungi server. Periksa koneksi jaringan.");
@@ -54,37 +107,36 @@ export default function CheckInForm({ homeHref }: { homeHref: string }) {
     });
   };
 
+  const beingServed = result?.tickets.some((t) => t.outcome === "being_served") ?? false;
+
   return (
     <div className="flex w-full max-w-[800px] flex-col items-center gap-6">
       {/* Result Card Modal when Check-in succeeds */}
-      {ticket ? (
+      {result ? (
         <div className="flex w-full max-w-[540px] flex-col items-center gap-5 rounded-[24px] bg-white p-6 sm:p-8 shadow-card animate-in fade-in zoom-in-95">
-          <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-            <CheckCircle2 size={36} />
+          <div
+            className={`flex size-16 items-center justify-center rounded-full ${
+              beingServed ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"
+            }`}
+          >
+            {beingServed ? <BellRing size={34} /> : <CheckCircle2 size={36} />}
           </div>
 
           <div className="flex flex-col items-center text-center gap-1">
-            <h2 className="font-display text-2xl font-bold text-ink">Check-in Berhasil!</h2>
-            <p className="font-display text-sm text-queue-idle">
-              {message ?? "Kehadiran Anda telah tercatat di sistem."}
-            </p>
+            <h2 className="font-display text-2xl font-bold text-ink">
+              {result.checkedInCount > 0
+                ? "Check-in Berhasil!"
+                : beingServed
+                  ? "Nomor Anda Sedang Dipanggil"
+                  : "Anda Sudah Check-in"}
+            </h2>
+            <p className="font-display text-sm text-queue-idle">{result.message}</p>
           </div>
 
-          <div className="flex w-full flex-col items-center gap-2 rounded-[18px] bg-brand-tint/40 p-5 border border-brand/20">
-            <span className="text-xs font-semibold uppercase tracking-wider text-brand">
-              Nomor Antrean Anda
-            </span>
-            <span className="font-display text-6xl font-extrabold text-brand tracking-tight">
-              {ticket.queue_number}
-            </span>
-            <div className="mt-2 flex flex-col items-center text-center gap-1 text-sm font-medium text-ink">
-              <span>{ticket.agency_name} — {ticket.service_name}</span>
-              {ticket.time_block && (
-                <span className="flex items-center gap-1.5 text-xs text-queue-idle">
-                  <Clock size={14} /> Sesi: {ticket.time_block}
-                </span>
-              )}
-            </div>
+          <div className="flex w-full flex-col gap-3">
+            {result.tickets.map((ticket) => (
+              <TicketCard key={ticket.id} ticket={ticket} large={result.tickets.length === 1} />
+            ))}
           </div>
 
           <div className="flex w-full flex-col gap-3 text-center">
@@ -97,9 +149,8 @@ export default function CheckInForm({ homeHref }: { homeHref: string }) {
               <button
                 type="button"
                 onClick={() => {
-                  setTicket(null);
+                  setResult(null);
                   setCode("");
-                  setMessage(null);
                 }}
                 className="flex-1 cursor-pointer rounded-[12px] border border-line py-3 font-display text-sm font-semibold text-ink hover:bg-board transition-colors"
               >
@@ -122,7 +173,7 @@ export default function CheckInForm({ homeHref }: { homeHref: string }) {
               Pindai Kode Antrean
             </h1>
             <p className="font-display text-base sm:text-lg font-medium text-brand">
-              Masukkan Nomor Antrean atau NIK Anda untuk konfirmasi kehadiran
+              Masukkan NIK atau Nomor Antrean Anda untuk konfirmasi kehadiran
             </p>
           </header>
 
@@ -156,7 +207,7 @@ export default function CheckInForm({ homeHref }: { homeHref: string }) {
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="Ketik Nomor Antrean (cth: A-01) atau NIK"
+                placeholder="Ketik NIK (16 digit) atau Nomor Antrean (cth: A-01)"
                 disabled={isPending}
                 autoFocus
                 className="w-full rounded-[16px] bg-white px-5 py-3.5 text-center font-display text-base sm:text-lg font-semibold text-ink shadow-card outline-none placeholder:text-queue-idle/60 focus-visible:ring-2 focus-visible:ring-brand"
