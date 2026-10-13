@@ -237,25 +237,19 @@ export async function GET(request: NextRequest) {
         ["scheduled", "present", "served"].includes(t.status) &&
         t.schedule_date >= today;
 
-      // 2. Antrean yang baru saja selesai hari ini dan belum di-review (null atau false)
-      const isPendingReviewToday =
+      // 2. Antrean selesai HANYA tetap di active_tickets jika is_reviewed masih null (belum memilih aksi)
+      const isPendingReview =
         t.status === "completed" &&
         t.schedule_date >= today &&
-        t.is_reviewed !== true;
+        t.is_reviewed === null;
 
-      // 3. Antrean yang pengguna secara eksplisit pilih "Later" (is_reviewed === false)
-      const isReviewLater =
-        t.status === "completed" &&
-        t.is_reviewed === false;
-
-      return isOngoingActive || isPendingReviewToday || isReviewLater;
+      return isOngoingActive || isPendingReview;
     });
 
     const historyTickets = formattedTickets.filter((t) => {
       const isActive =
         (["scheduled", "present", "served"].includes(t.status) && t.schedule_date >= today) ||
-        (t.status === "completed" && t.schedule_date >= today && t.is_reviewed !== true) ||
-        (t.status === "completed" && t.is_reviewed === false);
+        (t.status === "completed" && t.schedule_date >= today && t.is_reviewed === null);
 
       return !isActive;
     });

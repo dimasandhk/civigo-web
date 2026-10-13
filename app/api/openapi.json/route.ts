@@ -842,7 +842,7 @@ export async function GET() {
         get: {
           tags: ["Antrean (Queues)"],
           summary: "Riwayat tiket antrean warga (aktif & lampau)",
-          description: "Mengambil daftar seluruh tiket antrean milik pengguna yang sedang login (menggunakan Bearer token di Mobile atau Cookie sesi di Web). Akun otomatis dideteksi dari token sesi secara aman sehingga tidak perlu mengirim user_id secara manual. Output otomatis dipisahkan menjadi `active_tickets` (hari ini/mendatang atau tiket completed yang belum di-review) dan `history_tickets` (selesai dan sudah di-review, atau hangus). Setiap tiket menyertakan status `is_reviewed` (null = belum diulas/default, false = diulas nanti, true = sudah diulas). Tiket yang dilewati/hangus memiliki flag `can_reschedule: true` untuk tombol reschedule.",
+          description: "Mengambil daftar seluruh tiket antrean milik pengguna yang sedang login (menggunakan Bearer token di Mobile atau Cookie sesi di Web). Akun otomatis dideteksi dari token sesi secara aman sehingga tidak perlu mengirim user_id secara manual. Output otomatis dipisahkan menjadi `active_tickets` (hari ini/mendatang, dan tiket completed hanya jika is_reviewed masih null) dan `history_tickets` (selesai dan sudah di-review, review ditunda dengan is_reviewed false, atau tiket hangus). Setiap tiket menyertakan status `is_reviewed` (null = belum diulas/default, false = diulas nanti, true = sudah diulas). Tiket yang dilewati/hangus memiliki flag `can_reschedule: true` untuk tombol reschedule.",
           security: [{ BearerAuth: [] }, { CookieAuth: [] }],
           parameters: [
             {
@@ -1051,7 +1051,7 @@ export async function GET() {
         post: {
           tags: ["Antrean (Queues)"],
           summary: "Tunda ulasan tiket yang selesai (review later)",
-          description: "Menandai tiket yang telah selesai (status 'completed') dengan is_reviewed = false saat warga memilih tombol 'Nanti Saja'. Tiket tetap dipertahankan di active_tickets pada /api/queue/my sebagai pengingat sampai warga memberikan ulasan.",
+          description: "Menandai tiket yang telah selesai (status 'completed') dengan is_reviewed = false saat warga memilih tombol 'Nanti Saja'. Tiket dipindahkan ke history_tickets pada /api/queue/my dan dapat diulas kembali nanti.",
           security: [{ BearerAuth: [] }, { CookieAuth: [] }],
           parameters: [
             {
@@ -1069,7 +1069,7 @@ export async function GET() {
                 "application/json": {
                   example: {
                     ok: true,
-                    message: "Ulasan berhasil ditunda. Tiket tetap aktif sebagai pengingat ulasan.",
+                    message: "Ulasan berhasil ditunda. Tiket dipindahkan ke riwayat antrean.",
                     ticket: {
                       id: "b2d2f1f0-4592-4f70-985e-998811223344",
                       queue_number: "A-008",

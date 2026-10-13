@@ -7,7 +7,7 @@ import { markReviewLater } from "@/lib/queue/review-later";
  *
  * Menandai tiket yang berstatus completed dengan is_reviewed = false.
  * Digunakan oleh aplikasi mobile saat pengguna memilih "Nanti Saja" pada permintaan ulasan,
- * sehingga tiket antrean tetap berada di `active_tickets` sebagai reminder sampai warga mengulas.
+ * sehingga tiket antrean berpindah ke `history_tickets` dengan status is_reviewed = false dan dapat diulas nanti.
  */
 export async function POST(
   _request: NextRequest,

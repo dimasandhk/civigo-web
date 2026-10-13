@@ -227,21 +227,21 @@ describe("Citizen Queue History (GET /api/queue/my)", () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.active_count).toBe(2);
-    expect(json.history_count).toBe(1);
+    expect(json.active_count).toBe(1);
+    expect(json.history_count).toBe(2);
 
     const activeIds = json.active_tickets.map((t: { id: string }) => t.id);
-    expect(activeIds).toContain("completed-null");
-    expect(activeIds).toContain("completed-later");
+    expect(activeIds).toEqual(["completed-null"]);
 
     const historyIds = json.history_tickets.map((t: { id: string }) => t.id);
+    expect(historyIds).toContain("completed-later");
     expect(historyIds).toContain("completed-reviewed");
 
     // Check is_reviewed values on response
     const nullTicket = json.active_tickets.find((t: { id: string }) => t.id === "completed-null");
     expect(nullTicket.is_reviewed).toBeNull();
 
-    const laterTicket = json.active_tickets.find((t: { id: string }) => t.id === "completed-later");
+    const laterTicket = json.history_tickets.find((t: { id: string }) => t.id === "completed-later");
     expect(laterTicket.is_reviewed).toBe(false);
 
     const reviewedTicket = json.history_tickets.find((t: { id: string }) => t.id === "completed-reviewed");

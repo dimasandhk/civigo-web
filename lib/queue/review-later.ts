@@ -79,7 +79,7 @@ export async function markReviewLater(id: string): Promise<ReviewLaterResult> {
 
   return {
     ok: true,
-    message: "Ulasan berhasil ditunda. Tiket tetap aktif sebagai pengingat ulasan.",
+    message: "Ulasan berhasil ditunda. Tiket dipindahkan ke riwayat antrean.",
     ticket: {
       id: ticket.id,
       queue_number: ticket.queue_number,
