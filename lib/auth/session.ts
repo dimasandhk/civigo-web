@@ -40,7 +40,12 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Pro
     // Dipanggil di luar request context (misal build time / isolated tests)
   }
 
-  const supabase = await createClient();
+  let supabase;
+  try {
+    supabase = await createClient();
+  } catch {
+    return null;
+  }
 
   let userId: string | undefined;
 

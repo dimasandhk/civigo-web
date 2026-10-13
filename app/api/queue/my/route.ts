@@ -23,12 +23,16 @@ export async function GET(request: NextRequest) {
       ? authHeader.substring(7).trim()
       : undefined;
 
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = token
-      ? await supabase.auth.getUser(token)
-      : await supabase.auth.getUser();
+    let user = null;
+    try {
+      const supabase = await createClient();
+      const userData = token
+        ? await supabase.auth.getUser(token)
+        : await supabase.auth.getUser();
+      user = userData.data.user;
+    } catch {
+      // Sesi cookie tidak tersedia atau token invalid
+    }
 
     const { searchParams } = new URL(request.url);
     const queryNik = searchParams.get("nik")?.trim();
