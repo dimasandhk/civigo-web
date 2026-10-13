@@ -303,6 +303,13 @@ describe("checkInQueue: input", () => {
     expect(await checkInQueue({ code: "  " })).toMatchObject({ ok: false, status: 400, code: "CODE_REQUIRED" });
   });
 
+  it("accepts ticket_id as fallback to code", async () => {
+    const id = "6f1f0c2e-4b1a-4c55-9a51-1f2d3c4b5a69";
+    store.rows = [ticket({ id, queue_number: "A-01" })];
+    const res = await checkInQueue({ ticket_id: id });
+    expect(res).toMatchObject({ ok: true, checkedInCount: 1 });
+  });
+
   it("rejects a malformed location_id", async () => {
     expect(await checkInQueue({ code: NIK, location_id: "abc" })).toMatchObject({
       ok: false,

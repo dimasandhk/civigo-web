@@ -138,16 +138,8 @@ export async function GET() {
         get: {
           tags: ["Autentikasi"],
           summary: "Ambil profil akun login saat ini",
-          description: "Mendeteksi token Bearer pada header Authorization atau Cookie session untuk mengambil profil user aktif.",
-          parameters: [
-            {
-              name: "Authorization",
-              in: "header",
-              required: false,
-              schema: { type: "string", example: "Bearer eyJhbGci..." },
-              description: "Token akses Supabase Auth JWT",
-            },
-          ],
+          description: "Mendeteksi token Bearer pada header Authorization (Mobile) atau Cookie session (Web) untuk mengambil profil user aktif.",
+          security: [{ BearerAuth: [] }, { CookieAuth: [] }],
           responses: {
             "200": {
               description: "Profil user aktif.",
@@ -753,16 +745,8 @@ export async function GET() {
         get: {
           tags: ["Anggota Keluarga"],
           summary: "Daftar anggota keluarga pengguna",
-          description: "Mengambil seluruh data anggota keluarga yang didaftarkan oleh akun pengguna yang login.",
-          parameters: [
-            {
-              name: "user_id",
-              in: "query",
-              required: false,
-              schema: { type: "string", format: "uuid" },
-              description: "Target user ID (opsional untuk admin/service role)",
-            },
-          ],
+          description: "Mengambil seluruh data anggota keluarga milik pengguna yang sedang login (menggunakan Bearer token di Mobile atau Cookie sesi di Web). Akun pengguna dideteksi secara otomatis dari token autentikasi.",
+          security: [{ BearerAuth: [] }, { CookieAuth: [] }],
           responses: {
             "200": {
               description: "Daftar anggota keluarga berhasil dimuat.",
@@ -792,6 +776,7 @@ export async function GET() {
           tags: ["Anggota Keluarga"],
           summary: "Tambah anggota keluarga baru",
           description: "Mendaftarkan anggota keluarga baru untuk keperluan booking layanan perwakilan (menguruskan antrean orang tua, anak, dsb).",
+          security: [{ BearerAuth: [] }, { CookieAuth: [] }],
           requestBody: {
             required: true,
             content: {
@@ -827,6 +812,7 @@ export async function GET() {
               },
             },
             "400": { description: "NIK tidak 16 digit atau data tidak lengkap." },
+            "401": { description: "Belum terautentikasi." },
           },
         },
       },
@@ -834,7 +820,8 @@ export async function GET() {
         delete: {
           tags: ["Anggota Keluarga"],
           summary: "Hapus anggota keluarga",
-          description: "Menghapus relasi anggota keluarga milik pengguna.",
+          description: "Menghapus relasi anggota keluarga milik pengguna yang sedang login.",
+          security: [{ BearerAuth: [] }, { CookieAuth: [] }],
           parameters: [
             {
               name: "id",
@@ -846,7 +833,8 @@ export async function GET() {
           ],
           responses: {
             "200": { description: "Anggota keluarga berhasil dihapus." },
-            "404": { description: "Anggota keluarga tidak ditemukan." },
+            "401": { description: "Belum terautentikasi." },
+            "404": { description: "Anggota keluarga tidak ditemukan atau bukan milik akun Anda." },
           },
         },
       },
@@ -975,6 +963,7 @@ export async function GET() {
           tags: ["Antrean (Queues)"],
           summary: "Update status tiket antrean",
           description: "Mengubah status antrean (misal: dilayani, selesai, atau dilewati/hangus).",
+          security: [{ BearerAuth: [] }, { CookieAuth: [] }],
           parameters: [
             { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
           ],
@@ -1006,6 +995,7 @@ export async function GET() {
           tags: ["Antrean (Queues)"],
           summary: "Mundurkan antrean ke urutan paling akhir",
           description: "Opsi petugas loket untuk memundurkan nomor antrean pemohon yang belum siap atau izin sebentar. Hanya tiket yang sedang dilayani (status 'served') yang bisa dimundurkan. Tiket kembali berstatus 'present', ditandai 'postponed = true', dan diletakkan di paling akhir antrean menunggu (di belakang tiket yang belum check-in juga), tanpa menghanguskannya.",
+          security: [{ BearerAuth: [] }, { CookieAuth: [] }],
           parameters: [
             {
               name: "id",
@@ -1070,12 +1060,17 @@ export async function GET() {
               "application/json": {
                 schema: {
                   type: "object",
-                  required: ["code"],
                   properties: {
                     code: {
                       type: "string",
                       description: "NIK 16 digit, nomor antrean (A-01), atau id tiket (uuid).",
                       example: "3273010101010001",
+                    },
+                    ticket_id: {
+                      type: "string",
+                      format: "uuid",
+                      description: "Alternatif untuk code jika menggunakan id tiket secara langsung.",
+                      example: "b2d2f1f0-4592-4f70-985e-998811223344",
                     },
                     location_id: {
                       type: "integer",
@@ -1110,6 +1105,7 @@ export async function GET() {
           tags: ["Antrean (Queues)"],
           summary: "Petugas loket memanggil antrean berikutnya",
           description: "Mengambil antrean prioritas tertinggi yang berstatus 'present' / 'waiting' untuk loket bersangkutan.",
+          security: [{ BearerAuth: [] }, { CookieAuth: [] }],
           requestBody: {
             required: true,
             content: {
@@ -1125,7 +1121,26 @@ export async function GET() {
             },
           },
           responses: {
-            "200": { description: "Antrean berhasil dipanggil ke loket." },
+            "200": {
+              description: "Antrean berhasil dipanggil ke loket.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    ticket: {
+                      id: "b2d2f1f0-4592-4f70-985e-998811223344",
+                      queue_number: "A-008",
+                      status: "served",
+                      counter_id: 1,
+                      counter_name: "Loket 1",
+                      service_name: "Pembuatan KTP Baru",
+                    },
+                    remaining: 2,
+                  },
+                },
+              },
+            },
+            "401": { description: "Hanya petugas loket/instansi yang berwenang." },
             "404": { description: "Tidak ada antrean yang sedang menunggu." },
           },
         },

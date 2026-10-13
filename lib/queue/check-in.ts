@@ -97,7 +97,13 @@ type Lookup =
 
 function parseInput(raw: unknown): CheckInInput | Failure {
   const body = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const code = typeof body.code === "string" ? body.code.trim() : "";
+  const rawCode =
+    typeof body.code === "string"
+      ? body.code
+      : typeof body.ticket_id === "string"
+        ? body.ticket_id
+        : "";
+  const code = rawCode.trim();
 
   if (!code) {
     return fail(400, "CODE_REQUIRED", "Kode antrean atau NIK wajib diisi.");
