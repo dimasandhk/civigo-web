@@ -274,6 +274,18 @@ export async function POST(request: NextRequest) {
       throw insertError;
     }
 
+    // Jika ulasan terkait tiket antrean, tandai is_reviewed = true pada tiket tersebut
+    if (rawQueueId) {
+      const { error: updateQueueError } = await supabase
+        .from("queues")
+        .update({ is_reviewed: true })
+        .eq("id", rawQueueId);
+
+      if (updateQueueError && !updateQueueError.message.includes("is_reviewed")) {
+        console.warn("Gagal memperbarui is_reviewed pada antrean:", updateQueueError.message);
+      }
+    }
+
     return Response.json({ ok: true, review: inserted }, { status: 201 });
   } catch (error) {
     return internalErrorResponse("POST /api/reviews", error);

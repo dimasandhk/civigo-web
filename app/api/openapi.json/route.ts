@@ -842,7 +842,7 @@ export async function GET() {
         get: {
           tags: ["Antrean (Queues)"],
           summary: "Riwayat tiket antrean warga (aktif & lampau)",
-          description: "Mengambil daftar seluruh tiket antrean milik pengguna yang sedang login (menggunakan Bearer token di Mobile atau Cookie sesi di Web). Akun otomatis dideteksi dari token sesi secara aman sehingga tidak perlu mengirim user_id secara manual. Output otomatis dipisahkan menjadi `active_tickets` (hari ini/mendatang) dan `history_tickets` (selesai atau hangus). Tiket yang dilewati/hangus memiliki flag `can_reschedule: true` untuk tombol reschedule.",
+          description: "Mengambil daftar seluruh tiket antrean milik pengguna yang sedang login (menggunakan Bearer token di Mobile atau Cookie sesi di Web). Akun otomatis dideteksi dari token sesi secara aman sehingga tidak perlu mengirim user_id secara manual. Output otomatis dipisahkan menjadi `active_tickets` (hari ini/mendatang atau tiket completed yang belum di-review) dan `history_tickets` (selesai dan sudah di-review, atau hangus). Setiap tiket menyertakan status `is_reviewed` (null = belum diulas/default, false = diulas nanti, true = sudah diulas). Tiket yang dilewati/hangus memiliki flag `can_reschedule: true` untuk tombol reschedule.",
           security: [{ BearerAuth: [] }, { CookieAuth: [] }],
           parameters: [
             {
@@ -874,6 +874,7 @@ export async function GET() {
                         postponed: false,
                         can_reschedule: false,
                         is_for_family: true,
+                        is_reviewed: null,
                         family_member: { id: 1, full_name: "Siti Rahmawati", relationship: "Istri" },
                         service: { id: 1, name: "Pembuatan KTP Baru" },
                       },
@@ -886,6 +887,7 @@ export async function GET() {
                         schedule_date: "2026-09-28",
                         can_reschedule: true,
                         is_for_family: false,
+                        is_reviewed: null,
                       },
                     ],
                   },
@@ -1042,6 +1044,47 @@ export async function GET() {
           responses: {
             "200": { description: "Tiket berhasil dijadwalkan ulang." },
             "422": { description: "Tiket belum berstatus skipped atau tidak ada kuota tersisa hari ini." },
+          },
+        },
+      },
+      "/api/queue/{id}/review-later": {
+        post: {
+          tags: ["Antrean (Queues)"],
+          summary: "Tunda ulasan tiket yang selesai (review later)",
+          description: "Menandai tiket yang telah selesai (status 'completed') dengan is_reviewed = false saat warga memilih tombol 'Nanti Saja'. Tiket tetap dipertahankan di active_tickets pada /api/queue/my sebagai pengingat sampai warga memberikan ulasan.",
+          security: [{ BearerAuth: [] }, { CookieAuth: [] }],
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string", format: "uuid" },
+              description: "UUID tiket antrean yang telah selesai",
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Ulasan antrean berhasil ditunda.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    message: "Ulasan berhasil ditunda. Tiket tetap aktif sebagai pengingat ulasan.",
+                    ticket: {
+                      id: "b2d2f1f0-4592-4f70-985e-998811223344",
+                      queue_number: "A-008",
+                      status: "completed",
+                      is_reviewed: false,
+                    },
+                  },
+                },
+              },
+            },
+            "400": { description: "ID tiket tidak valid (format bukan UUID)." },
+            "401": { description: "Belum terautentikasi." },
+            "403": { description: "Bukan pemilik tiket antrean." },
+            "404": { description: "Tiket tidak ditemukan." },
+            "422": { description: "TICKET_NOT_COMPLETED (tiket belum selesai) atau ALREADY_REVIEWED (tiket sudah diulas)." },
           },
         },
       },

@@ -10,7 +10,10 @@ const ROWS: Record<string, Record<string, Record<string, unknown>>> = {
   queues: { [QUEUE_SAMSAT]: { id: QUEUE_SAMSAT, service_id: 3, service: { agency_id: 2 } } },
 };
 
-const { mockInsert } = vi.hoisted(() => ({ mockInsert: vi.fn() }));
+const { mockInsert, mockUpdateQueue } = vi.hoisted(() => ({
+  mockInsert: vi.fn(),
+  mockUpdateQueue: vi.fn(),
+}));
 
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: () => ({
@@ -26,6 +29,12 @@ vi.mock("@/lib/supabase/service", () => ({
           select: () => ({
             single: async () => ({ data: { id: 99, ...row }, error: null }),
           }),
+        };
+      },
+      update: (payload: Record<string, unknown>) => {
+        mockUpdateQueue(payload);
+        return {
+          eq: async () => ({ error: null }),
         };
       },
     }),
@@ -50,6 +59,7 @@ function post(body: Record<string, unknown>) {
 describe("POST /api/reviews — relasi harus satu instansi", () => {
   beforeEach(() => {
     mockInsert.mockClear();
+    mockUpdateQueue.mockClear();
   });
 
   it("rejects a counter that belongs to another agency", async () => {
@@ -120,5 +130,6 @@ describe("POST /api/reviews — relasi harus satu instansi", () => {
     expect(mockInsert).toHaveBeenCalledWith(
       expect.objectContaining({ agency_id: 2, service_id: 3, counter_id: 3, queue_id: QUEUE_SAMSAT }),
     );
+    expect(mockUpdateQueue).toHaveBeenCalledWith({ is_reviewed: true });
   });
 });

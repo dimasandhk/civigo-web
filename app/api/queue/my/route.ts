@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
         time_block,
         postponed,
         postponed_at,
+        is_reviewed,
         created_at,
         nik,
         family_member_id,
@@ -222,23 +223,37 @@ export async function GET(request: NextRequest) {
             }
           : null,
         rescheduled_from: t.rescheduled_from,
+        is_reviewed: (t.is_reviewed as boolean | null) ?? null,
       };
     });
 
     const activeTickets = formattedTickets.filter((t) => {
-      const isActiveStatus = ["scheduled", "present", "served"].includes(
-        t.status
-      );
-      const isCurrentOrFuture = t.schedule_date >= today;
-      return isActiveStatus && isCurrentOrFuture;
+      // 1. Antrean reguler yang sedang berjalan: scheduled, present, served (hari ini/mendatang)
+      const isOngoingActive =
+        ["scheduled", "present", "served"].includes(t.status) &&
+        t.schedule_date >= today;
+
+      // 2. Antrean yang baru saja selesai hari ini dan belum di-review (null atau false)
+      const isPendingReviewToday =
+        t.status === "completed" &&
+        t.schedule_date >= today &&
+        t.is_reviewed !== true;
+
+      // 3. Antrean yang pengguna secara eksplisit pilih "Later" (is_reviewed === false)
+      const isReviewLater =
+        t.status === "completed" &&
+        t.is_reviewed === false;
+
+      return isOngoingActive || isPendingReviewToday || isReviewLater;
     });
 
     const historyTickets = formattedTickets.filter((t) => {
-      const isInactiveStatus = ["completed", "skipped", "cancelled"].includes(
-        t.status
-      );
-      const isPast = t.schedule_date < today;
-      return isInactiveStatus || isPast;
+      const isActive =
+        (["scheduled", "present", "served"].includes(t.status) && t.schedule_date >= today) ||
+        (t.status === "completed" && t.schedule_date >= today && t.is_reviewed !== true) ||
+        (t.status === "completed" && t.is_reviewed === false);
+
+      return !isActive;
     });
 
     return NextResponse.json(

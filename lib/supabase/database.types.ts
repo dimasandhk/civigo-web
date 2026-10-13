@@ -237,6 +237,7 @@ export type Database = {
           created_at: string | null
           family_member_id: number | null
           id: string
+          is_reviewed: boolean | null
           location_id: number | null
           nik: string | null
           postponed: boolean
@@ -256,6 +257,7 @@ export type Database = {
           created_at?: string | null
           family_member_id?: number | null
           id?: string
+          is_reviewed?: boolean | null
           location_id?: number | null
           nik?: string | null
           postponed?: boolean
@@ -275,6 +277,7 @@ export type Database = {
           created_at?: string | null
           family_member_id?: number | null
           id?: string
+          is_reviewed?: boolean | null
           location_id?: number | null
           nik?: string | null
           postponed?: boolean
