@@ -123,13 +123,20 @@ export async function rescheduleQueue(ticketId: string): Promise<RescheduleResul
 
   const today = todayInJakarta();
 
-  if (ticket.schedule_date !== today) {
+  // Pengujian di luar jam kantor diizinkan jika di environment development
+  // atau saat ALLOW_OFFHOURS_TESTING diatur ke true di .env.
+  const isDevTesting =
+    process.env.NODE_ENV !== "production" || process.env.ALLOW_OFFHOURS_TESTING === "true";
+
+  if (ticket.schedule_date !== today && !isDevTesting) {
     return fail(
       422,
       "NOT_TODAY",
       `Tiket ini dijadwalkan ${ticket.schedule_date}, bukan hari ini. Silakan booking ulang.`,
     );
   }
+
+  const scheduleDate = isDevTesting ? today : ticket.schedule_date;
 
   const grid = sessionGrid(agency.open_time, agency.close_time);
   const currentStart = ticket.time_block ? parseTimeBlock(ticket.time_block)?.startMinutes ?? -1 : -1;
@@ -146,20 +153,38 @@ export async function rescheduleQueue(ticketId: string): Promise<RescheduleResul
   }
 
   if (!target) {
-    return fail(
-      422,
-      "NO_SESSION_LEFT",
-      `Tidak ada sesi tersisa hari ini yang cukup untuk ${service.name} ` +
-        `(${estimatedTime} menit) sebelum ${agency.name} tutup pukul ${minutesToTime(closeMinutes)}. ` +
-        "Silakan booking untuk hari lain.",
-    );
+    if (isDevTesting) {
+      // Di luar jam operasional (mis. malam hari atau akhir pekan), jika mode dev/off-hours
+      // testing aktif, buatkan sesi uji coba agar pengujian aplikasi / mobile tetap berjalan lancar.
+      const baseMinutes = Math.max(currentStart, nowMinutes);
+      // Geser minimal 5 menit setelah baseMinutes, bulatkan ke kelipatan 15 menit
+      let startMinutes = Math.ceil((baseMinutes + 5) / 15) * 15;
+      if (startMinutes >= 24 * 60 - 15) {
+        startMinutes = 23 * 60 + 30; // 23:30 WIB jika sudah menjelang tengah malam
+      }
+      const endMinutes = Math.min(startMinutes + 60, 24 * 60);
+      target = {
+        startMinutes,
+        endMinutes: endMinutes > startMinutes ? endMinutes : 24 * 60,
+      };
+    } else {
+      return fail(
+        422,
+        "NO_SESSION_LEFT",
+        `Tidak ada sesi tersisa hari ini yang cukup untuk ${service.name} ` +
+          `(${estimatedTime} menit) sebelum ${agency.name} tutup pukul ${minutesToTime(closeMinutes)}. ` +
+          "Silakan booking untuk hari lain.",
+      );
+    }
   }
 
   const timeBlock = formatTimeBlock(target);
 
   const inserted = await insertTicketWithNumber(db, {
     serviceId: service.id,
-    scheduleDate: ticket.schedule_date,
+    locationId: ticket.location_id ?? null,
+    familyMemberId: ticket.family_member_id ?? null,
+    scheduleDate,
     timeBlock,
     userId: ticket.user_id,
     nik: ticket.nik,
@@ -173,10 +198,10 @@ export async function rescheduleQueue(ticketId: string): Promise<RescheduleResul
     ticket: {
       id: inserted.row.id,
       queue_number: inserted.row.queue_number,
-      schedule_date: ticket.schedule_date,
+      schedule_date: scheduleDate,
       time_block: timeBlock,
       status: inserted.row.status,
-      estimated_finish: minutesToTime(target.startMinutes + estimatedTime),
+      estimated_finish: minutesToTime(Math.min(target.startMinutes + estimatedTime, 24 * 60)),
       service: { id: service.id, name: service.name },
       agency: { id: agency.id, name: agency.name },
       rescheduled_from: {

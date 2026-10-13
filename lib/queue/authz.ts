@@ -47,6 +47,8 @@ export type TicketContext = {
     counter_id: number | null;
     service_id: number | null;
     rescheduled_from: string | null;
+    location_id?: number | null;
+    family_member_id?: number | null;
   };
   service: { id: number; name: string; estimated_time: number | null; agency_id: number };
   agency: { id: number; name: string; open_time: string; close_time: string };
@@ -60,7 +62,7 @@ export async function loadTicketContext(
   const { data: ticket } = await db
     .from("queues")
     .select(
-      "id, user_id, nik, queue_number, schedule_date, time_block, status, counter_id, service_id, rescheduled_from",
+      "id, user_id, nik, queue_number, schedule_date, time_block, status, counter_id, service_id, rescheduled_from, location_id, family_member_id",
     )
     .eq("id", ticketId)
     .maybeSingle();
