@@ -205,6 +205,9 @@ export default function CheckInForm({ homeHref, locationId }: { homeHref: string
           {/* Kamera pemindai QR */}
           <section className="flex flex-col items-center gap-2">
             <QrScanner onScan={handleScan} busy={isPending} />
+            <p className="font-display text-xs text-queue-idle text-center max-w-[340px] leading-relaxed">
+              💡 <strong>Layar HP silau?</strong> Beri jarak sekitar 20–30 cm atau miringkan HP sedikit (±15°) agar cahaya layar tidak memantul ke kamera.
+            </p>
           </section>
 
           {/* Error Alert */}

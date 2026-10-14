@@ -17,6 +17,49 @@ const CAMERA_MESSAGES: Record<Exclude<CameraState, "starting" | "scanning">, str
 };
 
 /**
+ * Pemulihan kontras untuk layar HP yang silau (overexposure / glare).
+ * Ketika layar HP diarahkan ke webcam, backlight layar sering membuat modul gelap QR
+ * terangkat menjadi abu-abu terang (tercuci). Fungsi ini merenggangkan rentang dinamis
+ * luminans dengan kurva gamma untuk mengembalikan pemisahan modul hitam dan putih.
+ */
+function enhanceScreenContrast(data: Uint8ClampedArray): Uint8ClampedArray | null {
+  let min = 255;
+  let max = 0;
+  for (let i = 0; i < data.length; i += 16) {
+    const lum = (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
+    if (lum < min) min = lum;
+    if (lum > max) max = lum;
+  }
+
+  // Jika kontras tercuci (nilai minimum terlalu tinggi) tetapi masih memiliki variasi
+  if (min > 35 && max - min > 30) {
+    const range = max - min;
+    const lut = new Uint8Array(256);
+    for (let v = 0; v < 256; v++) {
+      if (v <= min) lut[v] = 0;
+      else if (v >= max) lut[v] = 255;
+      else {
+        const norm = (v - min) / range;
+        lut[v] = Math.round(Math.pow(norm, 2.0) * 255);
+      }
+    }
+
+    const enhanced = new Uint8ClampedArray(data.length);
+    for (let i = 0; i < data.length; i += 4) {
+      const lum = (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
+      const v = lut[lum];
+      enhanced[i] = v;
+      enhanced[i + 1] = v;
+      enhanced[i + 2] = v;
+      enhanced[i + 3] = 255;
+    }
+    return enhanced;
+  }
+
+  return null;
+}
+
+/**
  * Live camera preview that decodes QR codes with jsQR and reports each decoded
  * text through `onScan`. Works in every browser with getUserMedia; the native
  * BarcodeDetector is not used because Chrome on Windows does not have it.
@@ -57,6 +100,22 @@ export default function QrScanner({ onScan, busy }: { onScan: (text: string) => 
           video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false,
         });
+
+        // Optimasi eksposur dan fokus otomatis jika didukung peramban
+        const track = stream.getVideoTracks()[0];
+        if (track && typeof track.getCapabilities === "function") {
+          const caps = track.getCapabilities() as Record<string, unknown>;
+          const adv: Record<string, unknown> = {};
+          if (Array.isArray(caps.exposureMode) && caps.exposureMode.includes("continuous")) {
+            adv.exposureMode = "continuous";
+          }
+          if (Array.isArray(caps.focusMode) && caps.focusMode.includes("continuous")) {
+            adv.focusMode = "continuous";
+          }
+          if (Object.keys(adv).length > 0) {
+            track.applyConstraints({ advanced: [adv] }).catch(() => {});
+          }
+        }
       } catch (err) {
         if (!cancelled) {
           const name = err instanceof DOMException ? err.name : "";
@@ -100,7 +159,28 @@ export default function QrScanner({ onScan, busy }: { onScan: (text: string) => 
         ctx.drawImage(video, 0, 0, width, height);
 
         const { data } = ctx.getImageData(0, 0, width, height);
-        const code = jsQR(data, width, height, { inversionAttempts: "dontInvert" });
+        let code = jsQR(data, width, height, { inversionAttempts: "dontInvert" });
+
+        // Jika frame penuh tidak menemukan QR, coba fokuskan pada area bidik tengah (posisi layar HP)
+        if (!code?.data) {
+          const cropX = Math.round(width * 0.15);
+          const cropY = Math.round(height * 0.15);
+          const cropW = Math.round(width * 0.7);
+          const cropH = Math.round(height * 0.7);
+          const centerData = ctx.getImageData(cropX, cropY, cropW, cropH);
+
+          // Coba scan area tengah dengan deteksi polaritas ganda
+          code = jsQR(centerData.data, cropW, cropH, { inversionAttempts: "attemptBoth" });
+
+          // Jika masih silau/tercuci, terapkan pemulihan kontras dinamis
+          if (!code?.data) {
+            const glareRecovered = enhanceScreenContrast(centerData.data);
+            if (glareRecovered) {
+              code = jsQR(glareRecovered, cropW, cropH, { inversionAttempts: "dontInvert" });
+            }
+          }
+        }
+
         if (code?.data) onScanRef.current(code.data);
       };
       frame = requestAnimationFrame(tick);
