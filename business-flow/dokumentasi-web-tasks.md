@@ -44,7 +44,7 @@ Kondisi per 03/10/2026, termasuk perbaikan hasil audit sore hari (lihat [Perbaik
 | baru #4–#5 | Profil, ubah password, toggle tampilkan password | Selesai | 06/10/2026 | `36cb675` |
 | baru #2 | Kios walk-in tanpa pilih sesi jam | Selesai | 06/10/2026 | `f3bcd3b` |
 | baru #3 | Rentang waktu di Beranda | Selesai | 06/10/2026 | — |
-| baru #6 | Check-in kios per NIK, hanya hari ini di cabang kios | Selesai | 12/10/2026 | — |
+| baru #6 | Check-in kios per NIK, hanya hari ini di cabang kios | Selesai | 12/10/2026 | `59ec975` |
 
 "Selesai" berarti fiturnya sudah dibangun dan berjalan sesuai tugas. Celah yang masih ada dicatat terpisah di
 [Masalah yang masih diketahui](#masalah-yang-masih-diketahui).
@@ -725,7 +725,8 @@ Nomor antrean `f1` (diubah menjadi `F-01`): hanya tiket itu, tampilan satu kartu
 `family_member_name`, dan `outcome` (`checked_in` | `already_checked_in` | `being_served` | `completed` | `skipped`).
 `ticket` (= `tickets[0]`) dan `alreadyCheckedIn` (= tidak ada yang baru di-check-in) adalah bentuk lama, dipertahankan
 untuk pemanggil di luar kios. Di repo ini hanya kios yang memanggil endpoint ini; repo mobile belum dicek. Dokumentasi
-OpenAPI dulu menulis body `ticket_id` padahal endpoint membaca `code`; sudah dibetulkan.
+OpenAPI dulu menulis body `ticket_id` padahal endpoint membaca `code`; sudah dibetulkan. Sejak 13/10/2026 (`ee67273`,
+Satya) endpoint juga menerima `ticket_id` sebagai nama lain `code`, jadi klien lama yang mengirim `ticket_id` tetap jalan.
 
 ### Perubahan pendukung
 
@@ -787,9 +788,11 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 
 - Jalankan `pnpm dev`, login sebagai akun petugas (lihat bagian 8B `supabase-backend-integration-notes.md`).
 - Untuk menguji booking di luar jam operasional (malam/akhir pekan), tambahkan ke `.env.local`:
-  `ALLOW_OFFHOURS_TESTING="true"`. Flag ini hanya dibaca saat booking. Memanggil, menyelesaikan, menghanguskan,
-  dan memundurkan antrean tidak dicek jam operasional.
-- Test otomatis: `npx vitest run` (176 test per 12/10/2026, semua di-mock, tidak memakai kuota apa pun).
+  `ALLOW_OFFHOURS_TESTING="true"`. Flag ini dibaca saat booking dan, sejak 13/10/2026 (`d586322`, Satya), saat
+  reschedule: tiket hangus dari tanggal mana pun digeser ke hari ini, dan kalau sesi hari itu habis dibuatkan sesi uji
+  (paling akhir `23:30 - 24:00`). Di `next dev` keduanya otomatis aktif tanpa flag. Memanggil, menyelesaikan,
+  menghanguskan, dan memundurkan antrean tidak dicek jam operasional.
+- Test otomatis: `npx vitest run` (190 test per 14/10/2026, semua di-mock, tidak memakai kuota apa pun).
 
 ### File utama per tugas
 
@@ -818,6 +821,15 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 | `06f5a8a` | 03/10/2026 | Dimas | Tombol Mundurkan Antrean dan satu urutan panggil (Web #5) |
 | `76cd9ff` | 03/10/2026 | Dimas | Perbaikan hasil audit: `completed_at`, loket aktif saja, realtime dasbor, contoh username, tanpa sesi |
 | `9c6273d` | 06/10/2026 | Satya | Urutan panggil tidak lagi mendahulukan tiket yang sudah check-in; penanda check-in di dasbor |
+| `59ec975` | 12/10/2026 | Dimas | Check-in kios per NIK, hanya tiket hari ini di cabang kios (daftar baru #6) |
+| `ee67273` | 13/10/2026 | Satya | OpenAPI: skema Bearer; check-in menerima `ticket_id` sebagai nama lain `code` |
+| `50d276c` | 13/10/2026 | Satya | `queues.is_reviewed`, `POST /api/queue/[id]/review-later`, ulasan mengisi `is_reviewed = true` (mobile) |
+| `1a01c53` | 13/10/2026 | Satya | `getCurrentUser()` dan `/api/queue/my` tidak melempar error di luar request context |
+| `1190061` | 13/10/2026 | Satya | Tiket "Nanti Saja" (`is_reviewed = false`) pindah ke riwayat di `/api/queue/my` |
+| `d586322` | 13/10/2026 | Satya | Reschedule di mode uji: lintas tanggal dan sesi uji di luar jam kerja; tiket pengganti membawa cabang & anggota keluarga |
+
+Commit 13/10/2026 hanya mengubah API mobile dan tidak menyentuh dasbor maupun kios. Rinciannya di
+[`business-flow-notes.md`](./business-flow-notes.md) poin 5.18.
 
 ### Dokumen terkait
 

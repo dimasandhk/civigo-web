@@ -212,8 +212,15 @@ berstatus `scheduled`, nomor baru di belakang antrean hari itu, dengan
 | 403 | `WRONG_AGENCY` | Petugas instansi lain |
 | 409 | `NOT_SKIPPED` | Tiket belum hangus |
 | 409 | `ALREADY_RESCHEDULED` | Tiket ini sudah pernah digeser |
-| 422 | `NOT_TODAY` | Tiket bukan untuk hari ini — arahkan booking ulang |
-| 422 | `NO_SESSION_LEFT` | Tidak ada sesi tersisa yang muat sebelum tutup |
+| 422 | `NOT_TODAY` | Tiket bukan untuk hari ini — arahkan booking ulang (tidak muncul di mode uji, lihat bawah) |
+| 422 | `NO_SESSION_LEFT` | Tidak ada sesi tersisa yang muat sebelum tutup (tidak muncul di mode uji) |
+
+**Mode uji (sejak 13/10/2026, `d586322`).** Kalau `NODE_ENV !== "production"` (`next dev`, vitest) atau
+`ALLOW_OFFHOURS_TESTING="true"`: tiket hangus dari tanggal mana pun digeser ke **hari ini**, dan kalau tidak ada sesi
+grid tersisa dibuatkan sesi uji 1 jam (mulai ≥ 5 menit dari sekarang, dibulatkan ke 15 menit, paling akhir
+`23:30 - 24:00`). Di production tanpa flag, kedua error di atas tetap berlaku.
+
+Sejak commit yang sama, tiket pengganti membawa `location_id` dan `family_member_id` tiket asalnya.
 | 503 | `NUMBER_ALLOCATION_FAILED` | 5 percobaan alokasi nomor kalah balapan |
 
 Dobel klik aman: unique index parsial `queues_rescheduled_from_unique`
@@ -273,7 +280,8 @@ selisih 403 dan 404.
 ## Batasan yang diketahui
 
 - **Reschedule hanya untuk hari yang sama.** Tiket hangus dari hari sebelumnya
-  ditolak dengan `NOT_TODAY`; warga harus booking ulang.
+  ditolak dengan `NOT_TODAY`; warga harus booking ulang. Pengecualian: mode uji
+  (lihat Error khusus), yang menggeser tiket tanggal lain ke hari ini.
 - **Grid sesi hanya dipakai reschedule.** Booking masih menerima `time_block`
   teks bebas, jadi tiket bisa saja punya sesi yang tidak ada di grid. Reschedule
   tetap jalan untuk kasus itu — dicarikan sesi grid pertama setelah jam mulainya

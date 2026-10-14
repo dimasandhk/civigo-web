@@ -64,6 +64,7 @@ Skema database menggunakan tipe enum `public.user_role`:
 ### D. Alur Ulasan & Feedback (`/admin/ulasan`)
 1. Setelah layanan diselesaikan, warga dapat memberikan rating (1-5 bintang) dan komentar.
 2. Dashboard admin menyajikan rekap total ulasan, rata-rata skor, tingkat kepuasan, rata-rata bulan berjalan (WIB), dan filter per layanan/loket/rating (lihat poin 5.8).
+3. Di mobile, tiket yang baru selesai tetap di `active_tickets` sampai warga mengulas (`is_reviewed = true`) atau memilih "Nanti Saja" (`POST /api/queue/[id]/review-later`, `is_reviewed = false`); keduanya memindahkan tiket ke riwayat (poin 5.18).
 
 ---
 
@@ -75,7 +76,7 @@ Skema database menggunakan tipe enum `public.user_role`:
 - **`users`**: Mirror dari `auth.users` Supabase (id, nik, full_name, email, role, agency_id, location_id).
 - **`services`**: Katalog layanan per instansi (nama, requirements JSONB, output_documents, estimasi waktu, info_procedure).
 - **`counters`**: Loket fisik layanan per instansi dan lokasi cabang (counter_name, status, agency_id, location_id).
-- **`queues`**: Transaksi antrean (nomor antrean, schedule_date, time_block, status, user_id, nik, service_id, counter_id, location_id).
+- **`queues`**: Transaksi antrean (nomor antrean, schedule_date, time_block, status, user_id, nik, service_id, counter_id, location_id, family_member_id, postponed, checked_in_at, completed_at, is_reviewed).
 - **`reviews`**: Ulasan dan penilaian kepuasan layanan warga (rating 1-5, comment, agency_id, service_id, counter_id, queue_id, user_id).
 - **`family_members`**: Anggota keluarga warga untuk pendaftaran antrean perwakilan.
 
@@ -183,3 +184,17 @@ Skema database menggunakan tipe enum `public.user_role`:
    - Respons kini `tickets: [...]` + `checkedInCount`; `ticket` (= tiket pertama) dan `alreadyCheckedIn` tetap ada untuk pemanggil lama. `location_id` opsional; tanpanya cabang tidak dicek. Dokumentasi OpenAPI dulu menulis body `ticket_id`, padahal endpoint membaca `code`; sudah dibetulkan.
    - Check-in otomatis setelah walk-in kios kini mengirim id tiket, bukan nomor antrean. Dengan pencarian lama, nomor bisa jatuh ke booking tanggal lain sehingga walk-in diam-diam tidak ter-check-in.
    - Fallback "kolom `checked_in_at` belum ada" dihapus dari endpoint; migrasinya sudah jalan di DB remote (poin 16).
+18. **Ulasan mobile, reschedule mode uji, dan perbaikan kecil API (13/10/2026, 5 commit Satya: `ee67273`, `50d276c`, `1a01c53`, `1190061`, `d586322`)**:
+   - Diperiksa 14/10/2026: tidak ada yang rusak. Tidak ada file dasbor/kios (`app/admin`, `app/display`, `app/components`) yang berubah; `npx vitest run` 190/190 lulus, `tsc --noEmit` bersih, dan kolom `queues.is_reviewed` sudah ada di DB remote.
+   - **Kolom baru `queues.is_reviewed`** (migrasi `20261013220000_add_is_reviewed_to_queues`, nullable, default `null`): `null` = belum memilih, `false` = "Nanti Saja", `true` = sudah diulas. Migrasi menandai `true` untuk tiket yang sudah punya ulasan (2 tiket per 14/10/2026).
+   - **`GET /api/queue/my` memindahkan tiket selesai berdasarkan `is_reviewed`.** Tiket `completed` hari ini/mendatang dengan `is_reviewed = null` tetap di `active_tickets` supaya mobile bisa meminta ulasan; `false` atau `true` pindah ke `history_tickets`. Tiket selesai dari hari sebelumnya tetap di riwayat. Setiap tiket kini membawa `is_reviewed`. **Mobile harus siap menerima `status: "completed"` di `active_tickets`.**
+   - **`POST /api/queue/[id]/review-later`** (baru, `lib/queue/review-later.ts`): tombol "Nanti Saja" di mobile. Hanya tiket `completed` (`422 TICKET_NOT_COMPLETED`) yang belum diulas (`422 ALREADY_REVIEWED`); mengisi `is_reviewed = false`. Kalau yang login warga, tiket harus miliknya (`user_id` atau NIK sama, `403 FORBIDDEN`). Endpoint ini tidak mewajibkan login.
+   - **`POST /api/reviews` mengisi `is_reviewed = true`** pada tiket yang ditunjuk `queue_id`. Ulasan tanpa `queue_id` tidak menandai tiket apa pun, jadi tiketnya tetap muncul di `active_tickets` sampai "Nanti Saja" dipilih atau harinya lewat.
+   - Komentar di file migrasi dan docstring `review-later.ts` masih menyebut `false` = tetap di `active_tickets`. Yang berlaku sejak `1190061` adalah kode: `false` pindah ke riwayat.
+   - **Reschedule di mode uji** (`d586322`, `lib/queue/reschedule.ts`). Kalau `NODE_ENV !== "production"` (termasuk `next dev` dan vitest) atau `ALLOW_OFFHOURS_TESTING="true"`:
+     - tiket hangus dari **tanggal mana pun** dijadwalkan ulang ke **hari ini** (cek `NOT_TODAY` dilewati);
+     - kalau tidak ada sesi tersisa sebelum tutup, dibuatkan sesi uji 1 jam mulai ≥ 5 menit dari sekarang, dibulatkan ke 15 menit, paling akhir `23:30 - 24:00` (bukan `NO_SESSION_LEFT`).
+     Di production tanpa flag, aturan lama tetap berlaku. **Akibatnya `ALLOW_OFFHOURS_TESTING` sekarang memengaruhi booking dan reschedule**, jadi deployment demo yang memasang flag ini juga melonggarkan reschedule.
+   - **Tiket hasil reschedule kini membawa `location_id` dan `family_member_id`** dari tiket asalnya (`loadTicketContext()` di `lib/queue/authz.ts` ikut men-select keduanya). Dulu tiket pengganti selalu tercatat di lokasi 1 (MPP, default `insertTicketWithNumber()`) tanpa anggota keluarga, sehingga tiket hangus dari cabang non-MPP muncul kembali di dasbor dan TV MPP, dan tiket keluarga kehilangan "Atas nama".
+   - **`POST /api/queue/check-in` juga menerima `ticket_id`** sebagai nama lain `code` (`ee67273`). Kios tetap mengirim `code`; dokumentasi OpenAPI menulis keduanya. Spec OpenAPI juga disinkronkan untuk skema Bearer.
+   - `getCurrentUser()` dan `GET /api/queue/my` mengembalikan `null` / tanpa user kalau `createClient()` gagal (di luar request context), bukan melempar error (`1a01c53`).

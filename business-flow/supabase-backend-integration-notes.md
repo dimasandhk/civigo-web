@@ -63,8 +63,10 @@ Semua migrasi berikut telah berhasil di-push ke database Supabase remote:
 
 ### D. Riwayat Antrean Warga (`/api/queue/my`)
 - Endpoint `GET /api/queue/my` mengembalikan tiket antrean warga yang dipisahkan secara otomatis:
-  - `active_tickets`: Tiket aktif hari ini atau masa depan (`scheduled`, `present`, `served`).
-  - `history_tickets`: Tiket selesai (`completed`), dibatalkan (`cancelled`), atau tiket hangus/dilewati (`skipped`).
+  - `active_tickets`: Tiket aktif hari ini atau masa depan (`scheduled`, `present`, `served`), **ditambah** tiket `completed` hari ini/mendatang yang `is_reviewed`-nya masih `null` (warga belum mengulas atau memilih "Nanti Saja"; sejak 13/10/2026).
+  - `history_tickets`: Semua tiket lain: tiket selesai yang sudah diulas (`is_reviewed = true`) atau ditunda (`false`), tiket dari tanggal lewat, dibatalkan (`cancelled`), atau hangus (`skipped`).
+  - Setiap tiket membawa `is_reviewed` (`null` / `false` / `true`).
+- Tombol "Nanti Saja" di kartu ulasan menembak `POST /api/queue/[id]/review-later` (hanya tiket `completed` yang belum diulas). Mengirim ulasan lewat `POST /api/reviews` dengan `queue_id` mengisi `is_reviewed = true`. Keduanya memindahkan tiket ke `history_tickets`.
 - Tiket yang hangus (`skipped`) pada hari ini memiliki flag `can_reschedule: true` yang siap dihubungkan langsung ke tombol *Reschedule* pada aplikasi mobile.
 
 ### E. 3 Kondisi Kelengkapan Dokumen (Tersedia, Belum Memiliki, Hilang/Rusak)
@@ -119,7 +121,8 @@ Seluruh spesifikasi API CiviGo telah didokumentasikan lengkap menggunakan standa
 - `DELETE /api/family-members/{id}`: Menghapus data anggota keluarga.
 
 ### E. Antrean (Queues)
-- `GET /api/queue/my`: Mengambil riwayat tiket antrean warga (dibagi menjadi `active_tickets` dan `history_tickets`, dengan flag `can_reschedule`).
+- `GET /api/queue/my`: Mengambil riwayat tiket antrean warga (dibagi menjadi `active_tickets` dan `history_tickets`, dengan flag `can_reschedule` dan `is_reviewed`).
+- `POST /api/queue/[id]/review-later`: Menunda ulasan ("Nanti Saja"), mengisi `is_reviewed = false` (sejak 13/10/2026).
 - `POST /api/queue/book`: Mengambil nomor antrean baru (menerima `{ service_id, schedule_date, nik, time_block?, location_id?, family_member_id? }`).
 - `GET /api/queue/{id}/status`: Memeriksa status tiket terkini.
 - `PATCH /api/queue/{id}/status`: Mengubah status tiket (`present`, `served`, `completed`, `skipped`).
