@@ -32,6 +32,9 @@ Semua migrasi berikut telah berhasil di-push ke database Supabase remote:
 | 6 | `20260927201800_create_service_documents.sql` | Pembuatan tabel katalog master dokumen `public.service_documents` dan relasi array ID (`requirement_doc_ids` & `output_doc_ids`) pada `public.services`. |
 | 7 | `20260927201900_analytics_functions.sql` | Fungsi SQL RPC: `get_agency_satisfaction_analytics` dan `get_agency_queue_analytics`. |
 | 8 | `20260927204800_add_family_member_to_queues.sql` | Penambahan kolom `family_member_id integer REFERENCES public.family_members(id) ON DELETE SET NULL` pada tabel `public.queues` untuk relasi antrean perwakilan anggota keluarga. |
+| 9 | `20261003220000_create_cities_table.sql` | Pembuatan tabel master wilayah kota/kabupaten `public.cities` (`id`, `name`, `province`, `created_at`). |
+| 10 | `20261013220000_add_is_reviewed_to_queues.sql` | Penambahan kolom `is_reviewed boolean DEFAULT NULL` pada tabel `public.queues` untuk fitur tunda ulasan ("Nanti Saja"). |
+| 11 | `20261014150000_add_canceled_status_to_queues.sql` | Penambahan status `'canceled'` pada constraint `queues_status_valid`, penambahan kolom `canceled_at timestamptz` & `cancel_reason text`, serta indeks performa. |
 
 ---
 
@@ -128,6 +131,7 @@ Seluruh spesifikasi API CiviGo telah didokumentasikan lengkap menggunakan standa
 - `PATCH /api/queue/{id}/status`: Mengubah status tiket (`present`, `served`, `completed`, `skipped`).
 - `POST /api/queue/{id}/postpone`: Memundurkan nomor antrean ke urutan paling akhir dalam pool menunggu.
 - `POST /api/queue/{id}/reschedule`: Menjadwalkan ulang tiket yang hangus (`skipped`).
+- `POST /api/queue/{id}/cancel`: Membatalkan nomor antrean (`scheduled`/`present`), melepaskan kuota, memindahkan ke riwayat dengan `can_reschedule: false`, dan broadcast realtime ke display monitor.
 - `POST /api/queue/check-in`: Check-in tiket saat warga tiba di lokasi fisik kios.
 - `POST /api/queue/call-next`: Panggilan tiket berikutnya oleh petugas loket (`{ counter_id }`).
 
@@ -222,9 +226,10 @@ pnpm run seed
 - [x] **3 Tombol Kelengkapan Dokumen**: Tampilkan 3 opsi ("Sudah Tersedia", "Belum Memiliki", "Hilang / Rusak") saat evaluasi prasyarat (`POST /api/services/cross-agency`).
 - [x] **Tiket Aktif vs Riwayat**: Panggil `GET /api/queue/my` yang langsung memisahkan `active_tickets` dan `history_tickets`.
 - [x] **Tombol Reschedule**: Jika tiket berstatus `skipped` dan memiliki `can_reschedule: true`, tampilkan tombol *"Jadwalkan Ulang"* yang memanggil `POST /api/queue/{id}/reschedule`.
+- [x] **Tombol Batalkan Antrean**: Tombol *"Batalkan Antrean Ini"* pada tiket berstatus `scheduled` / `present`, dengan dialog konfirmasi sebelum memanggil `POST /api/queue/{id}/cancel`.
 
 ### 💻 Untuk Tim Web & Kiosk Dev:
 - [x] **Tombol Mundurkan Antrean (Admin)**: Petugas loket dapat menekan tombol *"Mundurkan"* yang memanggil `POST /api/queue/{id}/postpone`.
 - [x] **Display TV Realtime**: Monitor publik di `/display/[agencyId]/antrean` otomatis tersambung ke WebSocket Supabase realtime tanpa polling manual.
-- [x] **Check-in Kios**: Gunakan tiket `A-001` untuk uji coba input kode di `/display/input-code`.
+- [x] **Check-in Kios**: Gunakan tiket `A-001` untuk uji coba input kode di `/display/input-code`. Tiket `canceled` otomatis ditolak oleh kiosk scanner.
 
