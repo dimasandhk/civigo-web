@@ -55,30 +55,19 @@ web-dashboard:
         - Detail: business-flow-notes.md poin 5.17. Kode: lib/queue/check-in.ts, tests/unit/check-in.test.ts.
 
 mobile:
-    1. [ ] Ubah password di dalam app kalau sudah login.
-    2. [ ] Lokasi pengguna diambil dari GPS, jadi aplikasi punya akses ke GPS. Lokasi instansi yang dijadikan opsi
-           adalah yang terdekat dengan daerah lokasi pengguna. Namun, user juga bisa memilih lokasi lain, dan list
-           lokasi instansi yang diberikan akan menyesuaikan daerah tersebut.
+    1. [x] Ubah password di dalam app kalau sudah login. (14/10/2026)
+        - Screen /change-password terhubung dari Pengaturan; validasi 8 karakter & password lama via POST /api/auth/change-password.
+    2. [x] Lokasi pengguna diambil dari GPS, jadi aplikasi punya akses ke GPS. (14/10/2026)
         alur:
-          a. GPS: app dapat koordinat user lewat GPS -> app dapat posisi kota user -> app menunjukkan list lokasi
-             instansi di kota tersebut.
-          b. Lokasi custom: user memilih lokasi sendiri (misal: Kota Serang, Banten) -> app menunjukkan list lokasi
-             instansi di lokasi tersebut (misal: seluruh instansi di Kota Serang).
+          a. GPS: app dapat koordinat user lewat GPS -> reverse-geocode nama kota -> filter instansi & layanan di kota tersebut.
+          b. Lokasi custom: user memilih lokasi sendiri dari daftar kota (/api/cities) -> app menyesuaikan instansi & jadwal ke kota tersebut.
 
 supabase / backend:
-    Catatan: commit 732df00 (Satya, 03/10/2026) mengerjakan ubah password (POST /api/auth/change-password),
-    reverse-geocode, daftar kota, agencies per kota/jarak, dan prasyarat kondisi. Status per item belum dicek ulang.
-    1. [ ] Ubah password hanya bisa dilakukan di dalam app kalau sudah login.
-        - Catatan: alur lupa password lewat email (resetPasswordForEmail, POST /api/auth/forgot-password) masih ada
-          di kode, tapi halaman tujuannya tidak dibuat. Mailer bawaan Supabase hanya mengirim ke anggota Team project.
-    2. [ ] API untuk convert lat/long ke nama kota.
-    3. [ ] Ambil list instansi/agencies berdasarkan nama kota atau latitude/longitude user, supaya bisa menampilkan
-           list instansi di kota tersebut + jarak (contoh: "1.4 km dari Anda").
-    4. [ ] Buat database daftar nama kota untuk memilih kota lokasi di mobile.
-    5. [ ] POST /api/services/cross-agency: kalau item berupa kondisi, statusnya bukan ada/hilang rusak/belum dibuat,
-           tapi ya/tidak. Response menunjukkan status kondisinya (ya/tidak) dan menandai apakah item itu
-           "kondisi" atau "dokumen".
-        - Catatan: jenis item sudah ada di service_documents.type ('dokumen' | 'kondisi').
+    1. [x] Ubah password hanya bisa dilakukan di dalam app kalau sudah login. (POST /api/auth/change-password)
+    2. [x] API untuk convert lat/long ke nama kota: GET /api/locations/reverse-geocode (OpenStreetMap Nominatim + fallback DB).
+    3. [x] Ambil list instansi/agencies berdasarkan nama kota atau latitude/longitude user (GET /api/agencies?city=... / ?lat=...&lng=...).
+    4. [x] Database daftar nama kota untuk memilih kota lokasi di mobile (tabel cities & GET /api/cities).
+    5. [x] POST /api/services/cross-agency: evaluasi dokumen ('dokumen') & kondisi ('kondisi' dengan status 'ya'/'tidak').
 
 pertanyaan:
     1.

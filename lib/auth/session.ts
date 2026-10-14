@@ -57,7 +57,7 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Pro
   }
 
   if (!userId) {
-    const { data, error } = await supabase.auth.getClaims();
+    const { data } = await supabase.auth.getClaims();
     userId = data?.claims?.sub;
   }
 
