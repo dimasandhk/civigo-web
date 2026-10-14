@@ -325,3 +325,57 @@ describe("checkInQueue: input", () => {
     expect(normalizeQueueNumber("xyz")).toBe("XYZ");
   });
 });
+
+describe("checkInQueue: ticket QR", () => {
+  const id = "0b7e7f4e-2f0a-4d8e-9c3b-5a1d2e3f4a5b";
+  const qr = (payload: Record<string, unknown>) => JSON.stringify(payload);
+
+  it("checks in the ticket named by queue_id, and only that one", async () => {
+    store.rows = [
+      ticket({ id, queue_number: "A-45" }),
+      ticket({ id: "same-nik", queue_number: "C-02" }),
+    ];
+
+    const res = await checkInQueue({
+      code: qr({ queue_id: id, queue_number: "A45", nik: NIK, schedule_date: clock.today, service_id: 12 }),
+      location_id: MPP,
+    });
+
+    expect(res).toMatchObject({ ok: true, checkedInCount: 1 });
+    expect(row(id)).toMatchObject({ status: "present", checked_in_at: expect.any(String) });
+    expect(row("same-nik")).toMatchObject({ status: "scheduled" });
+  });
+
+  it("trusts the database, not the other QR fields", async () => {
+    store.rows = [ticket({ id, queue_number: "A-45", schedule_date: "2026-10-15" })];
+
+    const res = await checkInQueue({
+      code: qr({ queue_id: id, queue_number: "A45", schedule_date: clock.today }),
+      location_id: MPP,
+    });
+
+    expect(res).toMatchObject({ ok: false, status: 422, code: "DATE_MISMATCH" });
+  });
+
+  it("applies the branch check", async () => {
+    store.rows = [ticket({ id, queue_number: "A-45", location_id: SAMSAT_TIMUR })];
+    const res = await checkInQueue({ code: qr({ queue_id: id }), location_id: MPP });
+    expect(res).toMatchObject({ ok: false, status: 422, code: "WRONG_LOCATION" });
+  });
+
+  it("names the ticket by its number, not the raw JSON, when it does not exist", async () => {
+    const res = await checkInQueue({ code: qr({ queue_id: id, queue_number: "A45" }), location_id: MPP });
+    expect(res).toMatchObject({ ok: false, status: 404, code: "TICKET_NOT_FOUND" });
+    if (!res.ok) expect(res.message).toContain('"A45"');
+  });
+
+  it("rejects QR JSON without a valid queue_id", async () => {
+    for (const code of [qr({ queue_number: "A45" }), qr({ queue_id: "abc" }), "{not json"]) {
+      expect(await checkInQueue({ code, location_id: MPP })).toMatchObject({
+        ok: false,
+        status: 400,
+        code: "INVALID_QR",
+      });
+    }
+  });
+});

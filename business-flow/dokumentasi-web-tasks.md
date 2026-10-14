@@ -22,6 +22,7 @@ Kondisi per 03/10/2026, termasuk perbaikan hasil audit sore hari (lihat [Perbaik
 9. [Kios walk-in tanpa sesi jam (daftar baru #2)](#kios-walk-in-tanpa-sesi-jam-displayselect-layanan-daftar-baru-2-06102026)
 10. [Beranda: rentang waktu (daftar baru #3)](#beranda-rentang-waktu-admin-daftar-baru-3-06102026)
 11. [Check-in kios per NIK (daftar baru #6)](#check-in-kios-per-nik-displayinput-code-daftar-baru-6-12102026)
+    - [Scan QR tiket di kios (daftar baru #1)](#scan-qr-tiket-di-kios-displayinput-code-daftar-baru-1-14102026)
 12. [Web #6 — Halaman reset password (tidak dilanjutkan)](#web-6--halaman-reset-password-tidak-dilanjutkan)
 13. [Perbaikan setelah audit (03/10/2026)](#perbaikan-setelah-audit-03102026)
 14. [Masalah yang masih diketahui](#masalah-yang-masih-diketahui)
@@ -45,6 +46,7 @@ Kondisi per 03/10/2026, termasuk perbaikan hasil audit sore hari (lihat [Perbaik
 | baru #2 | Kios walk-in tanpa pilih sesi jam | Selesai | 06/10/2026 | `f3bcd3b` |
 | baru #3 | Rentang waktu di Beranda | Selesai | 06/10/2026 | — |
 | baru #6 | Check-in kios per NIK, hanya hari ini di cabang kios | Selesai | 12/10/2026 | `59ec975` |
+| baru #1 | Scan QR tiket di kios (kamera + scanner USB) | Selesai | 14/10/2026 | — |
 
 "Selesai" berarti fiturnya sudah dibangun dan berjalan sesuai tugas. Celah yang masih ada dicatat terpisah di
 [Masalah yang masih diketahui](#masalah-yang-masih-diketahui).
@@ -735,6 +737,48 @@ Satya) endpoint juga menerima `ticket_id` sebagai nama lain `code`, jadi klien l
 - Fallback "kolom `checked_in_at` belum ada" dihapus dari endpoint; migrasinya sudah jalan di DB remote sejak 07/10/2026.
 - Test: `tests/unit/check-in.test.ts` (18 test, tabel `queues` tiruan di memori).
 
+### Scan QR tiket di kios (`/display/input-code`, daftar baru #1, 14/10/2026)
+
+Tugas web-dashboard #1 di [`todos.txt`](./todos.txt). **Kode:** `app/components/display/QrScanner.tsx`,
+`app/components/display/CheckInForm.tsx`, `parseTicketQr()` di `lib/queue/qr.ts`, `classify()` di `lib/queue/check-in.ts`.
+
+QR tiket dari aplikasi mobile berisi stringified JSON:
+
+```json
+{ "queue_id": "<uuid>", "queue_number": "A45", "nik": "3578...", "schedule_date": "2026-10-14", "service_id": 12 }
+```
+
+Hanya `queue_id` yang dipakai. Check-in-nya sama dengan check-in lewat id tiket di atas: hanya tiket itu, dan
+tanggal serta cabang dicek dari database.
+
+| # | Warga di kios | Sistem & layar |
+|---|---|---|
+| 1 | Memilih **Sudah Mendaftar**. | Kamera langsung menyala ("Menyalakan kamera..."), lalu pratinjau dengan bingkai bidik dan tulisan **Arahkan QR ke kamera**. Kolom ketik NIK / nomor antrean tetap di bawahnya. |
+| 2 | Menunjukkan QR tiket di aplikasi ke kamera. | Kios membaca QR (±7 kali per detik), mengirim isinya ke `POST /api/queue/check-in` dengan `location_id` kios. Tulisan berubah menjadi **Memeriksa tiket...**. |
+| 3 | — | Layar hasil sama dengan check-in per nomor antrean (satu kartu besar). Kamera dimatikan. |
+| 4 | Klik **Scan Lagi** atau **Selesai**. | **Scan Lagi** menyalakan kamera lagi untuk warga berikutnya. |
+
+| Kasus | Hasil |
+|---|---|
+| QR bukan tiket CiviGo (URL, QRIS, teks lain) | `QR code tidak dikenali. Gunakan QR tiket dari aplikasi CiviGo, atau ketik NIK / nomor antrean.` Tidak ada request ke server. |
+| QR yang sama terus dihadapkan ke kamera | Hanya dikirim sekali per 4 detik, jadi tidak ada check-in berulang. |
+| QR tiket tanggal lain / cabang lain / sudah selesai | Pesan yang sama dengan check-in per id tiket: `DATE_MISMATCH`, `WRONG_LOCATION`, `ALREADY_COMPLETED`, dst. `schedule_date` di QR tidak dipakai. |
+| QR tiket yang tidak ada (mis. tiket dihapus) | `404 TICKET_NOT_FOUND`, menyebut nomor antrean dari QR (bukan JSON mentah). |
+| Scanner USB mengetik isi QR ke kolom input lalu Enter | Berjalan: server membaca JSON QR di field `code`. JSON tanpa `queue_id` uuid yang sah → `400 INVALID_QR`. |
+| Izin kamera ditolak | `Izin kamera ditolak. Izinkan akses kamera untuk situs ini di browser, lalu tekan Coba Lagi.` + tombol **Coba Lagi**. |
+| Tidak ada kamera / dipakai aplikasi lain | `Kamera tidak ditemukan atau sedang dipakai aplikasi lain.` + **Coba Lagi**. |
+| Kios dibuka lewat HTTP biasa (bukan localhost) | `Kamera hanya bisa dipakai lewat HTTPS atau localhost. Buka kios dari alamat HTTPS.` Browser tidak mengizinkan kamera di luar secure context. |
+| Semua kasus kamera gagal | Ketik NIK / nomor antrean tetap bisa dipakai. |
+
+**Catatan:**
+- Decoder `jsqr` dipakai, bukan `BarcodeDetector` bawaan browser, karena Chrome di Windows tidak punya `BarcodeDetector`.
+  Library dimuat saat kamera menyala, jadi tidak menambah ukuran halaman kios yang lain.
+- Pratinjau webcam dicerminkan (kamera menghadap warga, terasa seperti cermin); kamera belakang tablet tidak. Pembacaan QR
+  memakai gambar asli, jadi pencerminan tidak berpengaruh.
+- Diuji 14/10/2026 di Chrome dengan kamera tiruan (canvas berisi QR asli): QR URL ditolak tanpa request; QR tiket uji
+  E-01 → satu request, "Check-in Berhasil!", tiket `present`; "Scan Lagi" dengan QR yang sama → "Anda Sudah Check-in".
+  Kamera fisik belum dicoba.
+
 ---
 
 ## Web #6 — Halaman reset password (tidak dilanjutkan)
@@ -792,7 +836,9 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
   reschedule: tiket hangus dari tanggal mana pun digeser ke hari ini, dan kalau sesi hari itu habis dibuatkan sesi uji
   (paling akhir `23:30 - 24:00`). Di `next dev` keduanya otomatis aktif tanpa flag. Memanggil, menyelesaikan,
   menghanguskan, dan memundurkan antrean tidak dicek jam operasional.
-- Test otomatis: `npx vitest run` (190 test per 14/10/2026, semua di-mock, tidak memakai kuota apa pun).
+- Test otomatis: `npx vitest run` (199 test per 14/10/2026, semua di-mock, tidak memakai kuota apa pun).
+- Kamera kios (scan QR) hanya jalan lewat HTTPS atau `localhost`. Untuk menguji dari perangkat lain di jaringan
+  lokal, pakai `next dev --experimental-https` atau tunnel HTTPS.
 
 ### File utama per tugas
 
@@ -804,6 +850,7 @@ Masalah #4 dan #7 dari audit belum diperbaiki dan dicatat di bawah.
 | Web #4 | `lib/auth/actions.ts`, `lib/auth/session.ts`, `app/components/auth/LoginForm.tsx` |
 | Beranda rentang waktu (#3 baru) | `app/admin/page.tsx`, `app/components/admin/RangeSelect.tsx`, `PerformanceCard.tsx`, `ServiceDonutChart.tsx`, `WeeklyQueueChart.tsx`, `lib/data/admin.ts` (`getQueueOutcome`, `getServiceDonutData`), `lib/queue/time.ts`, `tests/unit/dashboard-ranges.test.ts` |
 | Kios tanpa sesi & cabang (#2 baru) | `app/display/page.tsx`, `app/display/select-layanan/page.tsx`, `app/display/input-code/page.tsx`, `lib/data/kiosk.ts`, `app/components/display/KioskServiceSelection.tsx`, `app/components/display/CheckInForm.tsx`, `app/components/admin/Sidebar.tsx`, `DisplayConfirmModal.tsx`, `lib/queue/book.ts`, `tests/unit/book-without-session.test.ts` |
+| Scan QR kios (#1 baru) | `app/components/display/QrScanner.tsx`, `app/components/display/CheckInForm.tsx`, `lib/queue/qr.ts`, `lib/queue/check-in.ts`, `app/api/openapi.json/route.ts`, `tests/unit/qr.test.ts`, `tests/unit/check-in.test.ts` |
 | Check-in kios per NIK (#6 baru) | `lib/queue/check-in.ts`, `app/api/queue/check-in/route.ts`, `app/components/display/CheckInForm.tsx`, `app/display/input-code/page.tsx`, `app/components/display/KioskServiceSelection.tsx`, `app/api/openapi.json/route.ts`, `tests/unit/check-in.test.ts` |
 | Profil (#4–#5 baru) | `app/admin/profil/page.tsx`, `lib/auth/actions.ts` (`updateProfileName`, `changePassword`), `app/components/admin/ProfileNameForm.tsx`, `ChangePasswordForm.tsx`, `FormStatus.tsx`, `app/components/PasswordInput.tsx` |
 | Web #5 | `lib/queue/ordering.ts`, `lib/queue/status.ts`, `lib/data/admin.ts` (`getTodayQueues`), `app/components/admin/AntreanManager.tsx`, `app/admin/antrean/page.tsx`, `app/display/[agencyId]/antrean/page.tsx`, `supabase/migrations/20261003115823_add_completed_at_to_queues.sql` |

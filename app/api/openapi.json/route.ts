@@ -1095,8 +1095,10 @@ export async function GET() {
           description:
             "Mengonfirmasi kehadiran fisik warga (scheduled -> present, checked_in_at diisi). Hanya tiket hari ini (WIB). " +
             "NIK meng-check-in semua tiket NIK itu hari ini di cabang location_id, termasuk tiket anggota keluarga; " +
-            "nomor antrean atau id tiket hanya meng-check-in tiket itu. Tiket served yang belum punya checked_in_at " +
-            "dicatat waktu kedatangannya tanpa mengubah status.",
+            "nomor antrean, id tiket, atau isi QR tiket hanya meng-check-in tiket itu. Tiket served yang belum punya " +
+            "checked_in_at dicatat waktu kedatangannya tanpa mengubah status. QR tiket dari aplikasi mobile berisi JSON " +
+            '`{"queue_id", "queue_number", "nik", "schedule_date", "service_id"}`; hanya `queue_id` yang dipakai, ' +
+            "tanggal dan cabang tetap dicek dari database.",
           requestBody: {
             required: true,
             content: {
@@ -1106,7 +1108,9 @@ export async function GET() {
                   properties: {
                     code: {
                       type: "string",
-                      description: "NIK 16 digit, nomor antrean (A-01), atau id tiket (uuid).",
+                      description:
+                        "NIK 16 digit, nomor antrean (A-01), id tiket (uuid), atau isi QR tiket apa adanya " +
+                        '(JSON string, mis. dari scanner USB: `{"queue_id":"<uuid>","queue_number":"A-45",...}`).',
                       example: "3273010101010001",
                     },
                     ticket_id: {
@@ -1133,7 +1137,9 @@ export async function GET() {
                 "(checked_in | already_checked_in | being_served | completed | skipped). `ticket` = tickets[0], " +
                 "`alreadyCheckedIn` = tidak ada tiket yang baru di-check-in (bentuk lama).",
             },
-            "400": { description: "CODE_REQUIRED atau INVALID_LOCATION." },
+            "400": {
+              description: "CODE_REQUIRED, INVALID_LOCATION, atau INVALID_QR (JSON QR tanpa queue_id uuid yang sah).",
+            },
             "404": { description: "TICKET_NOT_FOUND: tidak ada tiket hari ini untuk kode/NIK itu." },
             "422": {
               description:

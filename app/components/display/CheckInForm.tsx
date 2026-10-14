@@ -1,15 +1,20 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { AlertCircle, BellRing, CheckCircle2, Clock, Loader2, QrCode, Search, UserCheck, Users } from "lucide-react";
+import { AlertCircle, BellRing, CheckCircle2, Clock, Loader2, Search, UserCheck, Users } from "lucide-react";
 import type { CheckInOutcome, CheckInTicket } from "@/lib/queue/check-in";
+import { parseTicketQr } from "@/lib/queue/qr";
+import QrScanner from "./QrScanner";
 
 type CheckInResponse = {
   tickets: CheckInTicket[];
   checkedInCount: number;
   message: string;
 };
+
+/** The same QR held in front of the camera is decoded many times a second; check it in once. */
+const RESCAN_COOLDOWN_MS = 4000;
 
 const OUTCOME_BADGE: Record<CheckInOutcome, { label: string; className: string }> = {
   checked_in: { label: "Check-in berhasil", className: "bg-emerald-100 text-emerald-700" },
@@ -77,11 +82,9 @@ export default function CheckInForm({ homeHref, locationId }: { homeHref: string
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<CheckInResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const lastScan = useRef<{ text: string; at: number } | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!code.trim()) return;
-
+  const checkIn = (submitted: string) => {
     setError(null);
     setResult(null);
 
@@ -91,7 +94,7 @@ export default function CheckInForm({ homeHref, locationId }: { homeHref: string
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "omit",
-          body: JSON.stringify({ code: code.trim(), location_id: locationId }),
+          body: JSON.stringify({ code: submitted, location_id: locationId }),
         });
 
         const data = await res.json();
@@ -105,6 +108,27 @@ export default function CheckInForm({ homeHref, locationId }: { homeHref: string
         setError("Gagal menghubungi server. Periksa koneksi jaringan.");
       }
     });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code.trim()) return;
+    checkIn(code.trim());
+  };
+
+  const handleScan = (text: string) => {
+    if (isPending) return;
+
+    const now = Date.now();
+    if (lastScan.current?.text === text && now - lastScan.current.at < RESCAN_COOLDOWN_MS) return;
+    lastScan.current = { text, at: now };
+
+    // QR lain (URL, QRIS, dll.) tidak dikirim ke server.
+    if (!parseTicketQr(text)) {
+      setError("QR code tidak dikenali. Gunakan QR tiket dari aplikasi CiviGo, atau ketik NIK / nomor antrean.");
+      return;
+    }
+    checkIn(text);
   };
 
   const beingServed = result?.tickets.some((t) => t.outcome === "being_served") ?? false;
@@ -151,6 +175,7 @@ export default function CheckInForm({ homeHref, locationId }: { homeHref: string
                 onClick={() => {
                   setResult(null);
                   setCode("");
+                  lastScan.current = null;
                 }}
                 className="flex-1 cursor-pointer rounded-[12px] border border-line py-3 font-display text-sm font-semibold text-ink hover:bg-board transition-colors"
               >
@@ -173,18 +198,13 @@ export default function CheckInForm({ homeHref, locationId }: { homeHref: string
               Pindai Kode Antrean
             </h1>
             <p className="font-display text-base sm:text-lg font-medium text-brand">
-              Masukkan NIK atau Nomor Antrean Anda untuk konfirmasi kehadiran
+              Tunjukkan QR tiket dari aplikasi CiviGo, atau masukkan NIK / Nomor Antrean Anda
             </p>
           </header>
 
-          {/* Scan Area Box Graphic */}
+          {/* Kamera pemindai QR */}
           <section className="flex flex-col items-center gap-2">
-            <div className="flex h-[140px] w-[180px] sm:h-[160px] sm:w-[200px] flex-col items-center justify-center gap-2 rounded-[16px] bg-zinc-700 p-4 shadow-soft text-white/90">
-              <QrCode size={42} className="text-white/80 animate-pulse" />
-              <span className="text-center font-display text-xs font-semibold tracking-wider uppercase text-white/70">
-                Arahkan QR ke Kamera
-              </span>
-            </div>
+            <QrScanner onScan={handleScan} busy={isPending} />
           </section>
 
           {/* Error Alert */}

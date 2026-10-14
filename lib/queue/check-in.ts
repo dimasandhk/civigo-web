@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { looksLikeTicketQr, parseTicketQr } from "./qr";
 import { fail, isUuid, type Failure } from "./shared";
 import { todayInJakarta } from "./time";
 
@@ -7,8 +8,8 @@ import { todayInJakarta } from "./time";
  *
  * Checking in records that a person has arrived, so a NIK checks in every ticket
  * that NIK holds today at this kiosk's branch — including tickets booked for a
- * family member, which carry the account owner's NIK. A queue number or ticket
- * id names one ticket, so only that one is checked in.
+ * family member, which carry the account owner's NIK. A queue number, ticket
+ * id, or ticket QR (see `./qr`) names one ticket, so only that one is checked in.
  *
  * Lookups are limited to today (WIB). A ticket that exists today only at another
  * branch is refused with that branch's name rather than checked in here.
@@ -91,7 +92,8 @@ type CheckInInput = {
 };
 
 type Lookup =
-  | { kind: "id"; value: string }
+  /** `label` names the ticket in messages when the code itself is a QR payload. */
+  | { kind: "id"; value: string; label?: string }
   | { kind: "nik"; value: string }
   | { kind: "queue_number"; value: string };
 
@@ -128,8 +130,21 @@ export function normalizeQueueNumber(code: string): string {
   return match ? `${match[1]}-${match[2].padStart(2, "0")}` : upper;
 }
 
-function classify(code: string): Lookup {
+function classify(code: string): Lookup | Failure {
   if (isUuid(code)) return { kind: "id", value: code };
+
+  // Teks QR tiket, mis. diketik scanner USB ke kolom input kios.
+  if (looksLikeTicketQr(code)) {
+    const qr = parseTicketQr(code);
+    if (!qr) {
+      return fail(
+        400,
+        "INVALID_QR",
+        "QR code tidak dikenali. Gunakan QR tiket dari aplikasi CiviGo, atau ketik NIK / nomor antrean.",
+      );
+    }
+    return { kind: "id", value: qr.queueId, label: qr.queueNumber ?? "QR tiket" };
+  }
 
   // NIK sering diketik berkelompok ("3273 0101 ...").
   const digits = code.replace(/\s+/g, "");
@@ -299,6 +314,7 @@ export async function checkInQueue(raw: unknown): Promise<CheckInResult> {
   const db = createServiceClient();
   const today = todayInJakarta();
   const lookup = classify(input.code);
+  if ("ok" in lookup) return lookup;
 
   const found = await findTickets(db, lookup, today);
 
@@ -307,7 +323,7 @@ export async function checkInQueue(raw: unknown): Promise<CheckInResult> {
       const upcoming = await findUpcomingByNik(db, lookup.value, today);
       if (upcoming) return dateMismatch(upcoming);
     }
-    return notFound(input.code);
+    return notFound(lookup.kind === "id" && lookup.label ? lookup.label : input.code);
   }
 
   // Hanya bisa terjadi lewat id: pencarian NIK/nomor sudah dibatasi hari ini.

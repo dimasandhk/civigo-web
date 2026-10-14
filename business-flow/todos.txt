@@ -4,8 +4,15 @@ Tugas lama (Web #1-#6, Mobile, Supabase per 27/09-03/10/2026): todos-arsip-03-10
 Dokumentasi tugas web yang sudah selesai: dokumentasi-web-tasks.md
 
 web-dashboard:
-    1. [ ] Integrasi QR code scanner di kiosk mode.
-        - Catatan: sekarang check-in kios masih ketik kode manual (CheckInForm); belum ada library scanner QR.
+    1. [x] Integrasi QR code scanner di kiosk mode. (14/10/2026)
+        - Halaman "Sudah Mendaftar" (/display/input-code) langsung menyalakan kamera dan memindai QR tiket dari
+          aplikasi mobile. QR berisi JSON {queue_id, queue_number, nik, schedule_date, service_id}; hanya queue_id
+          yang dipakai, lalu check-in lewat id tiket (hanya tiket itu, tanggal & cabang dicek dari database).
+        - QR lain (URL, QRIS, dll.) ditolak di kios tanpa memanggil server. QR yang sama tidak dikirim ulang dalam 4 detik.
+        - Scanner USB (yang mengetik isi QR ke kolom input) juga jalan: server membaca JSON QR di field code.
+        - Kamera ditolak/tidak ada/bukan HTTPS -> pesan + tombol Coba Lagi; ketik NIK/nomor antrean tetap bisa.
+        - Kamera butuh HTTPS atau localhost. Library: jsqr (bukan BarcodeDetector: tidak ada di Chrome Windows).
+        - Detail: business-flow-notes.md poin 5.19. Kode: app/components/display/QrScanner.tsx, lib/queue/qr.ts.
     2. [x] Hapus pilih sesi jam layanan di kiosk mode. (06/10/2026)
         - Form walk-in kios tidak lagi punya "Pilih Sesi Jam Layanan" (termasuk sesi uji coba malam/weekend); tiket
           dibuat tanpa time_block dan dilayani sesuai urutan nomor. Form menampilkan jam layanan instansi.

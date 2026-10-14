@@ -47,7 +47,7 @@ Skema database menggunakan tipe enum `public.user_role`:
 
 ### B. Alur Check-in di Kios Fisik (`/display`)
 1. **Warga Sudah Mendaftar**:
-   - Memilih menu "Sudah Mendaftar" -> ketik NIK atau nomor antrean (scan QR belum ada).
+   - Memilih menu "Sudah Mendaftar" -> tunjukkan QR tiket dari aplikasi mobile ke kamera kios, atau ketik NIK / nomor antrean (poin 5.19).
    - Hanya tiket hari ini di cabang kios itu yang dicari. NIK meng-check-in semua tiket NIK itu hari ini di cabang tersebut; nomor antrean hanya tiket itu (poin 5.17).
 2. **Warga Belum Mendaftar (Walk-in)**:
    - Memilih menu "Belum Mendaftar" -> Memilih instansi & jenis layanan.
@@ -198,3 +198,12 @@ Skema database menggunakan tipe enum `public.user_role`:
    - **Tiket hasil reschedule kini membawa `location_id` dan `family_member_id`** dari tiket asalnya (`loadTicketContext()` di `lib/queue/authz.ts` ikut men-select keduanya). Dulu tiket pengganti selalu tercatat di lokasi 1 (MPP, default `insertTicketWithNumber()`) tanpa anggota keluarga, sehingga tiket hangus dari cabang non-MPP muncul kembali di dasbor dan TV MPP, dan tiket keluarga kehilangan "Atas nama".
    - **`POST /api/queue/check-in` juga menerima `ticket_id`** sebagai nama lain `code` (`ee67273`). Kios tetap mengirim `code`; dokumentasi OpenAPI menulis keduanya. Spec OpenAPI juga disinkronkan untuk skema Bearer.
    - `getCurrentUser()` dan `GET /api/queue/my` mengembalikan `null` / tanpa user kalau `createClient()` gagal (di luar request context), bukan melempar error (`1a01c53`).
+19. **Scan QR tiket di kios (14/10/2026, daftar baru web-dashboard #1)**:
+   - Aplikasi mobile menampilkan QR berisi stringified JSON `{"queue_id", "queue_number", "nik", "schedule_date", "service_id"}`. Halaman "Sudah Mendaftar" (`/display/input-code`) kini langsung menyalakan kamera (`QrScanner`, decoder `jsqr`) dan memindai QR itu. Kolom ketik NIK / nomor antrean tetap ada di bawahnya.
+   - **Hanya `queue_id` yang dipakai** (`parseTicketQr()` di `lib/queue/qr.ts`). QR menamai satu tiket, jadi hanya tiket itu yang di-check-in, sama dengan check-in lewat id tiket (poin 5.17): tanggal hari ini dan cabang kios dicek dari database, bukan dari `schedule_date` di QR. Field lain di QR tidak dipercaya; QR berisi uuid saja juga diterima.
+   - QR yang bukan tiket CiviGo (URL, QRIS, dll.) ditolak di kios tanpa memanggil server: `QR code tidak dikenali. Gunakan QR tiket dari aplikasi CiviGo, atau ketik NIK / nomor antrean.` QR yang sama yang terus dihadapkan ke kamera hanya dikirim sekali per 4 detik.
+   - **Scanner USB juga didukung.** Scanner seperti ini mengetik isi QR ke kolom input lalu Enter, jadi `POST /api/queue/check-in` membaca JSON QR di field `code`. JSON tanpa `queue_id` uuid yang sah → `400 INVALID_QR`. Pesan "tidak ditemukan" memakai nomor antrean dari QR, bukan JSON mentahnya.
+   - Kamera ditolak, tidak ada, atau halaman dibuka bukan lewat HTTPS/localhost (`getUserMedia` butuh secure context) → kotak kamera menampilkan alasannya + tombol "Coba Lagi"; ketik manual tetap jalan. **Kios harus dibuka lewat HTTPS** (atau localhost) supaya kamera bisa dipakai. Izin kamera cukup diberikan sekali per perangkat.
+   - Pratinjau webcam dicerminkan (kamera menghadap warga); kamera belakang tablet tidak. Kamera dimatikan saat layar hasil tampil dan dinyalakan lagi lewat "Scan Lagi".
+   - `jsqr` dipakai, bukan `BarcodeDetector` bawaan browser, karena Chrome di Windows tidak punya `BarcodeDetector`.
+   - Diuji 14/10/2026 di Chrome dengan kamera tiruan (canvas berisi QR asli): QR URL → pesan tidak dikenali tanpa request; QR tiket E-01 (walk-in uji, NIK `3273019999990777`, MPP) → satu request, "Check-in Berhasil!", tiket `present` + `checked_in_at`; "Scan Lagi" + QR sama → "Anda Sudah Check-in". Kamera fisik belum dicoba. Test: `tests/unit/qr.test.ts`, `tests/unit/check-in.test.ts` (bagian ticket QR).
