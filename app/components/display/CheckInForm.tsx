@@ -22,6 +22,7 @@ const OUTCOME_BADGE: Record<CheckInOutcome, { label: string; className: string }
   being_served: { label: "Sedang dipanggil", className: "bg-amber-100 text-amber-800" },
   completed: { label: "Sudah selesai", className: "bg-zinc-100 text-zinc-600" },
   skipped: { label: "Hangus", className: "bg-red-100 text-red-700" },
+  canceled: { label: "Dibatalkan", className: "bg-rose-100 text-rose-700" },
 };
 
 function badgeLabel(ticket: CheckInTicket): string {
@@ -31,7 +32,7 @@ function badgeLabel(ticket: CheckInTicket): string {
 }
 
 function TicketCard({ ticket, large }: { ticket: CheckInTicket; large: boolean }) {
-  const finished = ticket.outcome === "completed" || ticket.outcome === "skipped";
+  const finished = ticket.outcome === "completed" || ticket.outcome === "skipped" || ticket.outcome === "canceled";
 
   return (
     <div

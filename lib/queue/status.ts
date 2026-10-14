@@ -23,11 +23,12 @@ import { todayInJakarta } from "./time";
  * endpoint, which leaves the skip on the record.
  */
 const TRANSITIONS: Record<QueueStatus, QueueStatus[]> = {
-  scheduled: ["present", "served", "skipped"],
-  present: ["served", "skipped"],
+  scheduled: ["present", "served", "skipped", "canceled"],
+  present: ["served", "skipped", "canceled"],
   served: ["completed", "skipped"],
   completed: [],
   skipped: [],
+  canceled: [],
 };
 
 const STATUS_LABEL: Record<QueueStatus, string> = {
@@ -36,6 +37,7 @@ const STATUS_LABEL: Record<QueueStatus, string> = {
   served: "dilayani",
   completed: "selesai",
   skipped: "hangus",
+  canceled: "dibatalkan",
 };
 
 export type TicketSummary = {

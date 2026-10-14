@@ -1088,6 +1088,61 @@ export async function GET() {
           },
         },
       },
+      "/api/queue/{id}/cancel": {
+        post: {
+          tags: ["Antrean (Queues)"],
+          summary: "Batalkan booking antrean secara sukarela",
+          description: "Membatalkan tiket antrean yang masih aktif ('scheduled' atau 'present') oleh pemilik tiket. Mengubah status tiket menjadi 'canceled', mencatat canceled_at, dan memindahkan tiket ke riwayat antrean tanpa hak reschedule.",
+          security: [{ BearerAuth: [] }, { CookieAuth: [] }],
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: { type: "string", format: "uuid" },
+              description: "UUID tiket antrean yang ingin dibatalkan",
+            },
+          ],
+          requestBody: {
+            required: false,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    reason: { type: "string", maxLength: 500, description: "Alasan pembatalan opsional dari warga" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Tiket antrean berhasil dibatalkan.",
+              content: {
+                "application/json": {
+                  example: {
+                    ok: true,
+                    message: "Nomor antrean A-008 berhasil dibatalkan.",
+                    ticket: {
+                      id: "b2d2f1f0-4592-4f70-985e-998811223344",
+                      queue_number: "A-008",
+                      status: "canceled",
+                      canceled_at: "2026-10-14T15:00:00.000Z",
+                      cancel_reason: "Ada urusan mendadak",
+                    },
+                  },
+                },
+              },
+            },
+            "400": { description: "ID tiket tidak valid (format bukan UUID)." },
+            "401": { description: "Belum terautentikasi (wajib login)." },
+            "403": { description: "Bukan pemilik tiket antrean." },
+            "404": { description: "Tiket tidak ditemukan." },
+            "422": { description: "Tiket sedang dilayani di loket (TICKET_ALREADY_SERVED) atau sudah selesai/hangus/batal." },
+          },
+        },
+      },
       "/api/queue/check-in": {
         post: {
           tags: ["Antrean (Queues)"],

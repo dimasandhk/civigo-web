@@ -70,6 +70,8 @@ export async function GET(request: NextRequest) {
         postponed,
         postponed_at,
         is_reviewed,
+        canceled_at,
+        cancel_reason,
         created_at,
         nik,
         family_member_id,
@@ -228,6 +230,8 @@ export async function GET(request: NextRequest) {
           : null,
         rescheduled_from: t.rescheduled_from,
         is_reviewed: (t.is_reviewed as boolean | null) ?? null,
+        canceled_at: (t.canceled_at as string | null) ?? null,
+        cancel_reason: (t.cancel_reason as string | null) ?? null,
       };
     });
 

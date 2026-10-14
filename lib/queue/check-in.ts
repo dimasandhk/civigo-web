@@ -59,7 +59,8 @@ export type CheckInOutcome =
   | "already_checked_in"
   | "being_served"
   | "completed"
-  | "skipped";
+  | "skipped"
+  | "canceled";
 
 export type CheckInTicket = {
   id: string;
@@ -168,6 +169,8 @@ function outcomeFor(status: string): CheckInOutcome {
       return "completed";
     case "skipped":
       return "skipped";
+    case "canceled":
+      return "canceled";
     default:
       return "already_checked_in";
   }
@@ -195,6 +198,7 @@ const OUTCOME_ORDER: Record<CheckInOutcome, number> = {
   already_checked_in: 1,
   completed: 2,
   skipped: 2,
+  canceled: 2,
 };
 
 function sortTickets(tickets: CheckInTicket[]): CheckInTicket[] {
@@ -237,23 +241,27 @@ function wrongLocation(rows: TicketRow[]): Failure {
 function nothingToCheckIn(tickets: CheckInTicket[]): Failure {
   if (tickets.length === 1) {
     const [ticket] = tickets;
-    return ticket.outcome === "completed"
-      ? fail(422, "ALREADY_COMPLETED", `Nomor antrean ${ticket.queue_number} sudah selesai dilayani.`)
-      : fail(
-          422,
-          "TICKET_SKIPPED",
-          `Nomor antrean ${ticket.queue_number} telah hangus. Silakan hubungi petugas atau ambil antrean baru.`,
-        );
+    if (ticket.outcome === "completed") {
+      return fail(422, "ALREADY_COMPLETED", `Nomor antrean ${ticket.queue_number} sudah selesai dilayani.`);
+    }
+    if (ticket.outcome === "canceled") {
+      return fail(422, "TICKET_CANCELED", `Nomor antrean ${ticket.queue_number} telah dibatalkan.`);
+    }
+    return fail(
+      422,
+      "TICKET_SKIPPED",
+      `Nomor antrean ${ticket.queue_number} telah hangus. Silakan hubungi petugas atau ambil antrean baru.`,
+    );
   }
 
   const list = tickets
-    .map((t) => `${t.queue_number} (${t.outcome === "completed" ? "selesai" : "hangus"})`)
+    .map((t) => `${t.queue_number} (${t.outcome === "completed" ? "selesai" : t.outcome === "canceled" ? "dibatalkan" : "hangus"})`)
     .join(", ");
 
   return fail(
     422,
     "NO_ACTIVE_TICKET",
-    `Semua antrean Anda hari ini sudah selesai atau hangus: ${list}. ` +
+    `Semua antrean Anda hari ini sudah tidak aktif: ${list}. ` +
       "Silakan hubungi petugas atau ambil antrean baru.",
   );
 }
@@ -388,7 +396,7 @@ export async function checkInQueue(raw: unknown): Promise<CheckInResult> {
     rows.map((row) => toTicket(row, newlyCheckedIn.has(row.id) ? "checked_in" : outcomeFor(row.status))),
   );
 
-  if (tickets.every((t) => t.outcome === "completed" || t.outcome === "skipped")) {
+  if (tickets.every((t) => t.outcome === "completed" || t.outcome === "skipped" || t.outcome === "canceled")) {
     return nothingToCheckIn(tickets);
   }
 

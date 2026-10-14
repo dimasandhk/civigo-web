@@ -41,3 +41,13 @@
 - [x] Tambahkan unit test Vitest lengkap di `tests/api/auth.test.ts` (100% mock, 0 kuota email/API terpakai)
 - [x] Perbarui OpenAPI 3.1 Spec di `/api/openapi.json` & dokumentasi tim di `supabase-backend-integration-notes.md`
 
+## 10. Fitur Batalkan Booking Antrean (Queue Booking Cancellation)
+- [x] 10.1 Buat migration SQL `supabase/migrations/20261014150000_add_canceled_status_to_queues.sql` untuk update constraint `queues_status_valid` dan kolom `canceled_at`, `cancel_reason`
+- [x] 10.2 Push migrasi ke database Supabase dan generate TypeScript types jika perlu
+- [x] 10.3 Perbarui shared queue constants & types (`lib/queue/shared.ts`, `lib/queue/status.ts`)
+- [x] 10.4 Buat endpoint `POST /api/queue/[id]/cancel` dengan verifikasi kepemilikan, atomic conditional update, dan guard status
+- [x] 10.5 Perbarui `app/api/queue/my/route.ts` dan kiosk check-in `lib/queue/check-in.ts` untuk menangani status `canceled`
+- [x] 10.6 Buat automated unit & route tests di `tests/api/cancel-queue.test.ts`
+- [x] 10.7 Implementasi frontend mobile (`useCancelQueue`, tombol batal, modal konfirmasi, badge riwayat) di `civigo`
+- [x] 10.8 Testing end-to-end, linting, dan typechecking di mobile dan web
+

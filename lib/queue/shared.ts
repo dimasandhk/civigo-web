@@ -6,6 +6,7 @@ export const QUEUE_STATUSES = [
   "served",
   "completed",
   "skipped",
+  "canceled",
 ] as const;
 
 export type QueueStatus = (typeof QUEUE_STATUSES)[number];
