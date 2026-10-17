@@ -1,0 +1,49 @@
+PANDUAN LENGKAP PENANGANAN DOKUMEN HILANG DAN RUSAK UNTUK LAYANAN PUBLIK
+
+1. PRINSIP UMUM DOKUMEN HILANG ATAU RUSAK
+Dalam birokrasi pemerintahan Indonesia, pemohon yang kehilangan dokumen resmi negara atau memiliki dokumen fisik yang rusak parah tidak dapat langsung mengajukan permohonan layanan di instansi tujuan. Terdapat rantai dependensi antar-instansi (cross-agency prerequisite) yang wajib dilalui agar keabsahan hukum dokumen pengganti terjamin.
+
+2. PANDUAN SPESIFIK BERDASARKAN JENIS DOKUMEN:
+
+A. JIKA KARTU TANDA PENDUDUK (KTP-EL) HILANG:
+- Langkah 1: Kunjungi kantor Kepolisian Sektor (Polsek) terdekat sesuai domisili atau Polsek di tempat kehilangan.
+- Minta pembuatan Surat Tanda Penerimaan Laporan Kehilangan (SKTLK) KTP.
+  * Syarat di Polsek: Fotokopi Kartu Keluarga (KK) atau sebutkan NIK 16 digit.
+  * Biaya pembuatan SKTLK di Kepolisian: GRATIS (Rp 0).
+- Langkah 2: Buka aplikasi CiviGo, pilih instansi "Dispendukcapil", dan pilih layanan "Pembuatan KTP-el Baru / Penggantian".
+- Langkah 3: Datang ke loket Dispendukcapil MPP Siola dengan membawa SKTLK asli dan fotokopi KK. Petugas akan mencetak ulang KTP-el Anda tanpa perlu perekaman biometrik ulang.
+
+B. JIKA KARTU TANDA PENDUDUK (KTP-EL) RUSAK / PATAH / FOTO BURAM:
+- Anda TIDAK PERLU membuat surat kehilangan ke Polsek.
+- Cukup bawa fisik KTP-el lama yang rusak dan fotokopi Kartu Keluarga (KK).
+- Bawa berkas ke loket Dispendukcapil MPP Siola. KTP lama akan ditarik oleh petugas untuk dimusnahkan secara resmi, dan KTP baru langsung dicetak.
+
+C. JIKA SURAT TANDA NOMOR KENDARAAN (STNK) HILANG:
+- Langkah 1: Buat Surat Keterangan Kehilangan STNK di Polsek/Polres.
+- Langkah 2: Bawa kendaraan bermotor ke Samsat Induk untuk Cek Fisik (gesek nomor rangka & mesin).
+- Langkah 3: Dapatkan Surat Keterangan Bebas Blokir dari Min Regident Samsat.
+- Langkah 4: Buat iklan kehilangan di media massa/koran lokal (lampirkan kuitansi dan bukti terbitan koran).
+- Langkah 5: Bawa seluruh berkas tersebut bersama BPKB Asli dan KTP Asli pemilik ke loket Samsat untuk penerbitan Duplikat STNK.
+
+D. JIKA PASPOR REPUBLIK INDONESIA HILANG ATAU RUSAK:
+- Paspor Hilang:
+  Langkah 1: Wajib membuat Surat Keterangan Lapor Kehilangan Paspor di kantor Kepolisian (Polsek/Polres).
+  Langkah 2: Ambil nomor antrean layanan paspor di Kantor Imigrasi / MPP Siola.
+  Langkah 3: Jalani Berita Acara Pemeriksaan (BAP) oleh petugas pengawas Imigrasi untuk investigasi alasan hilangnya paspor.
+  Langkah 4: Bayar biaya resmi denda paspor hilang sebesar Rp 1.000.000 (ditambah biaya buku paspor baru Rp 350.000 biasa atau Rp 650.000 elektronik).
+- Paspor Rusak (robek, terkena air, halaman terlepas, dsb):
+  Langsung bawa fisik paspor yang rusak ke Kantor Imigrasi untuk pemeriksaan BAP dan dikenakan denda resmi paspor rusak Rp 500.000.
+
+E. JIKA KARTU KELUARGA (KK) HILANG:
+- Syarat: Surat Keterangan Kehilangan KK dari Polsek setempat + KTP-el Kepala Keluarga.
+- Bawa ke loket Dispendukcapil MPP Siola untuk cetak ulang draf KK resmi ber-barcode TTE.
+
+F. JIKA BUKU NIKAH HILANG ATAU RUSAK:
+- Buat Surat Kehilangan dari Polsek terdekat.
+- Bawa SKTLK, pas foto 2x3 latar belakang biru (2 lembar), fotokopi KTP dan KK suami istri ke Kantor Urusan Agama (KUA) tempat akad nikah dilangsungkan.
+- KUA akan menerbitkan "Duplikat Buku Nikah" resmi secara gratis.
+
+G. JIKA IJAZAH / AKTA KELAHIRAN HILANG:
+- Buat Surat Kehilangan di Polsek.
+- Untuk Akta Lahir: Bawa SKTLK ke Dispendukcapil untuk diterbitkan Kutipan Akta Kelahiran Kedua.
+- Untuk Ijazah: Bawa SKTLK dan fotokopi ijazah lama ke sekolah asal atau Dinas Pendidikan setempat untuk diterbitkan Surat Keterangan Pengganti Ijazah (SKPI) resmi yang ditandatangani kepala sekolah/dinas.

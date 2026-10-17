@@ -9,112 +9,100 @@ const supabase = createServiceClient();
 
 const DATA_DIR = path.join(process.cwd(), "public", "data");
 
-const CHUNK_SIZE = 1000;
-const CHUNK_OVERLAP = 200;
+function splitTextIntoSections(text: string, fileName: string): string[] {
+  const lines = text.split("\n");
+  const docTitle = lines[0]?.trim() || fileName;
 
-function splitText(
-  text: string,
-  chunkSize: number,
-  overlap: number
-) {
+  // Split by major sections (e.g. "\nA. ", "\nB. ", "\n1. ", "\n2. ")
+  const rawSections = text.split(/\n(?=[A-Z]\. |\d+\. [A-Z])/g);
   const chunks: string[] = [];
 
-  let start = 0;
+  for (const raw of rawSections) {
+    const trimmed = raw.trim();
+    if (trimmed.length < 40) continue;
 
-  while (start < text.length) {
-    const end = Math.min(start + chunkSize, text.length);
+    // If a section is very long (> 1500 chars), split by double newline
+    if (trimmed.length > 1500) {
+      const paragraphs = trimmed.split(/\n\s*\n/);
+      let current = `[${docTitle}]\n\n`;
 
-    const chunk = text
-      .slice(start, end)
-      .trim();
-
-    if (chunk) {
-      chunks.push(chunk);
+      for (const p of paragraphs) {
+        if ((current + p).length > 1500 && current.length > 60) {
+          chunks.push(current.trim());
+          current = `[${docTitle}]\n\n${p}\n\n`;
+        } else {
+          current += `${p}\n\n`;
+        }
+      }
+      if (current.trim().length > 60) {
+        chunks.push(current.trim());
+      }
+    } else {
+      chunks.push(`[${docTitle}]\n\n${trimmed}`);
     }
-
-    if (end >= text.length) {
-      break;
-    }
-
-    start = end - overlap;
   }
 
   return chunks;
 }
 
 async function ingestTXT(filePath: string) {
-  console.log(`Membaca: ${filePath}`);
+  const fileName = path.basename(filePath);
+  console.log(`\n📄 Membaca: ${fileName}`);
 
   const text = fs.readFileSync(filePath, "utf-8");
-
   console.log(`Total karakter: ${text.length}`);
 
-  const chunks = splitText(
-    text,
-    CHUNK_SIZE,
-    CHUNK_OVERLAP
-  );
-
+  const chunks = splitTextIntoSections(text, fileName);
   console.log(`Total chunks: ${chunks.length}`);
 
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
+  if (chunks.length === 0) return;
 
-    console.log(
-      `Embedding ${i + 1}/${chunks.length}`
-    );
+  console.log(`Mengenerate embedding batch untuk ${chunks.length} chunks...`);
+  const embeddingResponse = await openai.embeddings.create({
+    model: "text-embedding-3-small",
+    input: chunks,
+  });
 
-    const embeddingResponse =
-      await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: chunk,
-      });
+  const rows = chunks.map((chunk, i) => ({
+    content: chunk,
+    metadata: {
+      source: fileName,
+      chunk: i,
+    },
+    embedding: embeddingResponse.data[i].embedding,
+  }));
 
-    const embedding =
-      embeddingResponse.data[0].embedding;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any).from("documents").insert(rows);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
-      .from("documents")
-      .insert({
-        content: chunk,
-        metadata: {
-          source: path.basename(filePath),
-          chunk: i,
-        },
-        embedding,
-      });
-
-    if (error) {
-      throw error;
-    }
+  if (error) {
+    throw error;
   }
 
-  console.log(
-    `✓ ${path.basename(filePath)} berhasil di-ingest`
-  );
+  console.log(`✓ ${fileName} berhasil di-ingest (${rows.length} chunks)`);
 }
 
 async function main() {
   const files = fs
     .readdirSync(DATA_DIR)
-    .filter((file) =>
-      file.toLowerCase().endsWith(".txt")
-    );
+    .filter((file) => file.toLowerCase().endsWith(".txt"))
+    .sort();
 
   if (files.length === 0) {
-    throw new Error(
-      "Tidak ada file TXT di folder data/"
-    );
+    throw new Error("Tidak ada file TXT di folder data/");
   }
 
+  console.log("🧹 Membersihkan tabel documents lama di Supabase...");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase as any).from("documents").delete().neq("id", 0);
+  console.log("✓ Tabel documents bersih.");
+
+  console.log(`Mulai meng-ingest ${files.length} dokumen panduan ke Supabase...`);
   for (const file of files) {
-    await ingestTXT(
-      path.join(DATA_DIR, file)
-    );
+    await ingestTXT(path.join(DATA_DIR, file));
   }
 
-  console.log("✓ Semua dokumen selesai.");
+  console.log("\n✨ Selesai! Semua dokumen RAG berhasil di-ingest ke Supabase.");
 }
 
 main().catch((error) => {

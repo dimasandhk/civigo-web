@@ -1,0 +1,65 @@
+DINAS KEPENDUDUKAN DAN PENCATATAN SIPIL (DISPENDUKCAPIL) KOTA SURABAYA - MPP SIOLA
+
+1. TENTANG DISPENDUKCAPIL DI MPP SIOLA
+Loket Dispendukcapil Kota Surabaya di MPP Siola melayani berbagai urusan administrasi kependudukan (Adminduk) bagi seluruh warga ber-KTP Surabaya maupun warga luar kota yang memerlukan mutasi kependudukan ke Surabaya.
+Prinsip Utama: Seluruh pengurusan dokumen administrasi kependudukan di Dispendukcapil adalah GRATIS (Rp 0), bebas calo, dan bebas pungutan liar.
+
+2. DAFTAR LAYANAN & PERSYARATAN LENGKAP:
+
+A. PEMBUATAN KTP-EL BARU (USIA 17 TAHUN)
+- Estimasi waktu pelayanan: 15 menit
+- Persyaratan:
+  1. Fotokopi Kartu Keluarga (KK) terbaru yang sudah ber-barcode.
+  2. Berusia minimal 17 tahun atau sudah pernah menikah.
+  3. Surat Pengantar RT/RW (opsional/bila diperlukan pemutakhiran data).
+- Prosedur: Pemohon datang langsung ke loket Dispendukcapil untuk perekaman biometrik (foto wajah, rekam sidik jari 10 jari, rekam iris mata, dan tanda tangan digital). KTP-el akan dicetak dan diserahkan kepada pemohon.
+
+B. PENGGANTIAN KTP-EL KARENA HILANG
+- Persyaratan Wajib:
+  1. Surat Tanda Penerimaan Laporan Kehilangan (SKTLK) Asli dari Polsek setempat.
+  2. Fotokopi Kartu Keluarga (KK) pemohon.
+- Prosedur:
+  Langkah 1: Datang ke kantor Polsek terdekat untuk membuat Surat Kehilangan KTP (gratis).
+  Langkah 2: Ambil antrean layanan KTP Dispendukcapil di aplikasi CiviGo.
+  Langkah 3: Bawa SKTLK asli dan fotokopi KK ke loket Dispendukcapil MPP Siola untuk proses cetak ulang KTP tanpa perlu rekam biometrik ulang.
+
+C. PENGGANTIAN KTP-EL KARENA RUSAK / PATAH / BURAM
+- Persyaratan:
+  1. Fisik KTP-el lama yang rusak/patah/buram (wajib diserahkan ke petugas loket).
+  2. Fotokopi Kartu Keluarga (KK).
+- Prosedur: Serahkan KTP fisik yang rusak ke loket petugas. Petugas memverifikasi NIK di database kependudukan SIAK dan mencetak KTP fisik baru.
+
+D. CETAK KARTU KELUARGA (KK) BARU / PERUBAHAN DATA
+- Estimasi waktu pelayanan: 15 menit
+- Jenis Permohonan: Penambahan anggota keluarga (kelahiran), pengurangan anggota (kematian/pindah), perubahan status perkawinan, pembaruan tingkat pendidikan/pekerjaan, atau penggantian KK hilang/rusak.
+- Persyaratan:
+  1. KK Asli lama (jika ada pembaruan data).
+  2. Dokumen pendukung peristiwa penting:
+     - Tambah anak: Surat Kelahiran dari RS/Bidan dan Buku Nikah/Akta Perkawinan orang tua.
+     - Tambah pasangan: Buku Nikah / Akta Perkawinan Catatan Sipil.
+     - Perubahan gelar/pendidikan: Fotokopi Ijazah terakhir.
+     - Ganti karena hilang: Surat Kehilangan dari Polsek + KTP Kepala Keluarga.
+- Output: Kartu Keluarga baru berspesimen putih dengan Tanda Tangan Elektronik (TTE barcode resmi BSRE).
+
+E. PENERBITAN KUTIPAN AKTA KELAHIRAN
+- Estimasi waktu pelayanan: 20 menit
+- Persyaratan:
+  1. Surat Keterangan Kelahiran asli dari Dokter/Bidan/Rumah Sakit/Puskesmas.
+  2. Buku Nikah / Akta Perkawinan orang tua (asli dan fotokopi).
+  3. Kartu Keluarga (KK) orang tua di mana anak akan dimasukkan.
+  4. KTP-el kedua orang tua (asli dan fotokopi).
+  5. KTP 2 orang saksi kelahiran (cukup fotokopi).
+- Output: Kutipan Akta Kelahiran resmi ber-barcode TTE dan Kartu Keluarga (KK) baru yang telah memuat nama anak.
+
+F. AKTIVASI IDENTITAS KEPENDUDUKAN DIGITAL (IKD)
+- Estimasi waktu pelayanan: 10 menit
+- Deskripsi: IKD adalah KTP Digital resmi di smartphone yang memuat KTP elektronik, Kartu Keluarga, NPWP, BPJS, dan sertifikat vaksin dalam bentuk digital.
+- Persyaratan:
+  1. Smartphone Android atau iOS dengan koneksi internet aktif.
+  2. Memiliki email pribadi yang aktif.
+  3. KTP-el fisik pemohon.
+- Prosedur: Unduh aplikasi "Identitas Kependudukan Digital" dari Play Store / App Store, isi NIK, email, nomor HP, lakukan verifikasi wajah (face recognition), lalu tunjukkan kode QR aktivasi di loket Dispendukcapil MPP Siola untuk divalidasi oleh petugas SIAK.
+
+G. KONSULTASI ADMINISTRASI KEPENDUDUKAN & NIK GANDA
+- Estimasi waktu pelayanan: 15 menit
+- Layanan bantuan untuk mengatasi masalah NIK tidak aktif/tidak terbaca di sistem BPJS/Bank/Imigrasi, konsolidasi NIK ganda, dan prosedur pindah datang antar kabupaten/kota/provinsi.
