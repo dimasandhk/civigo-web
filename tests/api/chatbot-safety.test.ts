@@ -2,10 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 // Gunakan vi.hoisted agar mock functions terdefinisi sebelum vi.mock di-hoist oleh Vitest
-const { mockCreateEmbedding, mockCreateChatCompletion, mockRpc } = vi.hoisted(() => ({
+const { mockCreateEmbedding, mockCreateChatCompletion, mockRpc, mockGenerateGeminiResponse } = vi.hoisted(() => ({
   mockCreateEmbedding: vi.fn(),
   mockCreateChatCompletion: vi.fn(),
   mockRpc: vi.fn(),
+  mockGenerateGeminiResponse: vi.fn(),
+}));
+
+vi.mock("@/lib/chatbot/gemini", () => ({
+  generateGeminiResponse: mockGenerateGeminiResponse,
 }));
 
 // Mock OpenAI API secara total untuk menjamin ZERO OpenAI tokens / cost exhausted
@@ -167,4 +172,49 @@ describe("AI Chatbot Route Safety (Zero OpenAI API Quota Exhaustion)", () => {
       expect(["user", "assistant"]).toContain(msg.role);
     }
   });
+
+  it("falls back to Google Gemini when OpenAI completion fails", async () => {
+    process.env.GEMINI_API_KEY = "dummy-gemini-key";
+
+    mockCreateEmbedding.mockResolvedValueOnce({
+      data: [{ embedding: [0.01, 0.02, 0.03] }],
+    });
+
+    mockRpc.mockResolvedValueOnce({
+      data: [
+        {
+          content: "Layanan MPP Siola buka jam 08:00 - 15:00 WIB.",
+          metadata: { source: "siola.pdf" },
+          similarity: 0.92,
+        },
+      ],
+      error: null,
+    });
+
+    mockCreateChatCompletion.mockRejectedValueOnce(
+      new Error("OpenAI Rate Limit Exceeded (429)")
+    );
+
+    mockGenerateGeminiResponse.mockResolvedValueOnce(
+      "Jam operasional MPP Siola adalah 08:00 - 15:00 WIB (via Gemini Fallback)."
+    );
+
+    const req = new NextRequest("http://localhost:3000/api/chatbot", {
+      method: "POST",
+      body: JSON.stringify({
+        pertanyaan: "Jam berapa MPP Siola buka?",
+      }),
+    });
+
+    const res = await chatbotHandler(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.status).toBe("success");
+    expect(json.provider).toBe("gemini");
+    expect(json.jawaban).toContain("via Gemini Fallback");
+    expect(mockCreateChatCompletion).toHaveBeenCalledTimes(1);
+    expect(mockGenerateGeminiResponse).toHaveBeenCalledTimes(1);
+  });
 });
+

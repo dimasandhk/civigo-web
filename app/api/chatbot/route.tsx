@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@/lib/chatbot/openai";
+import { generateGeminiResponse } from "@/lib/chatbot/gemini";
 import { createServiceClient } from "@/lib/supabase/service";
 
 const supabase = createServiceClient();
@@ -164,20 +165,19 @@ ${document.content}
         content: message.content.slice(0, 1000),
       }));
 
-    const response =
-      await openai.chat.completions.create({
+    let jawaban = "Maaf, saya tidak dapat memberikan jawaban.";
+    let provider: "openai" | "gemini" = "openai";
+
+    try {
+      const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         temperature: 0,
-
         messages: [
           {
             role: "system",
-            content:
-              SYSTEM_PROMPT + context,
+            content: SYSTEM_PROMPT + context,
           },
-
           ...chatHistory,
-
           {
             role: "user",
             content: pertanyaan,
@@ -185,14 +185,32 @@ ${document.content}
         ],
       });
 
-    const jawaban =
-      response.choices[0]?.message?.content ??
-      "Maaf, saya tidak dapat memberikan jawaban.";
+      jawaban =
+        response.choices[0]?.message?.content ??
+        "Maaf, saya tidak dapat memberikan jawaban.";
+    } catch (openaiError) {
+      console.warn(
+        "[CHATBOT] OpenAI completion gagal, mencoba fallback ke Google Gemini:",
+        openaiError
+      );
+
+      if (process.env.GEMINI_API_KEY) {
+        jawaban = await generateGeminiResponse({
+          systemPrompt: SYSTEM_PROMPT + context,
+          riwayat: chatHistory,
+          pertanyaan,
+        });
+        provider = "gemini";
+      } else {
+        throw openaiError;
+      }
+    }
 
     return NextResponse.json({
       status: "success",
       jawaban,
       cached: false,
+      provider,
     });
   } catch (error) {
     console.error(
