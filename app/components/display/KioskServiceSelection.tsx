@@ -363,6 +363,36 @@ export default function KioskServiceSelection({
                   Selesai
                 </button>
               </div>
+
+              {/* Struk Fisik Thermal 80mm/58mm Walk-In */}
+              <div className="printable-receipt hidden">
+                <div style={{ textAlign: "center", marginBottom: "8px" }}>
+                  <h2 style={{ fontSize: "16px", fontWeight: "bold", margin: 0 }}>CIVIGO — MPP SIOLA</h2>
+                  <p style={{ fontSize: "11px", margin: "2px 0" }}>Mal Pelayanan Publik Kota Surabaya</p>
+                  <p style={{ fontSize: "10px", margin: "2px 0", color: "#555" }}>Pendaftaran Mandiri (Walk-In)</p>
+                  <div style={{ borderBottom: "1px dashed #000", margin: "6px 0" }} />
+                </div>
+
+                <div style={{ textAlign: "center", marginBottom: "10px" }}>
+                  <p style={{ fontSize: "11px", margin: "2px 0", fontWeight: "bold" }}>{issuedTicket.agency.name}</p>
+                  <p style={{ fontSize: "11px", margin: "2px 0" }}>{issuedTicket.service.name}</p>
+                  <p style={{ fontSize: "32px", fontWeight: "bold", margin: "6px 0", letterSpacing: "1px" }}>
+                    {issuedTicket.queue_number}
+                  </p>
+                  <p style={{ fontSize: "10px", margin: "2px 0" }}>Tanggal: {issuedTicket.schedule_date}</p>
+                  <p style={{ fontSize: "10px", margin: "2px 0" }}>Estimasi: ± {issuedTicket.service.estimated_time} Menit</p>
+                  <p style={{ fontSize: "10px", margin: "2px 0" }}>Status: Terdaftar & Terkonfirmasi Hadir</p>
+                  <div style={{ borderBottom: "1px dashed #000", margin: "6px 0" }} />
+                </div>
+
+                <div style={{ textAlign: "center", fontSize: "10px", marginTop: "8px" }}>
+                  <p style={{ margin: "2px 0" }}>Silakan menunggu di ruang tunggu.</p>
+                  <p style={{ margin: "2px 0" }}>Perhatikan nomor Anda di layar display monitor.</p>
+                  <p style={{ margin: "4px 0", fontSize: "9px" }}>
+                    Dicetak: {new Date().toLocaleDateString("id-ID")} {new Date().toLocaleTimeString("id-ID")}
+                  </p>
+                </div>
+              </div>
             </div>
           ) : (
             /* Walk-in Form Modal */

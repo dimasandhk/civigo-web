@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Volume2, VolumeX } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ExitToAdminButton from "./ExitToAdminButton";
+import { announceQueueCall, playChime } from "./queueAudio";
 
 export type CounterDisplay = {
   counter: string;
@@ -26,6 +28,32 @@ export default function QueueDisplayLive({
 }: QueueDisplayLiveProps) {
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState("");
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const prevServingRef = useRef<Record<string, string>>({});
+
+  const toggleAudio = () => {
+    if (!audioEnabled) {
+      try {
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          if (ctx.state === "suspended") {
+            ctx.resume().catch(() => {});
+          }
+          audioCtxRef.current = ctx;
+          playChime(ctx);
+        }
+      } catch {
+        // Fallback
+      }
+      setAudioEnabled(true);
+    } else {
+      setAudioEnabled(false);
+    }
+  };
 
   // Dynamic Indonesian date
   useEffect(() => {
@@ -44,6 +72,23 @@ export default function QueueDisplayLive({
     const interval = setInterval(updateDate, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Announce newly called numbers on display
+  useEffect(() => {
+    counters.forEach(({ counter, nowServing }) => {
+      const prev = prevServingRef.current[counter];
+      if (
+        nowServing &&
+        nowServing !== "-" &&
+        nowServing !== prev &&
+        prev !== undefined &&
+        audioEnabled
+      ) {
+        announceQueueCall(nowServing, counter, audioCtxRef.current);
+      }
+      prevServingRef.current[counter] = nowServing;
+    });
+  }, [counters, audioEnabled]);
 
   // Realtime: trigger `queues_broadcast_to_display` broadcasts a content-free
   // signal per agency. postgres_changes cannot be used here — the TV is anon
@@ -78,6 +123,32 @@ export default function QueueDisplayLive({
             Antrean {agencyName}
           </h1>
           <div className="flex items-center gap-3 sm:gap-4">
+            {/* Audio Voice Call Toggle */}
+            <button
+              type="button"
+              onClick={toggleAudio}
+              className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all ${
+                audioEnabled
+                  ? "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
+                  : "bg-white/80 text-ink/70 border border-line shadow-xs hover:bg-white hover:text-ink"
+              }`}
+              title={audioEnabled ? "Panggilan suara aktif" : "Klik untuk mengaktifkan panggilan suara"}
+            >
+              {audioEnabled ? (
+                <>
+                  <Volume2 className="h-4 w-4 animate-pulse" />
+                  <span className="hidden sm:inline">Panggilan Suara Aktif</span>
+                  <span className="sm:hidden">Suara Aktif</span>
+                </>
+              ) : (
+                <>
+                  <VolumeX className="h-4 w-4 text-queue-idle" />
+                  <span className="hidden sm:inline">Aktifkan Suara</span>
+                  <span className="sm:hidden">Suara Mati</span>
+                </>
+              )}
+            </button>
+
             <p className="font-display text-base sm:text-xl lg:text-[24px] font-bold tracking-[0.03em] text-ink">
               {currentDate || "Memuat tanggal..."}
             </p>

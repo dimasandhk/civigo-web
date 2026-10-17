@@ -43,3 +43,27 @@
   --shadow-soft: 0 0 4px 0 rgb(0 0 0 / 0.1);
   --shadow-card: 0 2px 20px 0 rgb(0 0 0 / 0.1);
 }
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .printable-receipt,
+  .printable-receipt * {
+    visibility: visible !important;
+  }
+  .printable-receipt {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    margin: 0 auto !important;
+    padding: 12px !important;
+    font-family: monospace, sans-serif !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    border: none !important;
+  }
+}
+

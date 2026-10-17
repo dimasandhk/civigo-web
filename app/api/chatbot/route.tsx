@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@/lib/chatbot/openai";
 import { generateGeminiResponse } from "@/lib/chatbot/gemini";
 import { createServiceClient } from "@/lib/supabase/service";
+import { checkRateLimit, getClientIp, rateLimitExceededResponse } from "@/lib/rate-limit";
 
 const supabase = createServiceClient();
 
@@ -84,6 +85,15 @@ export async function POST(
   request: NextRequest
 ) {
   try {
+    const ip = getClientIp(request);
+    const rateCheck = checkRateLimit(`chatbot:${ip}`, { limit: 25, windowMs: 60000 });
+    if (!rateCheck.success) {
+      return rateLimitExceededResponse(
+        rateCheck,
+        "Terlalu banyak permintaan pesan ke AI Chatbot. Silakan tunggu beberapa saat."
+      );
+    }
+
     const body: ChatbotRequest =
       await request.json();
 

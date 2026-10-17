@@ -10,6 +10,7 @@ import {
 } from "./shared";
 import { sortWaiting } from "./ordering";
 import { todayInJakarta } from "./time";
+import { sendExpoPushNotification } from "@/lib/notifications/expo";
 
 /**
  * Ticket lifecycle, driven by the buttons in the admin dashboard.
@@ -203,6 +204,28 @@ export async function updateQueueStatus(
       "CONCURRENT_UPDATE",
       "Status tiket baru saja diubah petugas lain. Muat ulang lalu coba lagi.",
     );
+  }
+
+  // Trigger background push notification to the citizen's mobile device
+  if (target === "served" && ticket.user_id) {
+    db.auth.admin
+      .getUserById(ticket.user_id)
+      .then(({ data }) => {
+        const pushToken = data?.user?.user_metadata?.push_token;
+        if (pushToken) {
+          sendExpoPushNotification({
+            to: pushToken,
+            title: "Nomor Antrean Anda Dipanggil!",
+            body: `Nomor ${updated.queue_number} silakan segera menuju ${counterName || "Loket Pelayanan"}.`,
+            data: {
+              queueId: updated.id,
+              queueNumber: updated.queue_number,
+              counterName: counterName || "Loket Pelayanan",
+            },
+          }).catch(() => {});
+        }
+      })
+      .catch(() => {});
   }
 
   return {

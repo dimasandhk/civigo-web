@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { checkRateLimit, getClientIp, rateLimitExceededResponse } from "@/lib/rate-limit";
 
 const NIK_PATTERN = /^[0-9]{16}$/;
 
@@ -25,6 +26,15 @@ interface LoginRequestBody {
  */
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rateCheck = checkRateLimit(`login:${ip}`, { limit: 30, windowMs: 60000 });
+    if (!rateCheck.success) {
+      return rateLimitExceededResponse(
+        rateCheck,
+        "Terlalu banyak percobaan masuk. Silakan tunggu beberapa saat."
+      );
+    }
+
     let body: LoginRequestBody;
     try {
       body = await request.json();

@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { AlertCircle, BellRing, CheckCircle2, Clock, Loader2, Search, UserCheck, Users } from "lucide-react";
+import { AlertCircle, BellRing, CheckCircle2, Clock, Loader2, Printer, Search, UserCheck, Users } from "lucide-react";
 import type { CheckInOutcome, CheckInTicket } from "@/lib/queue/check-in";
 import { parseTicketQr } from "@/lib/queue/qr";
 import QrScanner from "./QrScanner";
@@ -182,12 +182,55 @@ export default function CheckInForm({ homeHref, locationId }: { homeHref: string
               >
                 Scan Lagi
               </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex-1 flex items-center justify-center gap-2 cursor-pointer rounded-[12px] border border-line bg-white py-3 font-display text-sm font-semibold text-ink hover:bg-board shadow-xs transition-colors"
+              >
+                <Printer size={16} />
+                <span>Cetak Slip</span>
+              </button>
               <Link
                 href={homeHref}
                 className="flex-1 flex items-center justify-center cursor-pointer rounded-[12px] bg-brand py-3 font-display text-sm font-semibold text-white shadow-soft hover:opacity-95 transition-opacity"
               >
                 Selesai
               </Link>
+            </div>
+
+            {/* Struk Fisik Thermal 80mm/58mm (Hanya muncul saat dicetak) */}
+            <div className="printable-receipt hidden">
+              <div style={{ textAlign: "center", marginBottom: "8px" }}>
+                <h2 style={{ fontSize: "16px", fontWeight: "bold", margin: 0 }}>CIVIGO — MPP SIOLA</h2>
+                <p style={{ fontSize: "11px", margin: "2px 0" }}>Mal Pelayanan Publik Kota Surabaya</p>
+                <div style={{ borderBottom: "1px dashed #000", margin: "6px 0" }} />
+              </div>
+
+              {result.tickets.map((t) => (
+                <div key={t.id} style={{ textAlign: "center", marginBottom: "10px" }}>
+                  <p style={{ fontSize: "11px", margin: "2px 0", fontWeight: "bold" }}>{t.agency_name}</p>
+                  <p style={{ fontSize: "11px", margin: "2px 0" }}>{t.service_name}</p>
+                  <p style={{ fontSize: "28px", fontWeight: "bold", margin: "6px 0", letterSpacing: "1px" }}>
+                    {t.queue_number}
+                  </p>
+                  {t.family_member_name && (
+                    <p style={{ fontSize: "10px", margin: "2px 0" }}>Atas Nama: {t.family_member_name}</p>
+                  )}
+                  {t.time_block && (
+                    <p style={{ fontSize: "10px", margin: "2px 0" }}>Sesi: {t.time_block}</p>
+                  )}
+                  <p style={{ fontSize: "10px", margin: "2px 0" }}>Status: Kehadiran Terkonfirmasi</p>
+                  <div style={{ borderBottom: "1px dashed #000", margin: "6px 0" }} />
+                </div>
+              ))}
+
+              <div style={{ textAlign: "center", fontSize: "10px", marginTop: "8px" }}>
+                <p style={{ margin: "2px 0" }}>Silakan menunggu di ruang tunggu.</p>
+                <p style={{ margin: "2px 0" }}>Perhatikan layar monitor & pengeras suara.</p>
+                <p style={{ margin: "4px 0", fontSize: "9px" }}>
+                  Dicetak pada: {new Date().toLocaleDateString("id-ID")} {new Date().toLocaleTimeString("id-ID")}
+                </p>
+              </div>
             </div>
           </div>
         </div>

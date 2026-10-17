@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { checkRateLimit, getClientIp, rateLimitExceededResponse } from "@/lib/rate-limit";
 
 const NIK_PATTERN = /^[0-9]{16}$/;
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -26,6 +27,15 @@ interface RegisterRequestBody {
  */
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rateCheck = checkRateLimit(`register:${ip}`, { limit: 20, windowMs: 60000 });
+    if (!rateCheck.success) {
+      return rateLimitExceededResponse(
+        rateCheck,
+        "Terlalu banyak pendaftaran akun dari perangkat ini. Silakan tunggu beberapa saat."
+      );
+    }
+
     let body: RegisterRequestBody;
     try {
       body = await request.json();

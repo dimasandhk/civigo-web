@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, getClientIp, rateLimitExceededResponse } from "@/lib/rate-limit";
 
 interface ForgotPasswordRequest {
   email: string;
@@ -14,6 +15,15 @@ interface ForgotPasswordRequest {
  */
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rateCheck = checkRateLimit(`forgot-password:${ip}`, { limit: 5, windowMs: 60000 });
+    if (!rateCheck.success) {
+      return rateLimitExceededResponse(
+        rateCheck,
+        "Terlalu banyak permintaan reset password. Silakan tunggu beberapa saat sebelum mencoba lagi."
+      );
+    }
+
     let body: ForgotPasswordRequest;
     try {
       body = await request.json();

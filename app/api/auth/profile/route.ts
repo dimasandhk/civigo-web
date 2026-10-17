@@ -8,12 +8,13 @@ const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 interface UpdateProfileBody {
   phone_number?: string;
   email?: string;
+  push_token?: string;
 }
 
 /**
  * PATCH /api/auth/profile
  *
- * Mengubah informasi kontak pengguna (nomor telepon dan/atau email).
+ * Mengubah informasi kontak pengguna (nomor telepon, email, dan/atau Expo push token).
  * Mendukung autentikasi via Bearer token (Mobile) atau Cookie session (Web).
  */
 export async function PATCH(request: NextRequest) {
@@ -60,15 +61,15 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { phone_number, email } = body;
+    const { phone_number, email, push_token } = body;
 
-    if (phone_number === undefined && email === undefined) {
+    if (phone_number === undefined && email === undefined && push_token === undefined) {
       return NextResponse.json(
         {
           ok: false,
           error: {
             code: "NO_FIELDS_PROVIDED",
-            message: "Harap masukkan nomor telepon atau email baru yang ingin diubah.",
+            message: "Harap masukkan nomor telepon, email, atau push token yang ingin diperbarui.",
           },
         },
         { status: 400 }
@@ -169,7 +170,12 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // 3. Simpan perubahan ke Supabase Auth
+    // 3. Penanganan Push Token
+    if (push_token !== undefined) {
+      metadataUpdate.push_token = push_token.trim();
+    }
+
+    // 4. Simpan perubahan ke Supabase Auth
     const { data: updatedAuthUser, error: authUpdateError } =
       await serviceDb.auth.admin.updateUserById(user.id, {
         ...(updateData.email ? { email: updateData.email } : {}),
@@ -190,7 +196,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // 4. Sinkronisasi tabel public.users jika email berubah
+    // 5. Sinkronisasi tabel public.users jika email berubah
     if (updateData.email) {
       await serviceDb
         .from("users")
@@ -203,7 +209,9 @@ export async function PATCH(request: NextRequest) {
         ok: true,
         message: updateData.email
           ? "Profil berhasil diperbarui. Silakan periksa email baru Anda untuk konfirmasi jika diperlukan."
-          : "Nomor telepon berhasil diperbarui.",
+          : phone_number !== undefined
+          ? "Nomor telepon berhasil diperbarui."
+          : "Push token berhasil diperbarui.",
         user: {
           id: user.id,
           email: updatedAuthUser.user.email ?? user.email,
