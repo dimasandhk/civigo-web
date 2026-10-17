@@ -9,6 +9,7 @@ const {
   mockSignUp,
   mockSignInWithPassword,
   mockServiceUsersMaybeSingle,
+  mockAdminUpdateUserById,
 } = vi.hoisted(() => ({
   mockResetPasswordForEmail: vi.fn(),
   mockGetUser: vi.fn(),
@@ -16,6 +17,7 @@ const {
   mockSignUp: vi.fn(),
   mockSignInWithPassword: vi.fn(),
   mockServiceUsersMaybeSingle: vi.fn(),
+  mockAdminUpdateUserById: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -32,11 +34,22 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: vi.fn(() => ({
+    auth: {
+      admin: {
+        updateUserById: mockAdminUpdateUserById,
+      },
+    },
     from: vi.fn(() => ({
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
           maybeSingle: mockServiceUsersMaybeSingle,
+          neq: vi.fn(() => ({
+            maybeSingle: mockServiceUsersMaybeSingle,
+          })),
         })),
+      })),
+      update: vi.fn(() => ({
+        eq: vi.fn(() => Promise.resolve({ error: null })),
       })),
     })),
   })),
@@ -47,6 +60,7 @@ import { POST as loginHandler } from "@/app/api/auth/login/route";
 import { GET as meHandler } from "@/app/api/auth/me/route";
 import { POST as forgotPasswordHandler } from "@/app/api/auth/forgot-password/route";
 import { POST as resetPasswordHandler } from "@/app/api/auth/reset-password/route";
+import { PATCH as profileHandler } from "@/app/api/auth/profile/route";
 
 describe("Auth Endpoints (API Tests with Zero Email / API Key Consumption)", () => {
   beforeEach(() => {
@@ -572,4 +586,106 @@ describe("Auth Endpoints (API Tests with Zero Email / API Key Consumption)", () 
       expect(mockUpdateUser).toHaveBeenCalledWith({ password: "KataSandiBaru#2026" });
     });
   });
+
+  describe("PATCH /api/auth/profile", () => {
+    it("returns 401 if unauthenticated", async () => {
+      mockGetUser.mockResolvedValueOnce({
+        data: { user: null },
+        error: { message: "Invalid session" },
+      });
+
+      const req = new NextRequest("http://localhost:3000/api/auth/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ phone_number: "081234567890" }),
+      });
+
+      const res = await profileHandler(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(401);
+      expect(json.ok).toBe(false);
+      expect(json.error.code).toBe("UNAUTHORIZED");
+    });
+
+    it("returns 400 if phone format is invalid", async () => {
+      mockGetUser.mockResolvedValueOnce({
+        data: { user: { id: "user-123", email: "test@example.com", user_metadata: {} } },
+        error: null,
+      });
+
+      const req = new NextRequest("http://localhost:3000/api/auth/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ phone_number: "12345" }),
+      });
+
+      const res = await profileHandler(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.ok).toBe(false);
+      expect(json.error.code).toBe("INVALID_PHONE_FORMAT");
+    });
+
+    it("returns 200 when updating valid phone number", async () => {
+      mockGetUser.mockResolvedValueOnce({
+        data: { user: { id: "user-123", email: "test@example.com", user_metadata: {} } },
+        error: null,
+      });
+
+      mockAdminUpdateUserById.mockResolvedValueOnce({
+        data: { user: { id: "user-123", email: "test@example.com" } },
+        error: null,
+      });
+
+      const req = new NextRequest("http://localhost:3000/api/auth/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ phone_number: "081234567890" }),
+      });
+
+      const res = await profileHandler(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.ok).toBe(true);
+      expect(json.user.phone_number).toBe("081234567890");
+      expect(mockAdminUpdateUserById).toHaveBeenCalledWith(
+        "user-123",
+        expect.objectContaining({
+          user_metadata: expect.objectContaining({ phone_number: "081234567890" }),
+        })
+      );
+    });
+
+    it("returns 200 when updating valid email address", async () => {
+      mockGetUser.mockResolvedValueOnce({
+        data: { user: { id: "user-123", email: "old@example.com", user_metadata: {} } },
+        error: null,
+      });
+
+      mockServiceUsersMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
+
+      mockAdminUpdateUserById.mockResolvedValueOnce({
+        data: { user: { id: "user-123", email: "new@example.com" } },
+        error: null,
+      });
+
+      const req = new NextRequest("http://localhost:3000/api/auth/profile", {
+        method: "PATCH",
+        body: JSON.stringify({ email: "new@example.com" }),
+      });
+
+      const res = await profileHandler(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.ok).toBe(true);
+      expect(mockAdminUpdateUserById).toHaveBeenCalledWith(
+        "user-123",
+        expect.objectContaining({
+          email: "new@example.com",
+        })
+      );
+    });
+  });
 });
+

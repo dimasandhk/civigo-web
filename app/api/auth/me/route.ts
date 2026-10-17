@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
           role: profile?.role ?? "user",
           agency_id: profile?.agency_id ?? null,
           location_id: profile?.location_id ?? null,
+          phone_number: user.user_metadata?.phone_number ?? user.phone ?? null,
           created_at: profile?.created_at ?? user.created_at,
         },
       },
