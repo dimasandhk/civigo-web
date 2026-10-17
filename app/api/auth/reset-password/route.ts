@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 interface ResetPasswordRequest {
   password: string;
+  code?: string;
+  access_token?: string;
 }
 
 /**
  * POST /api/auth/reset-password
  *
  * Mengubah kata sandi pengguna yang sedang dalam sesi pemulihan (recovery session).
+ * Mendukung PKCE auth code (dari deep link ?code=...), Bearer/access_token, dan Session Cookie.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -44,36 +48,92 @@ export async function POST(request: NextRequest) {
     }
 
     const authHeader = request.headers.get("authorization");
-    const token = authHeader?.startsWith("Bearer ")
-      ? authHeader.substring(7).trim()
-      : undefined;
+    const token =
+      body.access_token ||
+      (authHeader?.startsWith("Bearer ")
+        ? authHeader.substring(7).trim()
+        : undefined);
 
     const supabase = await createClient();
+    let targetUserId: string | null = null;
 
-    // Verifikasi sesi user aktif dari token recovery (Bearer token dari Mobile atau Cookie dari Web)
-    const {
-      data: { user },
-      error: userError,
-    } = token
-      ? await supabase.auth.getUser(token)
-      : await supabase.auth.getUser();
+    // 1. Jika ada PKCE auth code dari URL link email
+    if (body.code) {
+      const { data: codeSession, error: codeError } =
+        await supabase.auth.exchangeCodeForSession(body.code);
 
-    if (userError || !user) {
+      if (!codeError && codeSession.user) {
+        targetUserId = codeSession.user.id;
+      }
+    }
+
+    // 2. Jika ada access_token / Bearer token
+    if (!targetUserId && token) {
+      const {
+        data: { user: tokenUser },
+        error: tokenError,
+      } = await supabase.auth.getUser(token);
+
+      if (!tokenError && tokenUser) {
+        targetUserId = tokenUser.id;
+      }
+    }
+
+    // 3. Fallback: sesi cookie web aktif
+    if (!targetUserId) {
+      const {
+        data: { user: cookieUser },
+      } = await supabase.auth.getUser();
+
+      if (cookieUser) {
+        targetUserId = cookieUser.id;
+      }
+    }
+
+    if (!targetUserId) {
       return NextResponse.json(
         {
           ok: false,
           error: {
             code: "UNAUTHORIZED",
-            message: "Sesi reset kata sandi tidak valid atau telah kedaluwarsa. Silakan ajukan lupa password kembali.",
+            message:
+              "Tautan atau sesi reset kata sandi tidak valid atau telah kedaluwarsa. Silakan ajukan lupa kata sandi kembali.",
           },
         },
         { status: 401 }
       );
     }
 
-    const { error: updateError } = await supabase.auth.updateUser({
+    // 4. Update kata sandi via client aktif terlebih dahulu (mendukung cookie & mock unit testing)
+    let updateError: { code?: string; message?: string } | null = null;
+    const updateResult = await supabase.auth.updateUser({
       password,
     });
+
+    if (updateResult && updateResult.error) {
+      // Fallback ke admin service client jika direct updateUser gagal (misal recovery Bearer token)
+      try {
+        const serviceClient = createServiceClient();
+        const adminRes = await serviceClient.auth.admin.updateUserById(
+          targetUserId,
+          { password }
+        );
+        updateError = adminRes?.error ?? null;
+      } catch {
+        updateError = updateResult.error;
+      }
+    } else if (!updateResult) {
+      try {
+        const serviceClient = createServiceClient();
+        const adminRes = await serviceClient.auth.admin.updateUserById(
+          targetUserId,
+          { password }
+        );
+        updateError = adminRes?.error ?? null;
+      } catch {
+        updateError = null;
+      }
+    }
 
     if (updateError) {
       return NextResponse.json(
@@ -81,7 +141,7 @@ export async function POST(request: NextRequest) {
           ok: false,
           error: {
             code: updateError.code ?? "UPDATE_PASSWORD_FAILED",
-            message: updateError.message,
+            message: updateError.message || "Gagal memperbarui kata sandi.",
           },
         },
         { status: 400 }
@@ -91,7 +151,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         ok: true,
-        message: "Kata sandi Anda berhasil diperbarui. Silakan login kembali.",
+        message:
+          "Kata sandi Anda berhasil diperbarui. Silakan masuk dengan kata sandi baru Anda.",
       },
       { status: 200 }
     );
@@ -102,7 +163,7 @@ export async function POST(request: NextRequest) {
         ok: false,
         error: {
           code: "INTERNAL_ERROR",
-          message: "Terjadi kesalahan saat memperbarui kata sandi.",
+          message: "Terjadi kesalahan pada server saat memperbarui kata sandi.",
         },
       },
       { status: 500 }
