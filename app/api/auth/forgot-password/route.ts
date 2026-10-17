@@ -81,15 +81,23 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("[FORGOT_PASSWORD_ERROR]", error.message);
+      const isRateLimit =
+        error.message?.toLowerCase().includes("rate limit") ||
+        error.message?.toLowerCase().includes("frequency");
+
+      const friendlyMessage = isRateLimit
+        ? "Batas pengiriman email Supabase tercapai (maks. 3-4 email per jam pada paket gratis). Silakan tunggu beberapa saat atau gunakan tautan yang telah dikirimkan ke email sebelumnya."
+        : error.message;
+
       return NextResponse.json(
         {
           ok: false,
           error: {
-            code: error.code ?? "RESET_REQUEST_FAILED",
-            message: error.message,
+            code: error.code ?? (isRateLimit ? "RATE_LIMIT_EXCEEDED" : "RESET_REQUEST_FAILED"),
+            message: friendlyMessage,
           },
         },
-        { status: 400 }
+        { status: 429 }
       );
     }
 
