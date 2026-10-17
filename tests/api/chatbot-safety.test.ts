@@ -216,5 +216,46 @@ describe("AI Chatbot Route Safety (Zero OpenAI API Quota Exhaustion)", () => {
     expect(mockCreateChatCompletion).toHaveBeenCalledTimes(1);
     expect(mockGenerateGeminiResponse).toHaveBeenCalledTimes(1);
   });
+
+  it("sanitizes raw markdown formatting (## headings, **bold**, *italic*) to plain text for mobile", async () => {
+    mockCreateEmbedding.mockResolvedValueOnce({
+      data: [{ embedding: [0.01, 0.02, 0.03] }],
+    });
+
+    mockRpc.mockResolvedValueOnce({
+      data: [],
+      error: null,
+    });
+
+    mockCreateChatCompletion.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: "## Prosedur check in\n\n1. **Buka Aplikasi Civigo**\n2. Tekan *tombol scan*",
+          },
+        },
+      ],
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/chatbot", {
+      method: "POST",
+      body: JSON.stringify({
+        pertanyaan: "Gimana cara check in?",
+      }),
+    });
+
+    const res = await chatbotHandler(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.status).toBe("success");
+    // Markdown symbols ## and ** should be completely stripped
+    expect(json.jawaban).not.toContain("##");
+    expect(json.jawaban).not.toContain("**");
+    expect(json.jawaban).toContain("Prosedur check in");
+    expect(json.jawaban).toContain("1. Buka Aplikasi Civigo");
+    expect(json.jawaban).toContain("2. Tekan tombol scan");
+  });
 });
+
 

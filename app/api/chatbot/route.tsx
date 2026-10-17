@@ -15,17 +15,67 @@ interface ChatbotRequest {
   riwayat?: ChatMessage[];
 }
 
+/**
+ * Membersihkan simbol-simbol Markdown agar teks tampil bersih dan rapi
+ * di UI aplikasi mobile tanpa menampilkan karakter mentah seperti ##, **, atau *.
+ */
+export function cleanMarkdownFormatting(text: string): string {
+  if (!text) return "";
+
+  return text
+    // Hapus heading markdown: ## Judul -> Judul
+    .replace(/^#{1,6}\s*(.*)$/gm, "$1")
+    // Hapus format bold: **teks** -> teks, __teks__ -> teks
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    // Hapus format italic: *teks* -> teks
+    .replace(/(?<!\S)\*(?!\s)(.*?)(?<!\s)\*(?!\S)/g, "$1")
+    .replace(/(?<!\S)_(?!\s)(.*?)(?<!\s)_(?!\S)/g, "$1")
+    // Hapus code blocks & backticks
+    .replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, ""))
+    .replace(/`([^`]+)`/g, "$1")
+    // Hapus garis pemisah horizontal --- atau ***
+    .replace(/^[-*_]{3,}$/gm, "")
+    // Rapikan jarak enter berlebih (maksimal 2 baris baru)
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 const SYSTEM_PROMPT = `
 Anda adalah Asisten Virtual CiviGo untuk Mal Pelayanan Publik (MPP) Siola Surabaya.
 
 Tugas Anda adalah membantu pengguna memahami informasi mengenai layanan publik, persyaratan berkas, jam operasional, dan alur aplikasi CiviGo berdasarkan DOKUMEN PANDUAN RESMI yang diberikan.
 
-PANDUAN MENJAWAB:
-1. Pahami padanan kata dan istilah awam warga (contoh: "perpanjang STNK tahunan" merujuk pada Pengesahan STNK & Pembayaran PKB Tahunan; "bikin KTP" merujuk pada Pembuatan KTP-el Baru; "surat kehilangan" merujuk pada SKTLK dari Kepolisian).
-2. Jawab secara ramah, terstruktur, dan jelas (gunakan poin-poin terurut untuk persyaratan dan tahapan prosedur agar mudah dipahami warga).
-3. Jangan mengarang data yang bertentangan dengan dokumen. Bila relevan, sebutkan informasi penting seperti layanan gratis (Rp 0 di Dispendukcapil), kewajiban membawa berkas asli, atau tips check-in.
+PANDUAN GAYA PENULISAN (SANGAT PENTING):
+1. DILARANG KERAS MENGGUNAKAN SIMBOL MARKDOWN:
+   - JANGAN gunakan tanda pagar (##, ###, #) untuk judul atau subjudul.
+   - JANGAN gunakan tanda bintang ganda (**) untuk cetak tebal (misal: JANGAN tulis "**Buka Aplikasi**").
+   - JANGAN gunakan tanda bintang tunggal (*) untuk cetak miring.
+   - JANGAN gunakan tanda backtick (\`) atau garis pemisah (---).
+2. Tuliskan jawaban dalam teks polos (plain text) yang bersih, alami, dan ramah seperti pesan chat WhatsApp resmi layanan pelanggan.
+3. Untuk judul bagian, tuliskan teks biasa dengan akhiran titik dua, contoh:
+Prosedur Check-in di Kios Siola:
+4. Untuk urutan langkah, gunakan nomor biasa tanpa cetak tebal, contoh:
+1. Buka aplikasi CiviGo pada smartphone Anda.
+2. Masuk ke tab Antrean Saya.
+5. Untuk daftar persyaratan atau rincian poin, gunakan tanda strip (-) biasa:
+- KTP asli
+- STNK asli
+6. Berikan jarak spasi antar paragraf yang cukup agar pesan sangat nyaman dan mudah dibaca di layar HP warga.
+
+PANDUAN KONTEN & JAWABAN:
+1. Pahami padanan kata dan istilah awam warga (contoh: "perpanjang STNK tahunan" merujuk pada Pengesahan STNK & Pembayaran PKB Tahunan; "bikin KTP" merujuk pada Pembuatan KTP-el Baru; "surat kehilangan" merujuk pada SKTLK dari Kepolisian; "cara pakai civigo" merujuk pada alur aplikasi CiviGo dari registrasi, booking, hingga check-in kiosk).
+2. Jelaskan fitur aplikasi CiviGo secara lengkap dan jelas jika warga bertanya seputar aplikasi, seperti:
+   - Registrasi & Login (bisa pakai Email atau NIK 16 digit).
+   - Booking tiket online & pemilihan layanan.
+   - Fitur Anggota Keluarga (Family Booking) untuk mendaftarkan lansia/anak.
+   - Check-in di kios fisik Siola (scan QR, tips miringkan HP 15 derajat jika silau, atau input manual 6 digit kode tiket).
+   - Pembatalan tiket (jika berhalangan hadir agar kuota kembali).
+   - Penanganan antrean (mundurkan antrean jika berkas kurang, atau jadwalkan ulang jika nomor hangus hari itu).
+   - Pengisian ulasan layanan (rating bintang dan opsi "Nanti Saja").
+3. Jangan mengarang data yang bertentangan dengan dokumen resmi. Tegaskan bahwa seluruh layanan di Dispendukcapil dan aplikasi CiviGo adalah 100% GRATIS (Rp 0).
 4. Jika pertanyaan warga sama sekali di luar lingkup pelayanan publik MPP dan aplikasi CiviGo, sampaikan permohonan maaf dengan sopan dan sarankan warga untuk bertanya seputar layanan MPP atau menghubungi Loket Informasi MPP Siola Surabaya.
-5. Gunakan bahasa Indonesia yang santun dan profesional. Jangan pernah menyebutkan proses teknis internal seperti embedding, vector database, prompt, atau RAG.
+5. Gunakan bahasa Indonesia yang santun, ramah, dan profesional. Jangan pernah menyebutkan istilah teknis internal seperti prompt, embedding, vector, database, atau RAG.
 
 DOKUMEN PANDUAN RESMI:
 `;
@@ -206,9 +256,11 @@ ${document.content}
       }
     }
 
+    const sanitizedJawaban = cleanMarkdownFormatting(jawaban);
+
     return NextResponse.json({
       status: "success",
-      jawaban,
+      jawaban: sanitizedJawaban,
       cached: false,
       provider,
     });

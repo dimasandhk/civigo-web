@@ -1,51 +1,107 @@
-PANDUAN LENGKAP PENGGUNAAN APLIKASI CIVIGO (SISTEM ANTREAN DIGITAL MPP SIOLA)
+PANDUAN LENGKAP PENGGUNAAN APLIKASI CIVIGO (SISTEM ANTREAN DIGITAL MPP SIOLA SURABAYA)
 
-1. TENTANG APLIKASI CIVIGO
-CiviGo adalah platform civic-tech terintegrasi yang memudahkan warga mengurus administrasi publik di Mal Pelayanan Publik (MPP). Dengan CiviGo, warga tidak perlu lagi datang pagi-pagi buta untuk berebut nomor kertas antrean manual. Seluruh alur—mulai dari cek dokumen, booking antrean, check-in di kios fisik, hingga notifikasi pemanggilan loket—dikelola secara cerdas dan real-time.
+1. TENTANG APLIKASI CIVIGO DAN BIAYA LAYANAN
+CiviGo adalah aplikasi layanan publik digital resmi (civic-tech) yang memfasilitasi warga Surabaya dan sekitarnya dalam mengurus berbagai perizinan serta administrasi di Mal Pelayanan Publik (MPP) Siola Surabaya.
+- Seluruh fitur aplikasi CiviGo dan pengambilan antrean adalah 100% GRATIS (tidak ada biaya pendaftaran, biaya booking, atau biaya admin aplikasi).
+- Warga dilarang keras menggunakan calo atau pihak ketiga berbayar yang menjanjikan nomor antrean cepat.
+- CiviGo menghubungkan warga langsung ke berbagai instansi di MPP Siola, antara lain Dispendukcapil, Samsat, Polrestabes (SIM & SKCK), Kantor Imigrasi (Paspor), dan BPJS Kesehatan.
 
-2. PANDUAN LANGKAH DEMI LANGKAH (FITUR UTAMA):
+2. CARA REGISTRASI AKUN BARU CIVIGO
+Bagi warga yang baru pertama kali menggunakan aplikasi CiviGo:
+1. Buka aplikasi CiviGo, pada halaman awal pilih menu "Daftar Akun" atau "Registrasi".
+2. Masukkan data pribadi yang valid:
+   - Nama Lengkap (sesuai KTP asli).
+   - NIK (Nomor Induk Kependudukan) 16 digit yang sah.
+   - Alamat Email aktif yang sering digunakan.
+   - Kata Sandi (minimal 8 karakter, kombinasikan huruf dan angka untuk keamanan).
+3. Tekan tombol "Daftar". Akun Anda akan langsung terverifikasi dan siap digunakan.
 
-A. CARA BOOKING / MEMESAN TIKET ANTREAN SECARA ONLINE:
-1. Buka aplikasi CiviGo pada smartphone Anda.
-2. Di halaman Beranda, pilih instansi tujuan (misal: Dispendukcapil, Samsat, Imigrasi, Polrestabes, atau BPJS).
-3. Pilih jenis layanan publik yang diinginkan (contoh: Pembuatan KTP Baru, Perpanjangan STNK, Pembuatan Paspor, dll).
-4. Periksa prasyarat dokumen. CiviGo akan memverifikasi apakah berkas Anda sudah siap.
-5. Tentukan pemohon: Anda dapat memilih mengajukan untuk diri sendiri atau mewakili Anggota Keluarga yang sudah didaftarkan.
-6. Pilih tanggal kunjungan yang diinginkan.
-7. Tekan tombol "Konfirmasi Booking". Nomor antrean Anda (misal: A-01, B-05) otomatis terbit dan langsung tersimpan di tab "Antrean Saya".
+3. CARA LOGIN KE APLIKASI CIVIGO
+Warga dapat masuk ke akun CiviGo dengan sangat fleksibel:
+- Opsi 1: Menggunakan Alamat Email dan Kata Sandi.
+- Opsi 2: Menggunakan NIK (16 digit) dan Kata Sandi.
+- Jika pengguna adalah petugas instansi/loket, login dilakukan menggunakan Username khusus instansi pada portal web admin.
 
-B. FITUR PENDAFTARAN ANGGOTA KELUARGA (FAMILY BOOKING):
-- Warga dapat mendaftarkan istri, suami, anak, atau orang tua yang sudah lanjut usia agar mereka tidak perlu memiliki smartphone atau akun terpisah.
-- Cara Tambah Keluarga: Masuk ke tab Akun/Profil -> Pilih "Anggota Keluarga" -> Tekan "Tambah Anggota Keluarga" -> Masukkan Nama Lengkap, NIK 16 digit, dan Status Hubungan (Anak, Istri, Suami, Orang Tua).
-- Saat melakukan booking layanan, cukup pilih nama anggota keluarga tersebut. Nomor tiket akan resmi tercatat atas nama NIK anggota keluarga tersebut untuk keperluan verifikasi loket.
+4. CARA MENGATASI LUPA KATA SANDI (RESET PASSWORD)
+Jika Anda lupa kata sandi akun CiviGo:
+1. Pada halaman login aplikasi, tekan tautan "Lupa Kata Sandi?".
+2. Masukkan alamat email yang terdaftar pada akun CiviGo Anda, lalu tekan "Kirim".
+3. Buka kotak masuk (inbox) atau folder spam pada email Anda, cari pesan dari CiviGo / Supabase Auth.
+4. Klik tautan pemulihan kata sandi yang dikirimkan.
+5. Masukkan kata sandi baru (minimal 8 karakter) dan konfirmasi kata sandi baru Anda.
+6. Kata sandi berhasil diperbarui dan Anda dapat langsung login kembali ke aplikasi.
+Catatan: Jika Anda sudah berhasil login dan hanya ingin mengganti password lama, cukup buka menu Profil / Akun di aplikasi, lalu pilih menu "Ubah Kata Sandi" (memasukkan password lama dan password baru).
 
-C. PROSEDUR CHECK-IN DI KIOSK FISIK LOKASI MPP SIOLA:
-- Setibanya di Gedung Siola, warga wajib melakukan check-in agar nomor antreannya masuk ke dalam antrean tunggu aktif petugas loket:
-  1. Buka aplikasi CiviGo di HP Anda, buka tab "Antrean Saya", lalu ketuk kartu tiket untuk menampilkan kode QR beresolusi tinggi.
-  2. Dekatkan layar HP Anda ke arah kamera scanner di mesin Kiosk Siola dengan jarak ±20-30 cm.
-  3. Tips Jika Kamera Kios Silau: Miringkan HP sedikit (±15 derajat) untuk memecah pantulan lampu ruangan.
-  4. Opsi Alternatif Manual: Jika scanner tidak membaca, Anda cukup menekan menu "Input Kode Manual" di layar kios dan mengetikkan 6 digit kode tiket Anda.
-  5. Setelah check-in berhasil, status tiket di HP berubah menjadi "Telah Check-in" (Present), dan nomor Anda siap dipanggil di loket.
+5. CARA BOOKING / MEMESAN TIKET ANTREAN ONLINE
+Warga dapat memesan nomor antrean sebelum datang ke MPP Siola:
+1. Buka aplikasi CiviGo di HP Anda dan pastikan sudah dalam keadaan login.
+2. Di halaman Beranda, pilih instansi pemerintah yang dituju (misalnya Dispendukcapil, Samsat, Imigrasi, Polrestabes, atau BPJS Kesehatan).
+3. Pilih jenis layanan spesifik yang ingin diurus (contoh: KTP-el Baru, Pengesahan STNK Tahunan, Permohonan Paspor Baru, Perpanjangan SIM A/C, dll).
+4. Baca dan ceklis prasyarat dokumen yang ditampilkan di layar untuk memastikan berkas Anda lengkap.
+5. Pilih pemohon: Anda dapat memilih mengajukan untuk diri Anda sendiri atau mewakili Anggota Keluarga yang sudah didaftarkan.
+6. Pilih tanggal kunjungan dan jam kedatangan yang tersedia.
+7. Tekan tombol "Konfirmasi Booking". Nomor antrean digital Anda (contoh: A-01, B-05) otomatis terbit dan tersimpan di tab "Antrean Saya".
 
-D. CARA MEMBATALKAN TIKET ANTREAN (BATALKAN BOOKING):
-- Jika warga memiliki kendala mendadak dan tidak bisa hadir di MPP Siola, warga sangat dianjurkan membatalkan antrean agar kuota layanan dapat digunakan oleh warga lain yang membutuhkan:
-  1. Buka tab "Antrean Saya", pilih tiket aktif berstatus "Terjadwal" atau "Telah Check-in".
-  2. Gulir ke bagian bawah kartu tiket, lalu tekan tombol merah "Batalkan Antrean Ini".
-  3. Dialog konfirmasi akan muncul menjelaskan bahwa nomor antrean akan dilepas dan kuota dikembalikan ke sistem. Tekan "Ya, Batalkan".
-  4. Tiket berhasil dibatalkan dan otomatis dipindahkan ke tab "Riwayat" dengan label status berwarna merah "Dibatalkan".
-  5. Catatan: Tiket yang sedang dilayani di loket (Served) atau yang sudah selesai tidak dapat dibatalkan. Tiket yang sengaja dibatalkan tidak mendapatkan opsi reschedule gratis.
+6. FITUR PENDAFTARAN ANGGOTA KELUARGA (FAMILY BOOKING)
+Aplikasi CiviGo memiliki fitur khusus untuk membantu anggota keluarga yang tidak memiliki smartphone atau sudah lanjut usia (lansia):
+- Warga dapat mendaftarkan akun keluarga di dalam satu aplikasi pemohon utama.
+- Cara Menambah Anggota Keluarga:
+  1. Masuk ke tab "Profil / Akun", lalu pilih menu "Anggota Keluarga".
+  2. Tekan tombol "Tambah Anggota Keluarga".
+  3. Masukkan Nama Lengkap, NIK 16 digit, dan Hubungan Keluarga (seperti Suami, Istri, Anak, atau Orang Tua).
+  4. Simpan data.
+- Cara Booking untuk Keluarga: Saat memesan antrean di langkah nomor 5, pilih nama anggota keluarga yang bersangkutan. Tiket antrean resmi akan dicatat atas nama NIK anggota keluarga tersebut sehingga proses pencocokan berkas di loket berjalan lancar.
 
-E. FITUR MUNDURKAN ANTREAN (POSTPONE) OLEH PETUGAS LOKET:
-- Jika nomor Anda dipanggil oleh petugas loket, namun Anda sedang izin ke toilet atau berkas fotokopi kurang 1 lembar:
-- Petugas loket dapat menekan tombol "Mundurkan Antrean".
-- Nomor Anda TIDAK AKAN HANGUS. Nomor antrean Anda akan dipindahkan secara elegan ke antrean paling belakang di kelompok antrean menunggu (FIFO). Anda memiliki waktu untuk melengkapi berkas, dan nomor Anda akan dipanggil kembali setelah antrean reguler selesai dilayani.
+7. ESTIMASI WAKTU DAN PROSEDUR DATANG KE MPP SIOLA
+- Warga disarankan tiba di Gedung MPP Siola Surabaya (Jl. Tunjungan No. 1-3) sekitar 15 hingga 30 menit sebelum jam layanan dimulai.
+- Bawa seluruh dokumen persyaratan dalam bentuk fisik asli (dan fotokopi cadangan jika diperlukan).
+- Parkir kendaraan di area parkir Gedung Siola, lalu masuk ke area lobi utama pelayanan publik di Lantai 1 atau 2 sesuai instansi tujuan.
 
-F. FITUR JADWALKAN ULANG (RESCHEDULE ANTREAN HANGUS):
-- Jika Anda terlambat datang dan nomor antrean Anda terlanjur dilewati/hangus oleh sistem (status: "Hangus" / Skipped) pada hari yang sama:
-- Buka tab "Riwayat Antrean" di aplikasi CiviGo -> Cari tiket yang berstatus Hangus hari ini -> Tekan tombol biru "Jadwalkan Ulang".
-- Sistem CiviGo secara otomatis akan menerbitkan nomor antrean baru hari itu tanpa Anda harus mengisi ulang data dari awal.
+8. PROSEDUR LENGKAP CHECK-IN DI KIOSK FISIK MPP SIOLA
+Setibanya di Gedung Siola, nomor tiket yang dibooking secara online wajib di-check-in di mesin Kiosk fisik agar sistem memanggil nomor Anda ke loket:
+1. Buka aplikasi CiviGo di HP Anda, masuk ke tab "Antrean Saya".
+2. Ketuk kartu tiket aktif Anda untuk menampilkan kode QR (Quick Response) tiket antrean.
+3. Dekatkan layar HP ke arah lensa scanner pada mesin Kiosk fisik Siola dengan jarak sekitar 20 sampai 30 cm.
+4. Tips jika kamera scanner kiosk silau: Miringkan HP sedikit sekitar 15 derajat agar pantulan lampu ruangan tidak menghalangi scanner.
+5. Cara alternatif jika barcode tidak terbaca: Tekan tombol "Input Kode Manual" pada layar sentuh mesin Kiosk, lalu ketikkan 6 digit kode alfanumerik yang tertera tepat di bawah QR code tiket HP Anda.
+6. Setelah check-in sukses, status tiket di aplikasi HP Anda otomatis berubah menjadi "Telah Check-in" (Present), dan nomor antrean Anda resmi masuk ke dalam daftar pemanggilan loket petugas.
 
-G. FITUR ULASAN & TUNDA ULASAN ("NANTI SAJA"):
-- Setelah urusan Anda selesai di loket, tiket akan berstatus "Selesai" (Completed) dan kartu ulasan akan muncul di aplikasi.
-- Anda dapat memberikan rating bintang 1 sampai 5 beserta testimoni/kritik/saran untuk perbaikan kualitas pelayanan instansi.
-- Jika Anda sedang terburu-buru pulang, tekan tombol "Nanti Saja". Kartu ulasan akan dipindahkan ke tab "Riwayat", dan Anda dapat memberikan ulasan kapan saja saat Anda sudah santai di rumah.
+9. ALUR PEMANGGILAN NOMOR DAN NOTIFIKASI
+- Setelah check-in, warga dapat duduk di ruang tunggu instansi tujuan.
+- Perhatikan layar monitor display antrean dan pengeras suara pemanggil loket di MPP Siola.
+- Aplikasi CiviGo juga akan memperbarui posisi antrean Anda secara real-time. Ketika nomor Anda dipanggil, segera menuju nomor loket yang disebutkan dengan membawa seluruh berkas asli.
+
+10. CARA MEMBATALKAN TIKET ANTREAN (BATAL BOOKING)
+Jika Anda berhalangan hadir karena urusan mendadak, Anda sangat disarankan membatalkan antrean agar kuota dapat diberikan kepada warga lain:
+1. Buka tab "Antrean Saya", pilih tiket aktif berstatus "Terjadwal" atau "Telah Check-in".
+2. Gulir ke bawah kartu tiket, lalu tekan tombol merah "Batalkan Antrean Ini".
+3. Konfirmasi pembatalan. Tiket akan dibatalkan seketika dan kuota dikembalikan ke sistem.
+4. Tiket yang dibatalkan akan otomatis dipindahkan ke tab "Riwayat" dengan label status merah "Dibatalkan".
+5. Catatan: Tiket yang sedang dilayani di depan loket (status Served) atau tiket yang sudah selesai tidak dapat dibatalkan.
+
+11. FITUR MUNDURKAN ANTREAN (POSTPONE) OLEH PETUGAS LOKET
+Jika nomor antrean Anda dipanggil di loket, namun saat itu Anda sedang izin ke toilet atau berkas fotokopi Anda kurang 1 lembar:
+- Petugas loket dapat menekan tombol "Mundurkan Antrean" (Postpone).
+- Nomor antrean Anda TIDAK AKAN HANGUS. Nomor Anda akan digeser ke posisi paling belakang pada antrean tunggu yang aktif.
+- Anda dapat segera menyelesaikan urusan atau melengkapi berkas, dan nomor Anda akan dipanggil kembali setelah antrean di depan Anda selesai dilayani.
+
+12. CARA JADWALKAN ULANG (RESCHEDULE ANTREAN HANGUS)
+Jika Anda terlambat datang ke Siola dan nomor antrean Anda terlanjur terlewat oleh petugas (berstatus "Hangus" / Skipped) pada hari kunjungan yang sama:
+1. Buka tab "Riwayat" di aplikasi CiviGo.
+2. Temukan tiket yang berstatus "Hangus" hari ini.
+3. Tekan tombol biru "Jadwalkan Ulang" (Reschedule).
+4. Sistem CiviGo akan menerbitkan nomor antrean baru untuk hari itu secara instan tanpa Anda harus mengisi ulang seluruh formulir dari awal.
+
+13. FITUR PENILAIAN / ULASAN DAN OPSI "NANTI SAJA"
+Setelah proses pelayanan di loket selesai:
+- Status tiket di aplikasi berubah menjadi "Selesai" (Completed).
+- Layar penilaian ulasan akan muncul di aplikasi CiviGo. Anda dapat memberikan rating 1 sampai 5 bintang serta menuliskan masukan atau kepuasan Anda terhadap petugas.
+- Opsi "Nanti Saja": Jika Anda sedang terburu-buru, tekan opsi "Nanti Saja". Kartu ulasan akan tersimpan di tab "Riwayat", dan Anda dapat mengisi ulasan kepuasan kapan saja saat Anda memiliki waktu luang.
+
+14. PERTANYAAN UMUM (FAQ) SEPUTAR KENDALA APLIKASI
+- Pertanyaan: Apakah bisa mendaftar jika saya tidak memiliki HP pintar?
+  Jawaban: Bisa. Anda dapat meminta bantuan anak, pasangan, atau keluarga untuk mendaftarkan NIK Anda melalui fitur Anggota Keluarga di aplikasi CiviGo mereka.
+- Pertanyaan: Mengapa status tiket saya masih "Terjadwal" padahal saya sudah di Siola?
+  Jawaban: Karena Anda belum melakukan check-in di mesin Kiosk Siola. Silakan scan kode QR tiket Anda pada mesin Kiosk yang tersedia di dekat pintu masuk atau lobi instansi.
+- Pertanyaan: Bagaimana jika aplikasi saya tidak bisa dibuka atau jaringan internet lambat?
+  Jawaban: Petugas di meja Informasi MPP Siola siap membantu Anda mengecek nomor booking dengan menyebutkan NIK Anda.
