@@ -212,3 +212,20 @@ Skema database menggunakan tipe enum `public.user_role`:
    - Hanya baca: tidak ada tombol per tiket. Urutannya `sortWaiting()` (sama dengan tombol panggil dan TV), jadi tiket pertama selalu sama dengan kartu "Selanjutnya", dan jumlahnya sama dengan "Sisa Antrean".
    - Beda dengan TV: tanpa batas 10 tiket; tiket yang dimundurkan diberi warna kuning (+ keterangan), dan nama warga & layanan muncul sebagai tooltip saat kursor diarahkan ke nomornya.
    - Ikut realtime dasbor (broadcast `display:agency:<id>`), tanpa query tambahan — datanya dari `getTodayQueues()` yang sudah ada.
+21. **Akun petugas untuk semua cabang yang bisa di-booking (18/10/2026)**:
+   - Temuan: `bookQueue` (`lib/queue/book.ts`) hanya mengecek `agency_locations`, jadi warga bisa booking di 10 pasangan instansi × cabang, padahal akun `instansi` hanya ada di MPP Siola (lokasi 5). Lima kantor induk (lokasi 6–10) tidak punya akun dan tidak punya loket, sehingga tiketnya tidak bisa dipanggil siapa pun. Per 18/10/2026 sudah ada satu tiket `scheduled` hari ini di Kantor Dispendukcapil (lokasi 6).
+   - `scripts/seed_branch_accounts.ts` (`pnpm seed:accounts`) membuat satu akun per cabang lewat Admin API Supabase, password default `Password123!` (ganti dengan `SEED_ACCOUNT_PASSWORD`). Idempoten: akun yang sudah ada hanya dirapikan profilnya.
+
+     | Username (= email sebelum `@civigo.com`) | Instansi | Cabang |
+     |---|---|---|
+     | `disdukcapilkantor` | Dispendukcapil (1) | Kantor Dispendukcapil Kota Surabaya (6) |
+     | `samsattimur` | Samsat (2) | Kantor Bersama Samsat Surabaya Timur (7) |
+     | `polrestabescolombo` | Polrestabes (4) | Satpas SIM Colombo (8) |
+     | `imigrasikantor` | Imigrasi (3) | Kantor Imigrasi Kelas I Khusus TPI Surabaya (9) |
+     | `bpjskantor` | BPJS Kesehatan (5) | Kantor BPJS Kesehatan Cabang Surabaya (10) |
+
+   - **Username tanpa titik, disengaja.** `signIn()` (`lib/auth/actions.ts`) mengubah username jadi `<teks sebelum titik pertama>@civigo.com`, jadi `disdukcapil.kantor` akan login ke akun MPP `disdukcapil@civigo.com`. Email lengkap juga bisa dipakai di form login.
+   - NIK di metadata auth (`35780100000001<lokasi>`) hanya supaya lolos `handle_new_user()`; `users.nik` dikosongkan seperti akun instansi lain.
+   - **Script yang sama menambah 2 loket aktif per cabang** (id 112–121): `Loket Dispendukcapil 1/2`, `Loket Samsat 1/2`, `Loket SIM 1/2` (Satpas Colombo), `Loket Imigrasi 1/2`, `Loket BPJS 1/2`. Loket dicocokkan per nama di cabangnya; yang sudah ada tidak disentuh (termasuk kalau dinonaktifkan petugas). Sekarang semua 10 pasangan `agency_locations` punya akun dan loket aktif.
+   - `counters_id_seq` tertinggal di 11 padahal ada loket id 101–111 yang di-insert manual; di-`setval` ke 111 supaya insert berikutnya (seed maupun "Tambah Loket") tidak suatu saat bentrok dengan id 101.
+   - Booking masih belum menolak cabang tanpa loket aktif — kalau loket cabang dinonaktifkan semua, tiketnya kembali tidak bisa dipanggil.
