@@ -585,6 +585,56 @@ describe("Auth Endpoints (API Tests with Zero Email / API Key Consumption)", () 
       expect(json.ok).toBe(true);
       expect(mockUpdateUser).toHaveBeenCalledWith({ password: "KataSandiBaru#2026" });
     });
+
+    it("returns 404 if email is not registered in the system", async () => {
+      mockServiceUsersMaybeSingle.mockResolvedValueOnce({
+        data: null,
+        error: null,
+      });
+
+      const req = new NextRequest("http://localhost:3000/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({
+          email: "tidak-ada@civigo.com",
+          password: "KataSandiBaru#2026",
+        }),
+      });
+
+      const res = await resetPasswordHandler(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(404);
+      expect(json.ok).toBe(false);
+      expect(json.error.code).toBe("EMAIL_NOT_FOUND");
+      expect(mockAdminUpdateUserById).not.toHaveBeenCalled();
+    });
+
+    it("returns 200 and directly updates password via admin when email is registered", async () => {
+      mockServiceUsersMaybeSingle.mockResolvedValueOnce({
+        data: { id: "user-registered-123", email: "warga@civigo.com", full_name: "Warga CiviGo" },
+        error: null,
+      });
+      mockAdminUpdateUserById.mockResolvedValueOnce({ error: null });
+
+      const req = new NextRequest("http://localhost:3000/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({
+          email: "warga@civigo.com",
+          password: "KataSandiBaru#2026",
+        }),
+      });
+
+      const res = await resetPasswordHandler(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.ok).toBe(true);
+      expect(json.message).toContain("berhasil diperbarui");
+      expect(mockAdminUpdateUserById).toHaveBeenCalledWith(
+        "user-registered-123",
+        { password: "KataSandiBaru#2026" }
+      );
+    });
   });
 
   describe("PATCH /api/auth/profile", () => {

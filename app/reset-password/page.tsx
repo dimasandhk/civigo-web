@@ -1,18 +1,19 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Button from "../components/Button";
 import Input from "../components/Input";
 import Label from "../components/Label";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const code = searchParams.get("code") || "";
+  const initialEmail = searchParams.get("email") || "";
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,6 +23,12 @@ function ResetPasswordForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail && !code) {
+      setError("Alamat email terdaftar wajib diisi.");
+      return;
+    }
 
     if (password.length < 8) {
       setError("Kata sandi baru minimal 8 karakter.");
@@ -39,6 +46,7 @@ function ResetPasswordForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          email: trimmedEmail || undefined,
           password,
           code: code || undefined,
         }),
@@ -74,7 +82,7 @@ function ResetPasswordForm() {
             Atur Kata Sandi Baru
           </h1>
           <p className="font-display text-[14px] leading-[18px] text-queue-idle">
-            Buat kata sandi baru untuk akun CiviGo Anda.
+            Masukkan email terdaftar dan kata sandi baru untuk akun CiviGo Anda.
           </p>
         </div>
       </header>
@@ -97,7 +105,7 @@ function ResetPasswordForm() {
             </svg>
           </div>
           <p className="font-medium text-ink">
-            Kata sandi Anda berhasil diperbarui! Silakan masuk kembali dengan kata sandi baru.
+            Kata sandi Anda berhasil diperbarui! Silakan masuk kembali dengan kata sandi baru Anda.
           </p>
           <Link href="/" className="w-full">
             <Button type="button" className="w-full mt-2">
@@ -112,6 +120,19 @@ function ResetPasswordForm() {
               {error}
             </div>
           )}
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="email">Email Terdaftar</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              required
+              placeholder="nama@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="password">Kata Sandi Baru</Label>
