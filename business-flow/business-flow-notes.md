@@ -207,3 +207,8 @@ Skema database menggunakan tipe enum `public.user_role`:
    - Pratinjau webcam dicerminkan (kamera menghadap warga); kamera belakang tablet tidak. Kamera dimatikan saat layar hasil tampil dan dinyalakan lagi lewat "Scan Lagi".
    - `jsqr` dipakai, bukan `BarcodeDetector` bawaan browser, karena Chrome di Windows tidak punya `BarcodeDetector`.
    - Diuji 14/10/2026 di Chrome dengan kamera tiruan (canvas berisi QR asli): QR URL → pesan tidak dikenali tanpa request; QR tiket E-01 (walk-in uji, NIK `3273019999990777`, MPP) → satu request, "Check-in Berhasil!", tiket `present` + `checked_in_at`; "Scan Lagi" + QR sama → "Anda Sudah Check-in". Kamera fisik belum dicoba. Test: `tests/unit/qr.test.ts`, `tests/unit/check-in.test.ts` (bagian ticket QR).
+20. **Daftar "Antrean Berikutnya" di dasbor loket (18/10/2026)**:
+   - `/admin/antrean` kini menampilkan semua tiket yang menunggu (`present`/`scheduled`) di bawah kartu "Sebelumnya", "Sisa Antrean", dan "Selanjutnya", seperti bagian "Antrean Berikutnya" di layar TV (`/display/[agencyId]/antrean`).
+   - Hanya baca: tidak ada tombol per tiket. Urutannya `sortWaiting()` (sama dengan tombol panggil dan TV), jadi tiket pertama selalu sama dengan kartu "Selanjutnya", dan jumlahnya sama dengan "Sisa Antrean".
+   - Beda dengan TV: tanpa batas 10 tiket; tiket yang dimundurkan diberi warna kuning (+ keterangan), dan nama warga & layanan muncul sebagai tooltip saat kursor diarahkan ke nomornya.
+   - Ikut realtime dasbor (broadcast `display:agency:<id>`), tanpa query tambahan — datanya dari `getTodayQueues()` yang sudah ada.

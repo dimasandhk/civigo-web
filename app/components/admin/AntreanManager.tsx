@@ -498,6 +498,42 @@ export default function AntreanManager({
           }
         />
       </div>
+
+      {/* Antrean Berikutnya — sama dengan layar TV, tapi tanpa batas 10 tiket.
+          Hanya baca; urutannya `sortWaiting()`, jadi tiket pertama = "Selanjutnya". */}
+      <section className="flex flex-col gap-4 rounded-[20px] bg-white p-6 shadow-soft sm:px-10 sm:py-[30px]">
+        <h2 className="font-display text-[18px] font-semibold text-ink sm:text-[20px]">
+          Antrean Berikutnya{" "}
+          <span className="text-queue-idle">({remainingCount})</span>
+        </h2>
+        {waitingQueues.length > 0 ? (
+          <ol className="grid grid-cols-3 gap-2.5 sm:grid-cols-5 sm:gap-4 lg:grid-cols-6 xl:grid-cols-8">
+            {waitingQueues.map((q) => (
+              <li
+                key={q.id}
+                title={`${q.user_name} — ${q.service_name}${q.postponed ? " (Dimundurkan)" : ""}`}
+                className={`flex items-center justify-center rounded-[16px] py-3.5 font-display text-white shadow-inset-soft sm:py-4 ${
+                  q.postponed ? "bg-warning" : "bg-queue-idle"
+                }`}
+              >
+                <span className="text-2xl font-semibold leading-none sm:text-3xl">
+                  {q.queue_number}
+                </span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div className="flex items-center justify-center rounded-[16px] bg-slate-50 py-4 font-display text-muted">
+            Belum ada antrean berikutnya yang terdaftar
+          </div>
+        )}
+        {waitingQueues.some((q) => q.postponed) && (
+          <p className="flex items-center gap-2 text-xs text-muted sm:text-sm">
+            <span className="size-3 shrink-0 rounded-[4px] bg-warning" />
+            Dimundurkan — dipanggil setelah semua antrean lain.
+          </p>
+        )}
+      </section>
     </div>
   );
 }
