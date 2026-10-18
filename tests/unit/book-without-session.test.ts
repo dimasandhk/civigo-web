@@ -47,6 +47,7 @@ vi.mock("@/lib/supabase/service", () => ({
         eq: (column: string, value: unknown) => ((filters[column] = value), query),
         in: () => query,
         or: () => query,
+        is: () => query,
         limit: () => query,
         maybeSingle: async () => {
           if (table === "agency_locations") {

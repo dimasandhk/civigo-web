@@ -365,7 +365,7 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
     }
   }
 
-  // Jika mendaftarkan untuk anggota keluarga dan NIK belum terisi, coba ambil dari tabel family_members
+  // Jika mendaftarkan untuk anggota keluarga, selalu gunakan NIK dari data anggota keluarga
   if (input.family_member_id) {
     const { data: member } = await db
       .from("family_members")
@@ -373,12 +373,12 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
       .eq("id", input.family_member_id)
       .maybeSingle();
 
-    if (member && !identity.nik) {
+    if (member?.nik) {
       identity.nik = member.nik;
     }
   }
 
-  // Prevent duplicate booking for the same service and date (by userId or by NIK)
+  // Prevent duplicate booking for the same service and date
   let duplicateQuery = db
     .from("queues")
     .select("queue_number")
@@ -386,12 +386,28 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
     .eq("schedule_date", input.schedule_date)
     .in("status", ACTIVE_STATUSES);
 
-  if (identity.userId && identity.nik) {
-    duplicateQuery = duplicateQuery.or(`user_id.eq.${identity.userId},nik.eq.${identity.nik}`);
-  } else if (identity.userId) {
-    duplicateQuery = duplicateQuery.eq("user_id", identity.userId);
-  } else if (identity.nik) {
-    duplicateQuery = duplicateQuery.eq("nik", identity.nik);
+  if (input.family_member_id) {
+    // Booking untuk anggota keluarga: periksa apakah anggota keluarga ini (atau NIK-nya) sudah punya antrean aktif
+    if (identity.nik) {
+      duplicateQuery = duplicateQuery.or(
+        `family_member_id.eq.${input.family_member_id},nik.eq.${identity.nik}`,
+      );
+    } else {
+      duplicateQuery = duplicateQuery.eq("family_member_id", input.family_member_id);
+    }
+  } else {
+    // Booking untuk diri sendiri: hanya cocokkan tiket milik user sendiri (family_member_id is null) atau NIK pemohon
+    if (identity.userId && identity.nik) {
+      duplicateQuery = duplicateQuery.or(
+        `and(user_id.eq.${identity.userId},family_member_id.is.null),nik.eq.${identity.nik}`,
+      );
+    } else if (identity.userId) {
+      duplicateQuery = duplicateQuery
+        .eq("user_id", identity.userId)
+        .is("family_member_id", null);
+    } else if (identity.nik) {
+      duplicateQuery = duplicateQuery.eq("nik", identity.nik);
+    }
   }
 
   const { data: duplicate } = await duplicateQuery.limit(1).maybeSingle();
