@@ -51,15 +51,17 @@ export async function insertTicketWithNumber(
   ticket: NewTicket,
 ): Promise<{ ok: true; row: InsertedTicket } | Failure> {
   const prefix = queuePrefix(ticket.serviceId);
+  const locationId = ticket.locationId ?? 1;
 
   for (let attempt = 0; attempt < MAX_ALLOCATION_ATTEMPTS; attempt += 1) {
-    // Read every number for the day rather than sorting in Postgres: the sort
-    // would be lexicographic, which puts "A-99" above "A-100".
+    // Read every number for the day and location rather than sorting in Postgres:
+    // the sort would be lexicographic, which puts "A-99" above "A-100".
     const { data: taken, error: readError } = await db
       .from("queues")
       .select("queue_number")
       .eq("schedule_date", ticket.scheduleDate)
-      .eq("service_id", ticket.serviceId);
+      .eq("service_id", ticket.serviceId)
+      .eq("location_id", locationId);
 
     if (readError) {
       return fail(500, "INTERNAL_ERROR", "Gagal membaca nomor antrean yang sudah terpakai.");
@@ -75,7 +77,7 @@ export async function insertTicketWithNumber(
         user_id: ticket.userId,
         nik: ticket.nik,
         service_id: ticket.serviceId,
-        location_id: ticket.locationId ?? 1,
+        location_id: locationId,
         family_member_id: ticket.familyMemberId ?? null,
         queue_number: queueNumber,
         schedule_date: ticket.scheduleDate,

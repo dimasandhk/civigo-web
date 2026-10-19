@@ -229,3 +229,10 @@ Skema database menggunakan tipe enum `public.user_role`:
    - **Script yang sama menambah 2 loket aktif per cabang** (id 112–121): `Loket Dispendukcapil 1/2`, `Loket Samsat 1/2`, `Loket SIM 1/2` (Satpas Colombo), `Loket Imigrasi 1/2`, `Loket BPJS 1/2`. Loket dicocokkan per nama di cabangnya; yang sudah ada tidak disentuh (termasuk kalau dinonaktifkan petugas). Sekarang semua 10 pasangan `agency_locations` punya akun dan loket aktif.
    - `counters_id_seq` tertinggal di 11 padahal ada loket id 101–111 yang di-insert manual; di-`setval` ke 111 supaya insert berikutnya (seed maupun "Tambah Loket") tidak suatu saat bentrok dengan id 101.
    - Booking masih belum menolak cabang tanpa loket aktif — kalau loket cabang dinonaktifkan semua, tiketnya kembali tidak bisa dipanggil.
+22. **Penomoran antrean independen per cabang (19/10/2026)**:
+   - Sebelumnya: `insertTicketWithNumber` (`lib/queue/number.ts`) hanya memfilter `schedule_date` dan `service_id`, serta unique index database `queues_number_per_service_day_idx` hanya pada `(schedule_date, service_id, queue_number)`. Akibatnya, nomor antrean menyambung lintas cabang (misal tiket di MPP Siola `A-01`, tiket berikutnya di Kantor Dispendukcapil menjadi `A-02`).
+   - Perbaikan:
+     - `insertTicketWithNumber` kini membaca nomor antrean terpakai dengan menyertakan `.eq("location_id", locationId)`. Setiap cabang kini memiliki urutan penomoran mandiri mulai dari `01` untuk setiap layanan dan tanggal.
+     - Database migration `20261019120000_scope_queue_numbers_per_location.sql` memperbarui unique index `queues_number_per_service_day_idx` menjadi `(schedule_date, service_id, location_id, queue_number)`.
+   - Unit tests ditambahkan di `tests/unit/queue-number.test.ts`.
+
