@@ -103,12 +103,42 @@ export async function POST(request: NextRequest) {
 
     // Eksekusi Autentikasi Supabase
     const supabase = await createClient();
-    const { data, error } = await supabase.auth.signInWithPassword({
+    let { data, error } = await supabase.auth.signInWithPassword({
       email: loginEmail,
       password,
     });
 
-    if (error || !data.user || !data.session) {
+    // Auto-heal jika akun terdaftar namun email belum terkonfirmasi di Supabase Auth
+    if (
+      error &&
+      (error.message?.toLowerCase().includes("email not confirmed") ||
+        (error as any).code === "email_not_confirmed")
+    ) {
+      const { data: existingUser } = await serviceDb
+        .from("users")
+        .select("id")
+        .eq("email", loginEmail)
+        .maybeSingle();
+
+      if (existingUser?.id) {
+        await serviceDb.auth.admin.updateUserById(existingUser.id, {
+          email_confirm: true,
+        });
+
+        // Coba login ulang setelah auto-confirm
+        const retryResult = await supabase.auth.signInWithPassword({
+          email: loginEmail,
+          password,
+        });
+
+        if (retryResult.data?.user && retryResult.data?.session) {
+          data = retryResult.data;
+          error = null;
+        }
+      }
+    }
+
+    if (error || !data?.user || !data?.session) {
       return NextResponse.json(
         {
           ok: false,

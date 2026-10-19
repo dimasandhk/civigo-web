@@ -131,39 +131,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Daftarkan user ke Supabase Auth
-    const supabase = await createClient();
-    const { data, error } = await supabase.auth.signUp({
+    // 3. Daftarkan user ke Supabase Auth via Admin API agar email_confirm: true
+    // (menghindari email rate limit dan langsung siap login tanpa konfirmasi manual)
+    const { data: adminUserData, error: adminError } = await serviceDb.auth.admin.createUser({
       email,
       password,
-      options: {
-        data: {
-          nik,
-          full_name: fullName,
-        },
+      email_confirm: true,
+      user_metadata: {
+        nik,
+        full_name: fullName,
       },
     });
 
-    if (error) {
+    if (adminError) {
       const isAlreadyRegistered =
-        error.message.toLowerCase().includes("already registered") ||
-        error.message.toLowerCase().includes("unique constraint");
+        adminError.message.toLowerCase().includes("already registered") ||
+        adminError.message.toLowerCase().includes("unique constraint") ||
+        adminError.message.toLowerCase().includes("already exists");
 
       return NextResponse.json(
         {
           ok: false,
           error: {
-            code: isAlreadyRegistered ? "EMAIL_ALREADY_EXISTS" : (error.code ?? "REGISTRATION_FAILED"),
+            code: isAlreadyRegistered ? "EMAIL_ALREADY_EXISTS" : (adminError.code ?? "REGISTRATION_FAILED"),
             message: isAlreadyRegistered
               ? "Alamat email ini sudah terdaftar. Silakan login atau gunakan lupa password."
-              : error.message,
+              : adminError.message,
           },
         },
         { status: isAlreadyRegistered ? 409 : 400 }
       );
     }
 
-    if (!data.user) {
+    if (!adminUserData.user) {
       return NextResponse.json(
         {
           ok: false,
@@ -176,33 +176,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Susun respon JSON rapi untuk Mobile Client
+    // 4. Buat session langsung dengan login otomatis
+    const supabase = await createClient();
+    const { data: loginData } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    // 5. Susun respon JSON rapi untuk Mobile Client
     const userPayload = {
-      id: data.user.id,
-      email: data.user.email ?? email,
+      id: adminUserData.user.id,
+      email: adminUserData.user.email ?? email,
       nik,
       full_name: fullName,
       role: "user",
     };
 
-    const sessionPayload = data.session
+    const sessionPayload = loginData?.session
       ? {
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-          expires_at: data.session.expires_at,
-          expires_in: data.session.expires_in,
+          access_token: loginData.session.access_token,
+          refresh_token: loginData.session.refresh_token,
+          expires_at: loginData.session.expires_at,
+          expires_in: loginData.session.expires_in,
           token_type: "bearer",
         }
       : null;
 
-    const message = data.session
-      ? "Pendaftaran akun berhasil. Selamat datang di CiviGo!"
-      : "Pendaftaran akun berhasil. Silakan cek email Anda untuk verifikasi.";
-
     return NextResponse.json(
       {
         ok: true,
-        message,
+        message: "Pendaftaran akun berhasil. Selamat datang di CiviGo!",
         user: userPayload,
         session: sessionPayload,
       },

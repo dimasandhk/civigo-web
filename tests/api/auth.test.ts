@@ -10,6 +10,7 @@ const {
   mockSignInWithPassword,
   mockServiceUsersMaybeSingle,
   mockAdminUpdateUserById,
+  mockAdminCreateUser,
 } = vi.hoisted(() => ({
   mockResetPasswordForEmail: vi.fn(),
   mockGetUser: vi.fn(),
@@ -18,6 +19,7 @@ const {
   mockSignInWithPassword: vi.fn(),
   mockServiceUsersMaybeSingle: vi.fn(),
   mockAdminUpdateUserById: vi.fn(),
+  mockAdminCreateUser: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -37,6 +39,7 @@ vi.mock("@/lib/supabase/service", () => ({
     auth: {
       admin: {
         updateUserById: mockAdminUpdateUserById,
+        createUser: mockAdminCreateUser,
       },
     },
     from: vi.fn(() => ({
@@ -171,7 +174,7 @@ describe("Auth Endpoints (API Tests with Zero Email / API Key Consumption)", () 
 
     it("returns 409 if email is already registered in Supabase", async () => {
       mockServiceUsersMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
-      mockSignUp.mockResolvedValueOnce({
+      mockAdminCreateUser.mockResolvedValueOnce({
         data: { user: null },
         error: { message: "User already registered", code: "email_exists" },
       });
@@ -196,7 +199,13 @@ describe("Auth Endpoints (API Tests with Zero Email / API Key Consumption)", () 
 
     it("returns 201 with user profile and session when registration succeeds", async () => {
       mockServiceUsersMaybeSingle.mockResolvedValueOnce({ data: null, error: null });
-      mockSignUp.mockResolvedValueOnce({
+      mockAdminCreateUser.mockResolvedValueOnce({
+        data: {
+          user: { id: "new-user-123", email: "budi.baru@civigo.com" },
+        },
+        error: null,
+      });
+      mockSignInWithPassword.mockResolvedValueOnce({
         data: {
           user: { id: "new-user-123", email: "budi.baru@civigo.com" },
           session: {
@@ -228,14 +237,14 @@ describe("Auth Endpoints (API Tests with Zero Email / API Key Consumption)", () 
       expect(json.user.nik).toBe("3578012345678901");
       expect(json.user.role).toBe("user");
       expect(json.session.access_token).toBe("jwt-token-123");
-      expect(mockSignUp).toHaveBeenCalledWith(
+      expect(mockAdminCreateUser).toHaveBeenCalledWith(
         expect.objectContaining({
           email: "budi.baru@civigo.com",
-          options: {
-            data: {
-              nik: "3578012345678901",
-              full_name: "Budi Santoso",
-            },
+          password: "Password123!",
+          email_confirm: true,
+          user_metadata: {
+            nik: "3578012345678901",
+            full_name: "Budi Santoso",
           },
         })
       );
