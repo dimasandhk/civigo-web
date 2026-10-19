@@ -17,7 +17,7 @@ export async function GET() {
         description: "Development Server",
       },
       {
-        url: "https://civigo-web.vercel.app",
+        url: "https://civigo-dashboard.vercel.app",
         description: "Staging / Production Server",
       },
     ],
