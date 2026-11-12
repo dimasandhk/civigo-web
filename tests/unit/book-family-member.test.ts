@@ -50,7 +50,7 @@ vi.mock("@/lib/supabase/service", () => ({
     from: (table: string) => {
       const filters: Record<string, unknown> = {};
       let orClause: string | null = null;
-      let isClause: { col: string; val: unknown } | null = null;
+      let _isClause: { col: string; val: unknown } | null = null;
 
       const query = {
         select: () => query,
@@ -64,13 +64,17 @@ vi.mock("@/lib/supabase/service", () => ({
           return query;
         },
         is: (col: string, val: unknown) => {
-          isClause = { col, val };
+          _isClause = { col, val };
+          void _isClause;
           return query;
         },
         limit: () => query,
         maybeSingle: async () => {
           if (table === "family_members") {
             const member = FAMILY_MEMBERS[filters.id as number];
+            if (filters.user_id && member && member.user_id !== filters.user_id) {
+              return { data: null, error: null };
+            }
             return { data: member ?? null, error: null };
           }
           if (table === "services") {
@@ -241,5 +245,25 @@ describe("bookQueue untuk anggota keluarga", () => {
         userId: "parent-user-id",
       }),
     );
+  });
+
+  it("menolak booking jika family_member_id bukan milik akun user yang sedang login", async () => {
+    FAMILY_MEMBERS[99] = {
+      id: 99,
+      user_id: "other-user-id",
+      nik: "3578019999990099",
+      full_name: "Anggota Keluarga Orang Lain",
+    };
+
+    const result = await bookQueue({
+      service_id: 1,
+      schedule_date: "2026-10-18",
+      family_member_id: 99,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("FORBIDDEN");
+    }
   });
 });

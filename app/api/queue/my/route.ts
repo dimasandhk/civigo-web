@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { sortWaiting } from "@/lib/queue/ordering";
 import { todayInJakarta } from "@/lib/queue/time";
+
+const NIK_PATTERN = /^[0-9]{16}$/;
 
 /**
  * GET /api/queue/my
@@ -10,11 +13,9 @@ import { todayInJakarta } from "@/lib/queue/time";
  * 1. `active_tickets`: Tiket aktif hari ini atau yang akan datang (scheduled, present, served).
  * 2. `history_tickets`: Tiket riwayat masa lalu, selesai (completed), atau hangus (skipped).
  *
- * Mendukung filter tiket yang didaftarkan untuk diri sendiri maupun anggota keluarga.
- *
  * Autentikasi:
- * - Menggunakan session login Supabase Auth (Cookie / Bearer).
- * - Fallback query param: ?user_id=... atau ?nik=...
+ * - Wajib menggunakan session login Supabase Auth (Bearer token / Cookie).
+ * - Tidak mengizinkan query parameter sembarang user_id/nik demi mencegah kebocoran tiket warga lain.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -34,22 +35,14 @@ export async function GET(request: NextRequest) {
       // Sesi cookie tidak tersedia atau token invalid
     }
 
-    const { searchParams } = new URL(request.url);
-    const queryNik = searchParams.get("nik")?.trim();
-    const queryUserId = searchParams.get("user_id");
-
-    // Keamanan: user_id wajib berasal dari sesi login pengguna (Bearer token / Cookie),
-    // kecuali jika pengguna login memiliki role admin/petugas yang menginspeksi user lain.
-    const targetUserId = user ? (queryUserId && user.role !== "user" ? queryUserId : user.id) : null;
-
-    if (!targetUserId && !queryNik) {
+    if (!user) {
       return NextResponse.json(
         {
           ok: false,
           error: {
             code: "UNAUTHORIZED",
             message:
-              "Silakan login terlebih dahulu (sertakan Bearer token) untuk melihat riwayat antrean Anda.",
+              "Tidak terautentikasi. Silakan login terlebih dahulu untuk melihat antrean Anda.",
           },
         },
         { status: 401 }
@@ -58,7 +51,7 @@ export async function GET(request: NextRequest) {
 
     const serviceDb = createServiceClient();
 
-    let query = serviceDb
+    const baseSelect = serviceDb
       .from("queues")
       .select(
         `
@@ -111,13 +104,15 @@ export async function GET(request: NextRequest) {
       `
       );
 
-    if (targetUserId && queryNik) {
-      query = query.or(`user_id.eq.${targetUserId},nik.eq.${queryNik}`);
-    } else if (targetUserId) {
-      query = query.eq("user_id", targetUserId);
-    } else if (queryNik) {
-      query = query.eq("nik", queryNik);
-    }
+    const verifiedUserNik =
+      typeof user.user_metadata?.nik === "string" && NIK_PATTERN.test(user.user_metadata.nik.trim())
+        ? user.user_metadata.nik.trim()
+        : null;
+
+    const query =
+      verifiedUserNik && typeof (baseSelect as { or?: unknown }).or === "function"
+        ? baseSelect.or(`user_id.eq.${user.id},nik.eq.${verifiedUserNik}`)
+        : baseSelect.eq("user_id", user.id);
 
     const { data: rawTickets, error: fetchError } = await query.order(
       "schedule_date",
@@ -138,6 +133,81 @@ export async function GET(request: NextRequest) {
     }
 
     const today = todayInJakarta();
+
+    // Hitung jumlah antrean aktif di depan & live ETA berdasarkan pool instansi + lokasi + tanggal (Audit 3.5)
+    const aheadCountByTicketId = new Map<string, number>();
+    const waitMinutesByTicketId = new Map<string, number>();
+    const activeWaitingRows = (rawTickets ?? []).filter(
+      (t) => t.schedule_date >= today && ["scheduled", "present"].includes(t.status)
+    );
+    if (activeWaitingRows.length > 0) {
+      try {
+        const poolTable = serviceDb.from("queues");
+        if (poolTable && typeof poolTable.select === "function") {
+          const activeDates = [...new Set(activeWaitingRows.map((t) => t.schedule_date))];
+          const { data: activePool } = await poolTable
+            .select(
+              "id, queue_number, status, schedule_date, time_block, postponed, postponed_at, rescheduled_from, created_at, service_id, location_id, services(id, agency_id, estimated_time)"
+            )
+            .in("schedule_date", activeDates)
+            .in("status", ["scheduled", "present", "served"]);
+
+          if (Array.isArray(activePool) && activePool.length > 0) {
+            for (const myTicket of activeWaitingRows) {
+              const myService = myTicket.services as unknown as {
+                id: number;
+                agency_id: number;
+                estimated_time: number | null;
+              } | null;
+              const myAgencyId = myService?.agency_id ?? null;
+
+              const sameAgencyLocationPool = activePool.filter((p) => {
+                const pService = (p as { services?: { agency_id?: number; estimated_time?: number | null } | null }).services;
+                const sameDate = p.schedule_date === myTicket.schedule_date;
+                const sameLocation = myTicket.location_id
+                  ? p.location_id === myTicket.location_id
+                  : true;
+                const sameAgency = myAgencyId && pService?.agency_id
+                  ? pService.agency_id === myAgencyId
+                  : myTicket.service_id
+                  ? p.service_id === myTicket.service_id
+                  : true;
+                return sameDate && sameLocation && sameAgency;
+              });
+
+              const waitingSorted = sortWaiting(
+                sameAgencyLocationPool.filter((p) => ["scheduled", "present"].includes(p.status))
+              );
+              const servingRows = sameAgencyLocationPool.filter((p) => p.status === "served");
+              const myIndex = waitingSorted.findIndex((p) => p.id === myTicket.id);
+
+              if (myIndex >= 0) {
+                const ticketsAhead = servingRows.length + myIndex;
+                aheadCountByTicketId.set(myTicket.id, ticketsAhead);
+
+                const servingMinutes = servingRows.reduce((sum, row) => {
+                  const s = (row as { services?: { estimated_time?: number | null } | null }).services;
+                  return sum + (s?.estimated_time ?? 15);
+                }, 0);
+                const waitingAheadMinutes = waitingSorted
+                  .slice(0, myIndex)
+                  .reduce((sum, row) => {
+                    const s = (row as { services?: { estimated_time?: number | null } | null }).services;
+                    return sum + (s?.estimated_time ?? 15);
+                  }, 0);
+                const ownMinutes = myService?.estimated_time ?? 15;
+                waitMinutesByTicketId.set(
+                  myTicket.id,
+                  servingMinutes + waitingAheadMinutes + ownMinutes
+                );
+              }
+            }
+          }
+        }
+      } catch {
+        // Fallback ke estimasi durasi layanan tunggal bila query pool gagal
+      }
+    }
 
     const formattedTickets = (rawTickets ?? []).map((t) => {
       const service = t.services as unknown as {
@@ -176,6 +246,12 @@ export async function GET(request: NextRequest) {
       const isSkipped = t.status === "skipped";
       const isPastDate = t.schedule_date < today;
       const canReschedule = isSkipped && t.schedule_date === today;
+      const counterId = t.counter_id ?? counter?.id ?? null;
+      const counterName = counter?.counter_name ?? null;
+      const baseServiceMinutes = service?.estimated_time ?? 15;
+      const ticketsAhead = aheadCountByTicketId.get(t.id) ?? 0;
+      const estimatedWaitTime =
+        waitMinutesByTicketId.get(t.id) ?? (ticketsAhead + 1) * baseServiceMinutes;
 
       return {
         id: t.id,
@@ -190,6 +266,11 @@ export async function GET(request: NextRequest) {
         is_past_date: isPastDate,
         can_reschedule: canReschedule,
         is_for_family: Boolean(t.family_member_id),
+        counter_id: counterId,
+        counter_name: counterName,
+        queues_ahead: ticketsAhead,
+        estimated_wait_time: estimatedWaitTime,
+        estimated_wait_minutes: estimatedWaitTime,
         family_member: familyMember
           ? {
               id: familyMember.id,

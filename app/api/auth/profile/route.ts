@@ -77,8 +77,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     const serviceDb = createServiceClient();
-    const updateData: Record<string, any> = {};
-    const metadataUpdate: Record<string, any> = { ...user.user_metadata };
+    const updateData: { email?: string; phone?: string } = {};
+    const metadataUpdate: Record<string, unknown> = { ...user.user_metadata };
 
     // 1. Validasi & Penanganan Nomor Telepon
     if (phone_number !== undefined) {

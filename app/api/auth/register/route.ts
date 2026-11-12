@@ -11,6 +11,7 @@ interface RegisterRequestBody {
   password?: string;
   nik?: string;
   full_name?: string;
+  phone_number?: string;
 }
 
 /**
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
     const password = body.password ? String(body.password) : "";
     const nik = body.nik?.trim() ?? "";
     const fullName = body.full_name?.trim() ?? "";
+    const phoneNumber = body.phone_number?.trim() ?? null;
 
     // 1. Validasi Input
     if (!fullName || fullName.length < 2) {
@@ -133,14 +135,19 @@ export async function POST(request: NextRequest) {
 
     // 3. Daftarkan user ke Supabase Auth via Admin API agar email_confirm: true
     // (menghindari email rate limit dan langsung siap login tanpa konfirmasi manual)
+    const userMetadata: Record<string, unknown> = {
+      nik,
+      full_name: fullName,
+    };
+    if (phoneNumber) {
+      userMetadata.phone_number = phoneNumber;
+    }
+
     const { data: adminUserData, error: adminError } = await serviceDb.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: {
-        nik,
-        full_name: fullName,
-      },
+      user_metadata: userMetadata,
     });
 
     if (adminError) {
@@ -190,6 +197,7 @@ export async function POST(request: NextRequest) {
       nik,
       full_name: fullName,
       role: "user",
+      phone_number: phoneNumber || null,
     };
 
     const sessionPayload = loginData?.session

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { insertTicketWithNumber, queuePrefix } from "@/lib/queue/number";
 
 describe("queuePrefix", () => {
@@ -26,7 +26,7 @@ describe("insertTicketWithNumber — scoping per location", () => {
     }> = [];
 
     const mockDb = {
-      from: (_table: string) => {
+      from: () => {
         let filterDate: string | null = null;
         let filterService: number | null = null;
         let filterLocation: number | null = null;

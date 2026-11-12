@@ -7,13 +7,40 @@ const QUEUE_SAMSAT = "e66966c3-9f2f-44b6-b4e6-d4c6f3863a4f";
 const ROWS: Record<string, Record<string, Record<string, unknown>>> = {
   services: { "1": { agency_id: 1 }, "3": { agency_id: 2 } },
   counters: { "3": { agency_id: 2 }, "4": { agency_id: 1 } },
-  queues: { [QUEUE_SAMSAT]: { id: QUEUE_SAMSAT, service_id: 3, service: { agency_id: 2 } } },
+  queues: {
+    [QUEUE_SAMSAT]: {
+      id: QUEUE_SAMSAT,
+      service_id: 3,
+      user_id: "test-user-id",
+      status: "completed",
+      is_reviewed: false,
+      service: { agency_id: 2 },
+    },
+  },
 };
 
 const { mockInsert, mockUpdateQueue } = vi.hoisted(() => ({
   mockInsert: vi.fn(),
   mockUpdateQueue: vi.fn(),
 }));
+
+let mockUser: {
+  id: string;
+  nik: string | null;
+  full_name: string;
+  email: string;
+  role: "user";
+  agency_id: number | null;
+  location_id: number | null;
+} | null = {
+  id: "test-user-id",
+  nik: "3578012345670001",
+  full_name: "Warga Test",
+  email: "warga@civigo.com",
+  role: "user",
+  agency_id: null,
+  location_id: null,
+};
 
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: () => ({
@@ -42,7 +69,7 @@ vi.mock("@/lib/supabase/service", () => ({
 }));
 
 vi.mock("@/lib/auth/session", () => ({
-  getCurrentUser: async () => null,
+  getCurrentUser: async () => mockUser,
 }));
 
 import { POST } from "@/app/api/reviews/route";
@@ -56,10 +83,28 @@ function post(body: Record<string, unknown>) {
   );
 }
 
-describe("POST /api/reviews — relasi harus satu instansi", () => {
+describe("POST /api/reviews — relasi harus satu instansi dan berizin", () => {
   beforeEach(() => {
     mockInsert.mockClear();
     mockUpdateQueue.mockClear();
+    mockUser = {
+      id: "test-user-id",
+      nik: "3578012345670001",
+      full_name: "Warga Test",
+      email: "warga@civigo.com",
+      role: "user",
+      agency_id: null,
+      location_id: null,
+    };
+  });
+
+  it("returns 401 when user is not authenticated", async () => {
+    mockUser = null;
+    const res = await post({ agency_id: 2, service_id: 3, rating: 5 });
+    const json = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(json.error.code).toBe("UNAUTHORIZED");
   });
 
   it("rejects a counter that belongs to another agency", async () => {
@@ -113,14 +158,57 @@ describe("POST /api/reviews — relasi harus satu instansi", () => {
   });
 
   it("saves a review whose service and counter match its agency", async () => {
-    const res = await post({ agency_id: 2, service_id: 3, counter_id: 3, rating: 4, comment: " Cepat " });
+    const res = await post({
+      agency_id: 2,
+      service_id: 3,
+      counter_id: 3,
+      queue_id: QUEUE_SAMSAT,
+      rating: 4,
+      comment: " Cepat ",
+    });
     const json = await res.json();
 
     expect(res.status).toBe(201);
     expect(mockInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ agency_id: 2, service_id: 3, counter_id: 3, rating: 4, comment: "Cepat" }),
+      expect.objectContaining({
+        agency_id: 2,
+        service_id: 3,
+        counter_id: 3,
+        queue_id: QUEUE_SAMSAT,
+        rating: 4,
+        comment: "Cepat",
+      }),
     );
     expect(json.review.id).toBe(99);
+  });
+
+  it("returns 400 QUEUE_REQUIRED when queue_id is omitted", async () => {
+    const res = await post({ agency_id: 2, service_id: 3, counter_id: 3, rating: 4 });
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error.code).toBe("QUEUE_REQUIRED");
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects review if walk-in queue (user_id: null) belongs to another citizen's NIK", async () => {
+    const WALKIN_QUEUE = "44444444-5555-4666-8777-888888888888";
+    ROWS.queues[WALKIN_QUEUE] = {
+      id: WALKIN_QUEUE,
+      service_id: 3,
+      user_id: null,
+      nik: "9999999999999999",
+      status: "completed",
+      is_reviewed: false,
+      service: { agency_id: 2 },
+    };
+
+    const res = await post({ queue_id: WALKIN_QUEUE, rating: 5 });
+    const json = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(json.error.code).toBe("FORBIDDEN");
+    expect(mockInsert).not.toHaveBeenCalled();
   });
 
   it("still derives agency and service from queue_id", async () => {
@@ -131,5 +219,59 @@ describe("POST /api/reviews — relasi harus satu instansi", () => {
       expect.objectContaining({ agency_id: 2, service_id: 3, counter_id: 3, queue_id: QUEUE_SAMSAT }),
     );
     expect(mockUpdateQueue).toHaveBeenCalledWith({ is_reviewed: true });
+  });
+
+  it("rejects review if queue belongs to another user", async () => {
+    const STRANGER_QUEUE = "11111111-2222-4333-8444-555555555555";
+    ROWS.queues[STRANGER_QUEUE] = {
+      id: STRANGER_QUEUE,
+      service_id: 3,
+      user_id: "stranger-user-id",
+      status: "completed",
+      is_reviewed: false,
+      service: { agency_id: 2 },
+    };
+
+    const res = await post({ queue_id: STRANGER_QUEUE, rating: 5 });
+    const json = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(json.error.code).toBe("FORBIDDEN");
+  });
+
+  it("rejects review if queue is not completed yet", async () => {
+    const ONGOING_QUEUE = "22222222-3333-4444-8555-666666666666";
+    ROWS.queues[ONGOING_QUEUE] = {
+      id: ONGOING_QUEUE,
+      service_id: 3,
+      user_id: "test-user-id",
+      status: "scheduled",
+      is_reviewed: false,
+      service: { agency_id: 2 },
+    };
+
+    const res = await post({ queue_id: ONGOING_QUEUE, rating: 5 });
+    const json = await res.json();
+
+    expect(res.status).toBe(422);
+    expect(json.error.code).toBe("INVALID_TICKET_STATUS");
+  });
+
+  it("rejects review if queue ticket was already reviewed", async () => {
+    const REVIEWED_QUEUE = "33333333-4444-4555-8666-777777777777";
+    ROWS.queues[REVIEWED_QUEUE] = {
+      id: REVIEWED_QUEUE,
+      service_id: 3,
+      user_id: "test-user-id",
+      status: "completed",
+      is_reviewed: true,
+      service: { agency_id: 2 },
+    };
+
+    const res = await post({ queue_id: REVIEWED_QUEUE, rating: 5 });
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json.error.code).toBe("ALREADY_REVIEWED");
   });
 });

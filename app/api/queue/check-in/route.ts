@@ -6,9 +6,23 @@ import {
   invalidJsonResponse,
   readJsonBody,
 } from "@/lib/queue/http";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitExceededResponse,
+} from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rateCheck = checkRateLimit(`checkin:${ip}`, { limit: 60, windowMs: 60000 });
+    if (!rateCheck.success && process.env.NODE_ENV !== "test") {
+      return rateLimitExceededResponse(
+        rateCheck,
+        "Terlalu banyak permintaan check-in dari perangkat ini. Silakan coba beberapa saat lagi."
+      );
+    }
+
     const parsed = await readJsonBody(request);
     if (!parsed) return invalidJsonResponse();
 

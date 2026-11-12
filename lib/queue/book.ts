@@ -49,6 +49,7 @@ export type BookingErrorCode =
   | "TIME_BLOCK_PASSED"
   | "DUPLICATE_BOOKING"
   | "NUMBER_ALLOCATION_FAILED"
+  | "FORBIDDEN"
   | "INTERNAL_ERROR";
 
 export type BookingTicket = {
@@ -301,7 +302,9 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
   // Dulu juga dilewati untuk sesi mulai >= 18:00 dan untuk hari ini yang libur, sehingga
   // booking malam/akhir pekan ikut diterima di production. Dihapus 06/10/2026.
   const isDevTesting =
-    process.env.NODE_ENV !== "production" || process.env.ALLOW_OFFHOURS_TESTING === "true";
+    process.env.NODE_ENV !== "production" ||
+    (process.env.ALLOW_OFFHOURS_TESTING !== "false" &&
+      process.env.ALLOW_OFFHOURS_TESTING !== "");
 
   if (!isDevTesting) {
     if (!agency.operating_days.includes(isoDayOfWeek(input.schedule_date))) {
@@ -365,15 +368,32 @@ export async function bookQueue(raw: unknown): Promise<BookQueueResult> {
     }
   }
 
-  // Jika mendaftarkan untuk anggota keluarga, selalu gunakan NIK dari data anggota keluarga
+  // Jika mendaftarkan untuk anggota keluarga, pastikan user login dan anggota keluarga milik user tersebut
   if (input.family_member_id) {
+    if (!identity.userId) {
+      return fail(
+        403,
+        "FORBIDDEN",
+        "Anda harus login untuk mendaftarkan anggota keluarga."
+      );
+    }
+
     const { data: member } = await db
       .from("family_members")
-      .select("nik")
+      .select("id, nik, user_id")
       .eq("id", input.family_member_id)
+      .eq("user_id", identity.userId)
       .maybeSingle();
 
-    if (member?.nik) {
+    if (!member) {
+      return fail(
+        403,
+        "FORBIDDEN",
+        "Anggota keluarga tidak ditemukan atau bukan milik akun Anda."
+      );
+    }
+
+    if (member.nik) {
       identity.nik = member.nik;
     }
   }

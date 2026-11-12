@@ -3,7 +3,6 @@ import { loadTicketContext, resolveCaller, type Caller } from "./authz";
 import { insertTicketWithNumber } from "./number";
 import { fail, isUuid, type Failure } from "./shared";
 import {
-  formatTimeBlock,
   minutesToTime,
   nextSessionAfter,
   nowMinutesInJakarta,
@@ -33,7 +32,7 @@ export type RescheduleResult =
         id: string;
         queue_number: string;
         schedule_date: string;
-        time_block: string;
+        time_block: string | null;
         status: string;
         estimated_finish: string;
         service: { id: number; name: string };
@@ -114,10 +113,11 @@ export async function rescheduleQueue(ticketId: string): Promise<RescheduleResul
     .maybeSingle();
 
   if (existing) {
+    const suffix = existing.time_block ? ` (${existing.time_block})` : "";
     return fail(
       409,
       "ALREADY_RESCHEDULED",
-      `Tiket ${ticket.queue_number} sudah digeser ke ${existing.queue_number} (${existing.time_block}).`,
+      `Tiket ${ticket.queue_number} sudah digeser ke ${existing.queue_number}${suffix}.`,
     );
   }
 
@@ -126,7 +126,9 @@ export async function rescheduleQueue(ticketId: string): Promise<RescheduleResul
   // Pengujian di luar jam kantor diizinkan jika di environment development
   // atau saat ALLOW_OFFHOURS_TESTING diatur ke true di .env.
   const isDevTesting =
-    process.env.NODE_ENV !== "production" || process.env.ALLOW_OFFHOURS_TESTING === "true";
+    process.env.NODE_ENV !== "production" ||
+    (process.env.ALLOW_OFFHOURS_TESTING !== "false" &&
+      process.env.ALLOW_OFFHOURS_TESTING !== "");
 
   if (ticket.schedule_date !== today && !isDevTesting) {
     return fail(
@@ -178,7 +180,9 @@ export async function rescheduleQueue(ticketId: string): Promise<RescheduleResul
     }
   }
 
-  const timeBlock = formatTimeBlock(target);
+  // Sistem menggunakan dynamic pooling tanpa time_block (timeBlock = null)
+  // dan menempatkan tiket reschedule di urutan paling belakang antrean.
+  const timeBlock: string | null = null;
 
   const inserted = await insertTicketWithNumber(db, {
     serviceId: service.id,

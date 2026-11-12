@@ -97,11 +97,11 @@ export async function GET(request: NextRequest) {
       const qList = (queues as unknown as Array<{ id: string; status: string; postponed?: boolean }>) ?? [];
 
       const totalToday = qList.length;
-      const waiting = qList.filter((q) => q.status === "waiting").length;
-      const calling = qList.filter((q) => q.status === "calling").length;
-      const serving = qList.filter((q) => q.status === "serving").length;
+      const waiting = qList.filter((q) => q.status === "scheduled" || q.status === "waiting").length;
+      const calling = qList.filter((q) => q.status === "present" || q.status === "calling").length;
+      const serving = qList.filter((q) => q.status === "served" || q.status === "serving").length;
       const completed = qList.filter((q) => q.status === "completed").length;
-      const skipped = qList.filter((q) => q.status === "skipped" || q.status === "canceled").length;
+      const skipped = qList.filter((q) => q.status === "skipped" || q.status === "canceled" || q.status === "no_show").length;
       const postponed = qList.filter((q) => Boolean(q.postponed)).length;
 
       let counterQuery = supabase

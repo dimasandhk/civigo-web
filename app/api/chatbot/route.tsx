@@ -70,7 +70,7 @@ PANDUAN KONTEN & JAWABAN:
    - Registrasi & Login (bisa pakai Email atau NIK 16 digit).
    - Booking tiket online & pemilihan layanan.
    - Fitur Anggota Keluarga (Family Booking) untuk mendaftarkan lansia/anak.
-   - Check-in di kios fisik Siola (scan QR, tips miringkan HP 15 derajat jika silau, atau input manual 6 digit kode tiket).
+   - Check-in di kios fisik Siola (scan QR, tips miringkan HP 15 derajat jika silau, atau input manual Nomor Antrean contoh: A-001 atau 16 digit NIK).
    - Pembatalan tiket (jika berhalangan hadir agar kuota kembali).
    - Penanganan antrean (mundurkan antrean jika berkas kurang, atau jadwalkan ulang jika nomor hangus hari itu).
    - Pengisian ulasan layanan (rating bintang dan opsi "Nanti Saja").
@@ -129,87 +129,110 @@ export async function POST(
       );
     }
 
-    const embeddingResponse =
-      await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: pertanyaan.replace(/\n/g, " "),
-      });
+    let retrievedDocuments: Array<{
+      content: string;
+      metadata: {
+        source?: string;
+        page?: number;
+        chunk?: number;
+      };
+      similarity: number;
+    }> = [];
 
-    const queryEmbedding =
-      embeddingResponse.data[0].embedding;
+    try {
+      const embeddingResponse =
+        await openai.embeddings.create({
+          model: "text-embedding-3-small",
+          input: pertanyaan.replace(/\n/g, " "),
+        });
 
-    const { data: documents, error } =
-      await (supabase.rpc as unknown as (
-        functionName: string,
-        args: {
-          query_embedding: number[];
-          match_threshold: number;
-          match_count: number;
-        }
-      ) => Promise<{
-        data: Array<{
-          content: string;
-          metadata: {
-            source?: string;
-            page?: number;
-            chunk?: number;
-          };
-          similarity: number;
-        }> | null;
-        error: unknown;
-      }>)(
-        "match_documents",
-        {
-          query_embedding: queryEmbedding,
-          match_threshold: 0.45,
-          match_count: 5,
-        }
-      );
+      const queryEmbedding =
+        embeddingResponse.data[0].embedding;
 
-    if (error) {
-      console.error(
-        "[VECTOR SEARCH ERROR]",
-        error
-      );
+      const { data: documents, error } =
+        await (supabase.rpc as unknown as (
+          functionName: string,
+          args: {
+            query_embedding: number[];
+            match_threshold: number;
+            match_count: number;
+          }
+        ) => Promise<{
+          data: Array<{
+            content: string;
+            metadata: {
+              source?: string;
+              page?: number;
+              chunk?: number;
+            };
+            similarity: number;
+          }> | null;
+          error: unknown;
+        }>)(
+          "match_documents",
+          {
+            query_embedding: queryEmbedding,
+            match_threshold: 0.45,
+            match_count: 5,
+          }
+        );
 
-      throw new Error(
-        "Gagal melakukan pencarian dokumen."
+      if (!error && documents) {
+        retrievedDocuments = documents;
+      }
+    } catch (embeddingError) {
+      console.warn(
+        "[CHATBOT] Embedding atau vector search gagal, beralih ke fallback:",
+        embeddingError
       );
     }
 
-    const retrievedDocuments =
-      documents ?? [];
-
-    const context =
-      retrievedDocuments.length > 0
-        ? retrievedDocuments
-            .map(
-              (
-                document: {
-                  content: string;
-                  metadata: {
-                    source?: string;
-                    page?: number;
-                    chunk?: number;
-                  };
-                  similarity: number;
-                },
-                index: number
-              ) => {
-                return `
+    let context = "Tidak ada informasi yang relevan ditemukan.";
+    if (retrievedDocuments.length > 0) {
+      context = retrievedDocuments
+        .map(
+          (
+            document: {
+              content: string;
+              metadata: {
+                source?: string;
+                page?: number;
+                chunk?: number;
+              };
+              similarity: number;
+            },
+            index: number
+          ) => {
+            return `
 [Dokumen ${index + 1}]
 Sumber: ${
-                  document.metadata?.source ??
-                  "Tidak diketahui"
-                }
+              document.metadata?.source ??
+              "Tidak diketahui"
+            }
 Relevansi: ${document.similarity.toFixed(3)}
 
 ${document.content}
 `;
-              }
+          }
+        )
+        .join("\n\n");
+    } else if (typeof (supabase as unknown as { from?: unknown }).from === "function") {
+      try {
+        const { data: services } = await supabase
+          .from("services")
+          .select("id, name, info_procedure, estimated_time");
+        if (services && services.length > 0) {
+          context = services
+            .map(
+              (s: { id: number; name: string; info_procedure?: string | null; estimated_time?: number | null }, idx: number) =>
+                `[Layanan ${idx + 1}] Layanan: ${s.name}\nDeskripsi: ${s.info_procedure ?? "-"}\nEstimasi: ${s.estimated_time ?? 15} menit`
             )
-            .join("\n\n")
-        : "Tidak ada informasi yang relevan ditemukan.";
+            .join("\n\n");
+        }
+      } catch {
+        // Biarkan context fallback default
+      }
+    }
 
     const chatHistory = (Array.isArray(riwayat) ? riwayat : [])
       .filter(

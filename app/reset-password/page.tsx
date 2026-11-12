@@ -1,34 +1,52 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Button from "../components/Button";
 import Input from "../components/Input";
 import Label from "../components/Label";
+import { createClient } from "@/lib/supabase/client";
 
 function ResetPasswordForm() {
-  const searchParams = useSearchParams();
-
-  const code = searchParams.get("code") || "";
-  const initialEmail = searchParams.get("email") || "";
-  const [email, setEmail] = useState(initialEmail);
+  const router = useRouter();
+  const [userEmail, setUserEmail] = useState<string>("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          router.replace("/?error=auth_required");
+          return;
+        }
+
+        setUserEmail(user.email || "");
+      } catch (err) {
+        console.error("Gagal memeriksa sesi pengguna:", err);
+        router.replace("/");
+      } finally {
+        setCheckingAuth(false);
+      }
+    }
+
+    checkAuth();
+  }, [router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    const trimmedEmail = email.trim().toLowerCase();
-    if (!trimmedEmail && !code) {
-      setError("Alamat email terdaftar wajib diisi.");
-      return;
-    }
 
     if (password.length < 8) {
       setError("Kata sandi baru minimal 8 karakter.");
@@ -46,9 +64,8 @@ function ResetPasswordForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: trimmedEmail || undefined,
+          email: userEmail || undefined,
           password,
-          code: code || undefined,
         }),
       });
 
@@ -59,12 +76,24 @@ function ResetPasswordForm() {
       }
 
       setSuccess(true);
-    } catch (err: any) {
-      setError(err.message || "Terjadi kesalahan saat mereset kata sandi.");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Terjadi kesalahan saat mereset kata sandi.";
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
+
+  if (checkingAuth) {
+    return (
+      <div className="flex w-full max-w-115 flex-col items-center justify-center rounded-[30px] bg-white p-10 shadow-soft">
+        <p className="font-display text-[15px] text-queue-idle">
+          Memeriksa sesi login Anda...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex w-full max-w-115 flex-col items-center gap-[30px] rounded-[30px] bg-white px-[45px] py-[40px] shadow-soft">
@@ -82,7 +111,7 @@ function ResetPasswordForm() {
             Atur Kata Sandi Baru
           </h1>
           <p className="font-display text-[14px] leading-[18px] text-queue-idle">
-            Masukkan email terdaftar dan kata sandi baru untuk akun CiviGo Anda.
+            Atur ulang kata sandi baru untuk akun CiviGo Anda yang sedang aktif.
           </p>
         </div>
       </header>
@@ -105,11 +134,11 @@ function ResetPasswordForm() {
             </svg>
           </div>
           <p className="font-medium text-ink">
-            Kata sandi Anda berhasil diperbarui! Silakan masuk kembali dengan kata sandi baru Anda.
+            Kata sandi Anda berhasil diperbarui! Silakan gunakan kata sandi baru Anda untuk sesi berikutnya.
           </p>
           <Link href="/" className="w-full">
             <Button type="button" className="w-full mt-2">
-              Kembali ke Halaman Masuk
+              Kembali ke Beranda
             </Button>
           </Link>
         </div>
@@ -122,15 +151,15 @@ function ResetPasswordForm() {
           )}
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="email">Email Terdaftar</Label>
+            <Label htmlFor="email">Email Akun Anda</Label>
             <Input
               id="email"
               name="email"
               type="email"
-              required
-              placeholder="nama@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              readOnly
+              disabled
+              value={userEmail}
+              className="bg-slate-50 text-slate-500 cursor-not-allowed"
             />
           </div>
 

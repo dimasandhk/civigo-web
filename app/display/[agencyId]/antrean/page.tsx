@@ -75,7 +75,7 @@ export default async function QueueDisplayPage({ params, searchParams }: Props) 
   let queuesQuery = supabase
     .from("queues")
     .select(
-      "queue_number, counter_id, status, time_block, postponed, postponed_at, service:services!inner(agency_id, estimated_time)",
+      "queue_number, counter_id, status, time_block, postponed, postponed_at, rescheduled_from, created_at, service:services!inner(agency_id, estimated_time)",
     )
     .eq("schedule_date", today)
     .eq("service.agency_id", agencyId);

@@ -44,7 +44,7 @@ describe("In-Memory Sliding Window Rate Limiter", () => {
   });
 
   it("formats 429 response with proper headers", async () => {
-    const rateLimit = checkRateLimit("test-429", { limit: 1, windowMs: 5000 });
+    checkRateLimit("test-429", { limit: 1, windowMs: 5000 });
     const blocked = checkRateLimit("test-429", { limit: 1, windowMs: 5000 });
 
     const response = rateLimitExceededResponse(blocked, "Limit reached");

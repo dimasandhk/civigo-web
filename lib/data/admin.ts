@@ -37,6 +37,20 @@ export async function resolveAgencyId(): Promise<number> {
 
   if (profile.agency_id !== null) return profile.agency_id;
 
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const cookieVal = cookieStore.get("civigo_selected_agency_id")?.value;
+    if (cookieVal) {
+      const parsedId = Number.parseInt(cookieVal, 10);
+      if (!Number.isNaN(parsedId) && parsedId > 0) {
+        return parsedId;
+      }
+    }
+  } catch {
+    // Dipanggil di luar context request HTTP (misal scripts atau tests)
+  }
+
   const supabase = createServiceClient();
   const { data } = await supabase
     .from("agencies")
@@ -314,6 +328,7 @@ export type QueueItem = {
   /** Warga sudah melakukan check-in di kios fisik. */
   is_checked_in: boolean;
   checked_in_at?: string | null;
+  rescheduled_from?: string | null;
 };
 
 /** `3175012345678901` -> `3175••••••••••01`. Tidak menutupi apa pun kalau kosong. */
@@ -335,6 +350,7 @@ type RawQueueRow = {
   postponed_at?: string | null;
   completed_at?: string | null;
   checked_in_at?: string | null;
+  rescheduled_from?: string | null;
   counter?: { id: number; counter_name: string } | null;
   service?: { id: number; name: string; agency_id: number } | null;
   user?: { id: string; full_name: string; nik: string | null } | null;
@@ -362,6 +378,7 @@ export async function getTodayQueues(
       postponed_at,
       completed_at,
       checked_in_at,
+      rescheduled_from,
       counter:counters(id, counter_name),
       service:services!inner(id, name, agency_id),
       user:users(id, full_name, nik)
@@ -429,6 +446,7 @@ export async function getTodayQueues(
       completed_at: q.completed_at ?? null,
       is_checked_in: Boolean(q.checked_in_at) || q.status === "present",
       checked_in_at: q.checked_in_at ?? null,
+      rescheduled_from: q.rescheduled_from ?? null,
     };
   });
 }

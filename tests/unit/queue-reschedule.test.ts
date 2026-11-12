@@ -157,7 +157,7 @@ describe("Queue Reschedule Engine (Unit Tests)", () => {
       expect(result.ticket.queue_number).toBe("A-002");
       expect(result.ticket.status).toBe("scheduled");
       expect(result.ticket.rescheduled_from.id).toBe("11111111-2222-3333-4444-555555555555");
-      expect(result.ticket.time_block).toBeDefined();
+      expect(result.ticket.time_block).toBeNull();
     }
   });
 

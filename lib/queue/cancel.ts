@@ -85,6 +85,12 @@ export async function cancelQueue(
     if (!isDirectOwner && !isNikOwner && !isFamilyOwner) {
       return fail(403, "FORBIDDEN", "Anda tidak memiliki hak akses untuk membatalkan antrean ini.");
     }
+  } else if (currentUser.role !== "super_admin") {
+    // Petugas instansi hanya boleh membatalkan antrean instansinya sendiri
+    const ticketAgencyId = (ticket.service as unknown as { agency_id: number } | null)?.agency_id;
+    if (currentUser.agency_id && ticketAgencyId && currentUser.agency_id !== ticketAgencyId) {
+      return fail(403, "FORBIDDEN", "Anda tidak memiliki akses untuk membatalkan antrean dari instansi lain.");
+    }
   }
 
   // Guard status: hanya boleh dibatalkan jika scheduled atau present

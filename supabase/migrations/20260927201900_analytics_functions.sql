@@ -85,11 +85,11 @@ declare
 begin
   select
     count(*),
-    count(*) filter (where q.status = 'waiting'),
-    count(*) filter (where q.status = 'calling'),
-    count(*) filter (where q.status = 'serving'),
+    count(*) filter (where q.status in ('scheduled', 'waiting')),
+    count(*) filter (where q.status in ('present', 'calling')),
+    count(*) filter (where q.status in ('served', 'serving')),
     count(*) filter (where q.status = 'completed'),
-    count(*) filter (where q.status in ('skipped', 'canceled')),
+    count(*) filter (where q.status in ('skipped', 'canceled', 'no_show')),
     count(*) filter (where coalesce(q.postponed, false) = true)
   into
     v_total,

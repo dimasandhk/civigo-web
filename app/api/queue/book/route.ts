@@ -6,6 +6,11 @@ import {
   invalidJsonResponse,
   readJsonBody,
 } from "@/lib/queue/http";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitExceededResponse,
+} from "@/lib/rate-limit";
 
 /**
  * POST /api/queue/book — ambil nomor antrean.
@@ -17,17 +22,18 @@ import {
  *     "time_block": "09:00 - 10:00",
  *     "nik": "3175012345678901"   // wajib untuk kiosk, diabaikan kalau sudah login
  *   }
- *
- * Warga yang sudah login memesan untuk dirinya sendiri. Pengunjung kiosk tidak
- * punya sesi, jadi mengetik NIK: kalau NIK-nya cocok dengan sebuah akun warga,
- * tiketnya ditautkan ke akun itu; kalau tidak, tiket hanya membawa NIK-nya.
- * Akun tidak pernah dibuat otomatis.
- *
- * Route Handler dinamis secara default sejak Next 15, jadi tidak perlu segment
- * config apa pun di sini.
  */
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rateCheck = checkRateLimit(`book:${ip}`, { limit: 60, windowMs: 60000 });
+    if (!rateCheck.success && process.env.NODE_ENV !== "test") {
+      return rateLimitExceededResponse(
+        rateCheck,
+        "Terlalu banyak pemesanan antrean dari perangkat ini. Silakan coba beberapa saat lagi."
+      );
+    }
+
     const parsed = await readJsonBody(request);
 
     if (!parsed) return invalidJsonResponse();

@@ -55,6 +55,25 @@ describe("sortWaiting (urutan panggil bersama)", () => {
     expect(numbers(sorted)).toEqual(["B-001", "B-002", "B-003", "B-004"]);
   });
 
+  it("orders numerically across different prefixes (B-001 before A-002)", () => {
+    const sorted = sortWaiting([ticket("A-002"), ticket("B-001")]);
+    expect(numbers(sorted)).toEqual(["B-001", "A-002"]);
+  });
+
+  it("orders 2-digit and 3-digit queue numbers numerically (A-11 before A-100)", () => {
+    const sorted = sortWaiting([ticket("A-100"), ticket("A-11")]);
+    expect(numbers(sorted)).toEqual(["A-11", "A-100"]);
+  });
+
+  it("prevents rescheduled no-show ticket from jumping ahead of regular waiting tickets without session", () => {
+    const sorted = sortWaiting([
+      ticket("A-005", { rescheduled_from: "ticket-old", time_block: "10:00 - 11:00" }),
+      ticket("A-001", { time_block: null }),
+      ticket("A-002", { time_block: null }),
+    ]);
+    expect(numbers(sorted)).toEqual(["A-001", "A-002", "A-005"]);
+  });
+
   it("does not mutate the input array", () => {
     const input = [ticket("B-002"), ticket("B-001")];
     sortWaiting(input);

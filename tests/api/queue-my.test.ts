@@ -28,10 +28,22 @@ describe("Citizen Queue History (GET /api/queue/my)", () => {
     vi.clearAllMocks();
   });
 
-  it("returns 401 when neither user session nor user_id/nik query param is provided", async () => {
+  it("returns 401 when user session is not provided", async () => {
     mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
 
     const req = new NextRequest("http://localhost:3000/api/queue/my");
+    const res = await getMyQueues(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(json.ok).toBe(false);
+    expect(json.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("returns 401 and rejects unauthorized access even if query param nik or user_id is provided", async () => {
+    mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
+
+    const req = new NextRequest("http://localhost:3000/api/queue/my?nik=3578012345670001&user_id=target-uuid");
     const res = await getMyQueues(req);
     const json = await res.json();
 

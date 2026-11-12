@@ -115,6 +115,11 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const profile = await getCurrentUser();
+    if (!profile) {
+      return fail(401, "UNAUTHORIZED", "Silakan login terlebih dahulu untuk memberikan ulasan.");
+    }
+
     const parsed = await readJsonBody(request);
     if (!parsed) return invalidJsonResponse();
 
@@ -153,12 +158,49 @@ export async function POST(request: NextRequest) {
 
       const { data: ticket } = await supabase
         .from("queues")
-        .select("id, service_id, service:services(agency_id)")
+        .select("id, service_id, user_id, nik, family_member_id, status, is_reviewed, service:services(agency_id)")
         .eq("id", rawQueueId)
         .maybeSingle();
 
       if (!ticket) {
         return fail(404, "QUEUE_NOT_FOUND", `Antrean dengan id ${rawQueueId} tidak ditemukan.`);
+      }
+
+      // Verifikasi kepemilikan tiket antrean
+      let isOwner =
+        ticket.user_id === profile.id ||
+        (profile.nik && ticket.nik === profile.nik);
+
+      if (!isOwner && ticket.family_member_id) {
+        const { data: fm } = await supabase
+          .from("family_members")
+          .select("id")
+          .eq("id", ticket.family_member_id)
+          .eq("user_id", profile.id)
+          .maybeSingle();
+        if (fm) {
+          isOwner = true;
+        }
+      }
+
+      if (!isOwner) {
+        return fail(403, "FORBIDDEN", "Anda tidak memiliki akses untuk mengulas antrean ini.");
+      }
+
+      if (ticket.status && ticket.status !== "completed") {
+        return fail(
+          422,
+          "INVALID_TICKET_STATUS",
+          "Hanya antrean yang telah selesai yang dapat diberikan ulasan."
+        );
+      }
+
+      if (ticket.is_reviewed === true) {
+        return fail(
+          409,
+          "ALREADY_REVIEWED",
+          "Tiket antrean ini sudah pernah diberi ulasan."
+        );
       }
 
       queueAgencyId = ticket.service?.agency_id ?? null;
@@ -228,9 +270,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Ambil user ID jika warga sedang login (opsional)
-    const profile = await getCurrentUser();
-    const userId = profile?.id ?? null;
+    if (!rawQueueId) {
+      return fail(
+        400,
+        "QUEUE_REQUIRED",
+        "queue_id wajib disertakan untuk mengirimkan ulasan layanan.",
+      );
+    }
+
+    const userId = profile.id;
 
     const comment = typeof body.comment === "string" ? body.comment.trim() : null;
 

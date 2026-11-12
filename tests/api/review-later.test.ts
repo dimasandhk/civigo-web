@@ -75,7 +75,22 @@ describe("POST /api/queue/[id]/review-later", () => {
       },
     };
     store.updatedPayload = null;
-    mockGetCurrentUser.mockResolvedValue(null);
+    mockGetCurrentUser.mockResolvedValue({
+      id: "user-1",
+      role: "user",
+      nik: "3273010101010001",
+    });
+  });
+
+  it("returns 401 UNAUTHORIZED if not logged in", async () => {
+    mockGetCurrentUser.mockResolvedValueOnce(null);
+
+    const res = await callRoute(VALID_ID);
+    const json = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(json.ok).toBe(false);
+    expect(json.error.code).toBe("UNAUTHORIZED");
   });
 
   it("rejects non-uuid id with 400 INVALID_ID", async () => {

@@ -393,7 +393,7 @@ export async function callNextQueue(raw: unknown): Promise<CallNextResult> {
 
   let waitingQuery = db
     .from("queues")
-    .select("id, queue_number, status, time_block, postponed, postponed_at, service:services!inner(id, name, agency_id)")
+    .select("id, queue_number, status, time_block, postponed, postponed_at, rescheduled_from, created_at, service:services!inner(id, name, agency_id)")
     .eq("schedule_date", today)
     .eq("service.agency_id", agencyId)
     .in("status", WAITING_STATUSES);

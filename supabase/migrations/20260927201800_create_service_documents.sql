@@ -27,13 +27,25 @@ begin
   end if;
 
   if not exists (
-    select 1 from pg_policies where schemaname = 'public' and tablename = 'service_documents' and policyname = 'service_documents_auth_write'
+    select 1 from pg_policies where schemaname = 'public' and tablename = 'service_documents' and policyname = 'service_documents_admin_write'
   ) then
-    create policy "service_documents_auth_write"
+    create policy "service_documents_admin_write"
       on public.service_documents for all
       to authenticated
-      using (true)
-      with check (true);
+      using (
+        exists (
+          select 1 from public.users u
+          where u.id = auth.uid()
+            and u.role in ('instansi', 'super_admin')
+        )
+      )
+      with check (
+        exists (
+          select 1 from public.users u
+          where u.id = auth.uid()
+            and u.role in ('instansi', 'super_admin')
+        )
+      );
   end if;
 end $$;
 

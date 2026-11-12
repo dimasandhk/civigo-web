@@ -48,9 +48,10 @@ describe("getTodayQueues: penanda check-in di dasbor loket", () => {
     db.rows = [];
   });
 
-  it("selects checked_in_at so the badge can read it", async () => {
+  it("selects checked_in_at and rescheduled_from so the badge and sortWaiting can read them", async () => {
     await getTodayQueues(2, 1);
     expect(db.selected).toMatch(/\bchecked_in_at\b/);
+    expect(db.selected).toMatch(/\brescheduled_from\b/);
   });
 
   it("keeps a served ticket marked as checked in when it has a check-in time", async () => {

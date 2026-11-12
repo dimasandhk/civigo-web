@@ -595,35 +595,11 @@ describe("Auth Endpoints (API Tests with Zero Email / API Key Consumption)", () 
       expect(mockUpdateUser).toHaveBeenCalledWith({ password: "KataSandiBaru#2026" });
     });
 
-    it("returns 404 if email is not registered in the system", async () => {
-      mockServiceUsersMaybeSingle.mockResolvedValueOnce({
-        data: null,
-        error: null,
+    it("returns 401 if unauthenticated even if email is provided", async () => {
+      mockGetUser.mockResolvedValueOnce({
+        data: { user: null },
+        error: { message: "Invalid session" },
       });
-
-      const req = new NextRequest("http://localhost:3000/api/auth/reset-password", {
-        method: "POST",
-        body: JSON.stringify({
-          email: "tidak-ada@civigo.com",
-          password: "KataSandiBaru#2026",
-        }),
-      });
-
-      const res = await resetPasswordHandler(req);
-      const json = await res.json();
-
-      expect(res.status).toBe(404);
-      expect(json.ok).toBe(false);
-      expect(json.error.code).toBe("EMAIL_NOT_FOUND");
-      expect(mockAdminUpdateUserById).not.toHaveBeenCalled();
-    });
-
-    it("returns 200 and directly updates password via admin when email is registered", async () => {
-      mockServiceUsersMaybeSingle.mockResolvedValueOnce({
-        data: { id: "user-registered-123", email: "warga@civigo.com", full_name: "Warga CiviGo" },
-        error: null,
-      });
-      mockAdminUpdateUserById.mockResolvedValueOnce({ error: null });
 
       const req = new NextRequest("http://localhost:3000/api/auth/reset-password", {
         method: "POST",
@@ -636,13 +612,58 @@ describe("Auth Endpoints (API Tests with Zero Email / API Key Consumption)", () 
       const res = await resetPasswordHandler(req);
       const json = await res.json();
 
+      expect(res.status).toBe(401);
+      expect(json.ok).toBe(false);
+      expect(json.error.code).toBe("UNAUTHORIZED");
+      expect(mockAdminUpdateUserById).not.toHaveBeenCalled();
+    });
+
+    it("returns 403 if authenticated user tries to reset someone else's email", async () => {
+      mockGetUser.mockResolvedValueOnce({
+        data: { user: { id: "user-uuid-123", email: "myaccount@civigo.com" } },
+        error: null,
+      });
+
+      const req = new NextRequest("http://localhost:3000/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({
+          email: "someoneelse@civigo.com",
+          password: "KataSandiBaru#2026",
+        }),
+      });
+
+      const res = await resetPasswordHandler(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(403);
+      expect(json.ok).toBe(false);
+      expect(json.error.code).toBe("FORBIDDEN");
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+      expect(mockAdminUpdateUserById).not.toHaveBeenCalled();
+    });
+
+    it("returns 200 and updates password when authenticated user resets their own email", async () => {
+      mockGetUser.mockResolvedValueOnce({
+        data: { user: { id: "user-uuid-123", email: "myaccount@civigo.com" } },
+        error: null,
+      });
+      mockUpdateUser.mockResolvedValueOnce({ error: null });
+
+      const req = new NextRequest("http://localhost:3000/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({
+          email: "myaccount@civigo.com",
+          password: "KataSandiBaru#2026",
+        }),
+      });
+
+      const res = await resetPasswordHandler(req);
+      const json = await res.json();
+
       expect(res.status).toBe(200);
       expect(json.ok).toBe(true);
       expect(json.message).toContain("berhasil diperbarui");
-      expect(mockAdminUpdateUserById).toHaveBeenCalledWith(
-        "user-registered-123",
-        { password: "KataSandiBaru#2026" }
-      );
+      expect(mockUpdateUser).toHaveBeenCalledWith({ password: "KataSandiBaru#2026" });
     });
   });
 

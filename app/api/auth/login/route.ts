@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     if (
       error &&
       (error.message?.toLowerCase().includes("email not confirmed") ||
-        (error as any).code === "email_not_confirmed")
+        ("code" in error && error.code === "email_not_confirmed"))
     ) {
       const { data: existingUser } = await serviceDb
         .from("users")
@@ -170,6 +170,7 @@ export async function POST(request: NextRequest) {
           role: profile?.role ?? "user",
           agency_id: profile?.agency_id ?? null,
           location_id: profile?.location_id ?? null,
+          phone_number: data.user.user_metadata?.phone_number ?? data.user.phone ?? null,
         },
         session: {
           access_token: data.session.access_token,
